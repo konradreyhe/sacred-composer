@@ -187,6 +187,13 @@ def _is_accompaniment_pattern(part: stream.Part) -> bool:
     # Accompaniment: lots of leaps + fast notes + alternating direction
     is_accomp = (leap_ratio > 0.3 and avg_gap < 1.0 and alternation_ratio > 0.4)
 
+    # Secondary criterion: fast arpeggiated figures (e.g. soprano arpeggios in
+    # sonata textures) have very high alternation and fast notes, even if the
+    # proportion of large leaps is moderate.  These are broken-chord patterns
+    # that should not be judged by melodic voice-leading rules.
+    if not is_accomp and avg_gap < 1.0 and alternation_ratio > 0.5 and leap_ratio > 0.15:
+        is_accomp = True
+
     # Also detect by part name heuristic
     name = getattr(part, 'partName', '') or ''
     name_lower = name.lower()
@@ -761,12 +768,20 @@ def rule_leading_tone_resolution(score: stream.Score) -> List[RuleViolation]:
 
                     next_pc = n.pitch.pitchClass
                     moved_up = n.pitch.midi > prev.pitch.midi
+                    is_inner = v_idx not in (0, len(parts) - 1)
                     # Allow resolution to tonic (up), dominant (inner voice),
-                    # or mediant (common in classical practice)
+                    # mediant, or submediant (inner voice, common in
+                    # deceptive cadences and voice-leading convenience).
+                    submediant_pc = (tonic_pc + 9) % 12 if best_key.mode == "minor" else (tonic_pc + 9) % 12
                     resolves_to_tonic = (next_pc == tonic_pc and moved_up)
-                    resolves_to_dominant = (next_pc == dominant_pc and v_idx not in (0, len(parts) - 1))
+                    resolves_to_dominant = (next_pc == dominant_pc and is_inner)
                     resolves_to_mediant = (next_pc == mediant_pc)
-                    if not resolves_to_tonic and not resolves_to_dominant and not resolves_to_mediant:
+                    resolves_to_submediant = (next_pc == submediant_pc and is_inner)
+                    # Inner voices: also allow stepwise descent (common classical
+                    # practice where the leading tone drops to scale degree 5 or 6)
+                    inner_stepwise_down = (is_inner and not moved_up and abs(n.pitch.midi - prev.pitch.midi) <= 3)
+                    if not resolves_to_tonic and not resolves_to_dominant and not resolves_to_mediant \
+                       and not resolves_to_submediant and not inner_stepwise_down:
                         measure = int(prev_off // 4) + 1
                         violations.append(RuleViolation(
                             "leading_tone_res", measure,
@@ -969,9 +984,12 @@ def rule_leap_recovery(score: stream.Score) -> List[RuleViolation]:
             leap = pitches[i + 1] - pitches[i]
             if abs(leap) > 5:  # greater than perfect 4th
                 recovery = pitches[i + 2] - pitches[i + 1]
-                # Should move in opposite direction by step (1-2 semitones)
+                # Should move in opposite direction by step (1-2 semitones).
+                # For moderate leaps (5th/6th = 6-8 st), recovery by up to a
+                # minor 3rd (3-4 st) is acceptable classical practice.
                 opposite_direction = (leap > 0 and recovery < 0) or (leap < 0 and recovery > 0)
-                stepwise = abs(recovery) <= 2
+                max_recovery = 5 if abs(leap) <= 8 else 2
+                stepwise = abs(recovery) <= max_recovery
                 if not (opposite_direction and stepwise):
                     measure = int(offsets[i] // 4) + 1
                     violations.append(RuleViolation(
@@ -1310,19 +1328,32 @@ def metric_cadence_placement(score: stream.Score) -> MetricResult:
 
 def metric_repetition_variation(score: stream.Score) -> MetricResult:
     """
-    Repetition-with-variation ratio. Good music repeats motifs but varies
-    them. Measure this by:
-      1. Extract all 4-note windows (as interval sequences).
-      2. For each window, find its nearest match (edit distance).
-      3. Variation ratio = mean edit distance / window length for matched pairs.
-      4. Target: 10-30% variation per repeat.
+    Motivic unity: what fraction of 4-interval windows are recognizably
+    similar to the opening theme?
 
-    Too low = verbatim repetition (robotic). Too high = no repetition (random).
+    Approach (option c -- KISS):
+      1. Extract melody intervals (skip accompaniment voices).
+      2. The "theme pool" is all 4-interval windows from the first ~16
+         intervals (~4 bars of melody).  This captures the full opening motif.
+      3. For each later window, find the best match (min normalized L1
+         distance) among the theme pool windows.
+      4. A window is "recognizably similar" if best distance <= 0.30.
+      5. Score = fraction of similar windows * 80, plus bonus 20 if mean
+         variation of echoes is in the sweet spot [0.10, 0.30].
+
+    This measures motivic unity directly: how much of the piece echoes
+    the opening motif, with or without variation.
 
     Weight: 0.15
     """
+    SIMILARITY_CEIL = 0.30
     TARGET_LOW, TARGET_HIGH = 0.10, 0.30
     WINDOW = 4
+    # The opening theme is approximately the first 4 bars.  At typical
+    # classical densities that is ~16 melody notes = 15 intervals.  We
+    # take the first THEME_LEN intervals as the "theme pool" -- every
+    # WINDOW-sized sub-pattern inside that pool is a reference motif.
+    THEME_LEN = 16
 
     all_intervals = []
     parts = _extract_voices(score)
@@ -1348,34 +1379,48 @@ def metric_repetition_variation(score: stream.Score) -> MetricResult:
     # Extract windows
     windows = [tuple(all_intervals[i:i+WINDOW]) for i in range(len(all_intervals) - WINDOW + 1)]
 
-    # Sample pairs for efficiency
-    n_samples = min(500, len(windows) * (len(windows) - 1) // 2)
-    variation_ratios = []
-    rng = np.random.default_rng(42)
+    # Theme pool: all windows from the opening phrase
+    theme_end = min(THEME_LEN, len(all_intervals)) - WINDOW + 1
+    theme_end = max(theme_end, 1)  # at least one reference window
+    theme_windows = windows[:theme_end]
 
-    for _ in range(n_samples):
-        i, j = rng.choice(len(windows), size=2, replace=False)
-        w1, w2 = windows[i], windows[j]
-        # Normalized L1 distance as variation measure
+    def _norm_l1(w1, w2):
         dist = sum(abs(a - b) for a, b in zip(w1, w2))
-        max_dist = sum(max(abs(a), abs(b)) for a, b in zip(w1, w2))
-        if max_dist > 0:
-            variation_ratios.append(dist / max_dist)
+        mx = sum(max(abs(a), abs(b)) for a, b in zip(w1, w2))
+        return dist / mx if mx > 0 else 0.0
 
-    if not variation_ratios:
-        return MetricResult("L2.repetition_variation", 0, 50.0, 0.15, (0.10, 0.30), "No pairs")
+    # For each window beyond the theme, find its closest theme-window match
+    best_distances = []
+    for w in windows[theme_end:]:
+        best = min(_norm_l1(tw, w) for tw in theme_windows)
+        best_distances.append(best)
 
-    mean_var = np.mean(variation_ratios)
+    if not best_distances:
+        return MetricResult("L2.repetition_variation", 0, 50.0, 0.15, (0.10, 0.30), "No windows")
 
-    # Score: how many pairs fall in the sweet spot
-    in_range = np.mean([(TARGET_LOW <= v <= TARGET_HIGH) for v in variation_ratios])
-    raw_score = _clamp_score(in_range * 100.0 + (30.0 if TARGET_LOW <= mean_var <= TARGET_HIGH else 0))
-    raw_score = min(raw_score, 100.0)
+    # Fraction of windows recognizably similar to some part of the theme
+    similar = [d for d in best_distances if d <= SIMILARITY_CEIL]
+    frac_similar = len(similar) / len(best_distances)
+
+    # Mean variation among the similar windows (motivic variation quality)
+    mean_var_similar = float(np.mean(similar)) if similar else 0.0
+
+    # Score: primarily fraction of windows that echo the theme (0-100)
+    # Bonus if the mean variation of those echoes is in the sweet spot
+    raw_score = frac_similar * 80.0
+    if similar and TARGET_LOW <= mean_var_similar <= TARGET_HIGH:
+        raw_score += 20.0
+    elif similar and mean_var_similar < TARGET_LOW:
+        # Exact copies are fine but slightly less interesting -- partial bonus
+        raw_score += 10.0
+    raw_score = _clamp_score(raw_score)
 
     return MetricResult(
-        "L2.repetition_variation", mean_var, raw_score, 0.15,
+        "L2.repetition_variation", mean_var_similar, raw_score, 0.15,
         (TARGET_LOW, TARGET_HIGH),
-        f"mean variation={mean_var:.3f} ({in_range*100:.0f}% pairs in target range)"
+        f"mean variation of echoes={mean_var_similar:.3f}, "
+        f"{frac_similar*100:.0f}% of windows echo the opening theme "
+        f"({len(theme_windows)} reference patterns)"
     )
 
 
