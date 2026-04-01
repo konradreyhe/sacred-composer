@@ -1777,4 +1777,206 @@ No AI/ML dependencies. No API calls. No prompts. Pure mathematics.
 
 ---
 
+---
+
+## PART II: THE CONTEXT — Why These Patterns, Why This Approach
+
+### The Problem with AI Music Generation
+
+Current AI music tools (Suno, Udio, MusicGen, even our own prompt-driven composer.py) share a fundamental flaw: they generate music FROM data — statistical patterns learned from existing compositions. The output is recombination. Sophisticated recombination, but recombination. The music doesn't come FROM anywhere meaningful. It comes from a training set.
+
+Sacred Composer inverts this. The music comes from the same patterns that create galaxies, snowflakes, and DNA. Not metaphorically — mathematically. The Fibonacci sequence that determines our section lengths is the same sequence that governs sunflower seeds. The harmonic series that determines our chords is the same series that governs every vibrating string in the universe. The 1/f noise that determines our rubato is the same noise that governs healthy heartbeats.
+
+This is not "nature-inspired" in the vague sense. It is nature-DERIVED. The patterns are not analogies. They are the same mathematics.
+
+### Why Each Pattern Was Chosen
+
+Every pattern in the system was selected based on two criteria:
+1. **It has proven musical applications** (documented in composers' practice or research)
+2. **It maps naturally to a specific musical parameter** (not arbitrary assignment)
+
+| Pattern | Musical Parameter | Why This Mapping Works | Evidence |
+|---------|------------------|----------------------|----------|
+| **Fibonacci** | Form proportions | φ creates maximum asymmetry within order (most irrational number) | Bartók's M.f.S.P.&C., KB Part 2 |
+| **Harmonic Series** | Harmony/Chords | Overtones ARE consonance — physics, not convention | Grisey's Partiels, KB Part 36 |
+| **Infinity Series** | Melody | Self-similar at every scale = organic, never-repeating, always coherent | Nørgård's Symphony No. 2 |
+| **Golden Spiral** | Melodic intervals | 137.5° maximizes pitch-space coverage (phyllotaxis principle) | KB Part 40, biomimicry research |
+| **Cellular Automata** | Texture/Polyphony | Edge-of-chaos rules produce neither random nor periodic patterns | Wolfram, Burraston research |
+| **Euclidean Rhythm** | Rhythm | Bjorklund algorithm = maximally even distribution = world music rhythms | Toussaint, KB Part 4 |
+| **1/f Pink Noise** | Rubato/Timing | Matches healthy heartbeat variability — between metronomic and random | Voss & Clarke, KB Part 40 |
+| **Lorenz Attractor** | Melody contour | Deterministic chaos: never repeats, always bounded, two-lobe = two "key areas" | KB Part 12 |
+| **L-systems** | Form/Development | Branching self-similarity = motivic development at multiple scales | KB Part 12, Tom Johnson |
+| **Stern-Brocot** | Metric modulation | Enumerates ALL rational rhythmic ratios in order of complexity | Toussaint, KB Part 37 |
+| **Digits of π/e/φ** | Secondary patterns | Non-repeating, statistically uniform — subtle background variation | Supplementary material |
+| **Logistic Map** | Tension curve | Period-doubling route to chaos = gradual dissolution of order | KB Part 12 |
+
+### The Creative Workflow
+
+The composer (the human) works like this:
+
+1. **Choose a fundamental** — the generative seed. This could be a frequency (A=55Hz), a mathematical constant (φ), or a natural structure (the harmonic series of a cello's C2).
+
+2. **Choose patterns for each parameter**:
+   - What generates the pitches? (Harmonic series? Infinity series? Golden spiral?)
+   - What generates the rhythm? (Euclidean? Fibonacci? Stern-Brocot?)
+   - What generates the form? (Fibonacci proportions? L-system? Golden section?)
+   - What generates the dynamics? (Logistic map tension curve? 1/f noise?)
+
+3. **Configure the mappers** — how the raw pattern values become musical values:
+   - Which scale? (C minor? A Pythagorean? A spectral scale from the overtone series?)
+   - Which register? (Octave 3-5? Full piano range?)
+   - What base duration? (Quarter note? Eighth note?)
+
+4. **Layer and combine** — multiple patterns become polyphony:
+   - Canon: the same pattern at different time offsets
+   - Phase: the same pattern at slightly different rates (Reich)
+   - Layer: different patterns for different voices
+
+5. **Render** — deterministic output:
+   - MIDI for playback
+   - LilyPond for notation
+   - WAV for listening
+
+The key insight: **steps 1-4 ARE the composition**. The creative decisions are: which patterns, which mappings, which combinations. The code that expresses these decisions IS the score. There is nothing else.
+
+### Connection to the Knowledge Base (41 Parts)
+
+The Sacred Composer doesn't discard the 41-part knowledge base. It uses it as the THEORY LAYER — the understanding of WHY certain patterns produce good music:
+
+| KB Part | How Sacred Composer Uses It |
+|---------|---------------------------|
+| Part 2 (Math Foundations) | Fibonacci, golden ratio, fractals → Pattern generators |
+| Part 3 (Counterpoint) | Voice-leading rules → Validation in the Combiner stage |
+| Part 4 (Melody/Rhythm) | Interval statistics, Euclidean rhythms → Mapper calibration |
+| Part 10 (Neuroscience) | 75/25 surprise ratio, chills triggers → Composition principles |
+| Part 12 (Unconventional) | Cellular automata, chaos, L-systems → Pattern generators |
+| Part 19 (Tuning) | Just intonation, harmonic series → HarmonicSeries generator |
+| Part 24 (Galant Schemata) | Voice-leading patterns → Optional schema overlay |
+| Part 31 (Performance) | KTH rules, rubato → Humanization via PinkNoise |
+| Part 33 (Masterwork Analysis) | Constraint of means → Design philosophy |
+| Part 34 (50 Rules) | Hard constraints → Validation pass |
+| Part 35 (Taste) | Economy, inevitability → Guiding principles |
+| Part 40 (Nature Patterns) | All 9 creation patterns → System architecture |
+
+### What Makes This Different from Existing Tools
+
+| Tool | Approach | Limitation |
+|------|----------|-----------|
+| Suno/Udio | Audio generation from text prompt | Black box, no structure, no traceability |
+| MuseNet/AIVA | Neural net on MIDI corpus | Recombination of learned patterns |
+| Our composer.py | Schema-based prompt compiler | Still prompt-driven, AI decides details |
+| SuperCollider | General-purpose synthesis | No composition framework, just audio engine |
+| TidalCycles | Pattern-based live coding | Real-time focused, no classical form |
+| **Sacred Composer** | **Pattern → Music deterministically** | **Every note traceable, code = score** |
+
+### Implementation Roadmap
+
+**Phase 1: Core Engine** (must-have)
+- Pattern protocol + 6 essential generators: Fibonacci, HarmonicSeries, InfinitySeries, EuclideanRhythm, CellularAutomata, PinkNoise
+- 4 mappers: to_pitch, to_rhythm, to_dynamics, to_form
+- Core data model: Note, Voice, Score
+- MIDI renderer (reuse existing midiutil infrastructure)
+- 3 working example compositions
+
+**Phase 2: Extended Patterns** (should-have)
+- GoldenSpiral, LorenzAttractor, DigitsOf, SternBrocot, LogisticMap, Lindenmayer
+- Combiners: layer, canon, phase
+- LilyPond renderer (notation output)
+- Bridge to existing PerformanceIR (for humanization reuse)
+- 5 more example compositions
+
+**Phase 3: Refinement** (nice-to-have)
+- fractal_form combiner (L-system development)
+- WAV renderer (direct synthesis, no external dependencies)
+- Microtonal support (fractional MIDI, pitch bend)
+- Interactive mode (live-code a composition, hear changes in real time)
+- Evaluation integration (run 50 Rules on output)
+
+### The Aesthetic Ranking — What Actually Sounds Good
+
+From the deep research (agents tested all approaches with actual implementations):
+
+1. **Harmonic series** (9/10) — Physically grounded, perceptually coherent. Grisey proved this works.
+2. **Fibonacci as proportions** (8/10) — Organic asymmetry for form and timing. NOT for raw pitch material.
+3. **Infinity series** (8/10) — Self-similar melody that never repeats. Nørgård proved this works.
+4. **1/f noise for timing** (8/10) — Matches biological rhythms. Indistinguishable from human rubato.
+5. **Euclidean rhythms** (7/10) — World music patterns from pure math. Always groove.
+6. **Fractals/L-systems for form** (7/10) — Self-similarity at multiple scales gives coherence.
+7. **Cellular automata** (6/10) — Edge-of-chaos textures. Best for ambient/textural passages.
+8. **Lorenz/chaos** (5/10) — Interesting but hard to control. Best as secondary parameter.
+9. **Platonic solid walks** (5/10) — Constrained harmonic vocabularies, but adjacency walks sound random.
+10. **Digit mapping (π, e, φ)** (4/10) — Naively, digits are pseudo-random. Structural properties (continued fractions) are better.
+11. **DNA sonification** (3/10) — Essentially arbitrary without heavy compositional intervention.
+
+**The rule: use patterns that map NATURALLY to their musical parameter.** The harmonic series → harmony is a natural mapping (physics). π digits → melody is an arbitrary mapping (any permutation would work equally well). Natural mappings produce better music.
+
+### Example: A Complete Composition Walkthrough
+
+**"Overtone Cathedral" — a 3-minute meditation built entirely from one cello note**
+
+```python
+from sacred_composer import *
+
+# The fundamental: a cello's open C string
+fundamental = HarmonicSeries("C2", decay="natural")
+
+# HARMONY: the first 16 overtones of C2, slowly unfolding
+# Partials enter one by one over 30 seconds, building from
+# a single low C to a shimmering 16-note spectral chord
+harmony = fundamental.as_chord(n=16, quantize=False)
+
+# MELODY: Nørgård's infinity series mapped to the overtone pitches
+# (not 12-TET scale degrees — the ACTUAL partial frequencies)
+melody_pattern = InfinitySeries(seed=0)
+melody = to_pitch(
+    melody_pattern.generate(128),
+    pitch_set=harmony,           # use overtone pitches as the "scale"
+    strategy="nearest"           # snap to nearest overtone
+)
+
+# RHYTHM: Euclidean pattern E(5,8) — the Cuban cinquillo
+# Applied at the 1/f level — not metronomic but with pink-noise variation
+rhythm = to_rhythm(
+    EuclideanRhythm(5, 8).generate(128),
+    base_duration=0.5,
+    humanize=PinkNoise(sigma_ms=15)
+)
+
+# FORM: Fibonacci proportions
+# Sections of 1, 1, 2, 3, 5, 8, 13 bars
+# Each section adds more overtones to the harmony
+form = to_form(
+    FibonacciSequence().generate(7),
+    total_bars=34                # 34 = Fibonacci number
+)
+
+# DYNAMICS: logistic map from order to edge-of-chaos
+# r increases from 2.5 (stable) to 3.57 (onset of chaos)
+# = piece grows from calm certainty to trembling complexity
+dynamics = to_dynamics(
+    LogisticMap(r_start=2.5, r_end=3.57).generate(128),
+    range=(40, 100)              # pp to f
+)
+
+# ASSEMBLE
+piece = Composition(tempo=54)    # 54 BPM — deep, meditative
+piece.add_voice("cello_harmonics", melody, rhythm, dynamics)
+piece.add_voice("cello_drone", 
+    to_pitch([0], pitch_set=[harmony[0]]),  # fundamental only
+    to_rhythm([1], base_duration=34*4),      # one note, entire piece
+    to_dynamics([0.6])                       # mp, steady
+)
+piece.form = form
+
+# The piece IS these choices. Nothing else.
+piece.render("overtone_cathedral.mid")
+piece.render("overtone_cathedral.ly")   # LilyPond notation
+```
+
+**What this produces**: A piece that begins with a single low C, gradually adds overtones from the harmonic series (each arriving at a Fibonacci-determined moment), has a melody that traces the infinity series through the overtone pitches (self-similar, never repeating), pulses in a Cuban cinquillo rhythm with heartbeat-like timing variation, and grows dynamically from stability to the edge of chaos — like a cathedral being built from a single stone.
+
+Every note is traceable. The melody at bar 13, beat 3 is infinity_series[47] mapped to the nearest overtone of C2 with a pink-noise timing offset of +8ms. There is no mystery, no black box, no "the AI decided." The code decided. The pattern decided. Nature decided.
+
+---
+
 *This specification is the architectural blueprint. Implementation follows.*
