@@ -1644,19 +1644,35 @@ def metric_phrase_boundaries(score: stream.Score) -> MetricResult:
         if pitch_seq[i] == 0:
             pitch_seq[i] = pitch_seq[i-1]
 
+    # Use INTERVAL sequence (relative motion) instead of absolute pitch
+    # This detects melodic contour repetition even when transposed
+    interval_seq = np.diff(pitch_seq)  # first differences = melodic intervals
+    if len(interval_seq) < 16:
+        return MetricResult("L3.phrase_boundaries", 0, 40.0, 0.15, (0.3, 1.0), "Too short")
+
     # Normalize
-    pitch_seq = pitch_seq - np.mean(pitch_seq)
-    norm = np.dot(pitch_seq, pitch_seq)
+    interval_seq = interval_seq - np.mean(interval_seq)
+    norm = np.dot(interval_seq, interval_seq)
     if norm == 0:
         return MetricResult("L3.phrase_boundaries", 0, 50.0, 0.15, (0.3, 1.0), "Constant pitch")
 
-    # Autocorrelation at key lags
+    # Autocorrelation at key lags (also try absolute pitch as backup)
+    pitch_norm_seq = pitch_seq - np.mean(pitch_seq)
+    pitch_norm = np.dot(pitch_norm_seq, pitch_norm_seq)
+
     best_ac = 0
     best_lag = 0
     for lag in [8, 12, 16, 24, 32]:
-        if lag >= len(pitch_seq):
+        if lag >= len(interval_seq):
             continue
-        ac = np.dot(pitch_seq[:len(pitch_seq)-lag], pitch_seq[lag:]) / norm
+        # Interval-based autocorrelation (detects transposed repetition)
+        ac_int = np.dot(interval_seq[:len(interval_seq)-lag], interval_seq[lag:]) / norm
+        # Pitch-based autocorrelation (detects exact repetition)
+        ac_pitch = 0.0
+        if pitch_norm > 0 and lag < len(pitch_norm_seq):
+            ac_pitch = np.dot(pitch_norm_seq[:len(pitch_norm_seq)-lag], pitch_norm_seq[lag:]) / pitch_norm
+        # Take the better of the two
+        ac = max(ac_int, ac_pitch)
         if ac > best_ac:
             best_ac = ac
             best_lag = lag
