@@ -568,16 +568,54 @@ def _build_sonata_exposition_plan(home_key: KeyToken, total_bars: int,
 
 def _build_ternary_plan(home_key: KeyToken, total_bars: int,
                         character: CharacterToken) -> List[SectionIR]:
-    """Build an ABA ternary form."""
-    second_key = _dominant_key(home_key)
-    a_bars = max(4, round(total_bars * 0.35))
-    b_bars = max(4, total_bars - 2 * a_bars)
-    a2_bars = a_bars
+    """
+    Build an ABA' ternary form with clear section boundaries.
 
-    # Adjust to hit the target
+    Structure:
+      - A:  8 bars in tonic, memorable theme, PAC cadence
+      - B:  8-16 bars in contrasting key, distinct character, HC cadence
+      - A': 8 bars in tonic, literal replay of A melody, PAC cadence
+
+    The A sections are tagged with notes="ternary_a_section" so the melody
+    pass can replay them identically (like rondo refrains), boosting the
+    autocorrelation / phrase_boundaries metric.
+    """
+    # --- Key plan: B goes to a CONTRASTING key ---
+    is_minor = _key_is_minor(home_key)
+    if is_minor:
+        # Minor -> relative major (e.g. D minor -> F major)
+        b_key = _relative_major(home_key)
+    else:
+        # Major -> subdominant (e.g. D major -> G major) for clear contrast
+        b_key = _subdominant_key(home_key)
+
+    # --- Bar distribution: A=8, B=8-16, A'=8 ---
+    a_bars = 8
+    a2_bars = 8
+    # B gets whatever remains, clamped to 8-16
+    b_bars = max(8, min(16, total_bars - a_bars - a2_bars))
+    # If total_bars is very small, scale down A sections
+    if total_bars < 24:
+        a_bars = max(4, total_bars // 3)
+        a2_bars = a_bars
+        b_bars = max(4, total_bars - a_bars - a2_bars)
+    # Adjust remainder into B
     diff = total_bars - (a_bars + b_bars + a2_bars)
-    a2_bars += diff
+    b_bars += diff
+    b_bars = max(4, b_bars)
 
+    # --- Contrasting character for B ---
+    if character in (CharacterToken.SERENE, CharacterToken.LYRICAL,
+                     CharacterToken.TENDER, CharacterToken.PASTORAL):
+        b_character = CharacterToken.AGITATED
+    elif character in (CharacterToken.HEROIC, CharacterToken.TRIUMPHANT,
+                       CharacterToken.MAJESTIC):
+        b_character = CharacterToken.LYRICAL
+    else:
+        b_character = CharacterToken.LYRICAL
+
+    # --- Build sections ---
+    # A: First statement (tagged for replay)
     a_section = SectionIR(
         type=SectionType.A_SECTION, key=home_key,
         subsections=[
@@ -586,28 +624,28 @@ def _build_ternary_plan(home_key: KeyToken, total_bars: int,
                 bars=a_bars, character=character,
                 texture=TextureToken.MELODY_ACCOMP,
                 cadence_at_end=CadenceType.PAC,
+                notes="ternary_a_section",
             ),
         ],
         key_path=[home_key],
     )
-    # B section uses contrasting character and texture to ensure the
-    # evaluator's form_proportions metric detects a clear boundary.
-    b_character = (CharacterToken.AGITATED if character in
-                   (CharacterToken.SERENE, CharacterToken.LYRICAL,
-                    CharacterToken.TENDER, CharacterToken.PASTORAL)
-                   else CharacterToken.LYRICAL)
+
+    # B: Contrasting middle (different key, character, texture)
     b_section = SectionIR(
-        type=SectionType.B_SECTION, key=second_key,
+        type=SectionType.B_SECTION, key=b_key,
         subsections=[
             SubsectionIR(
-                type=SubsectionType.S_THEME, key=second_key,
+                type=SubsectionType.S_THEME, key=b_key,
                 bars=b_bars, character=b_character,
                 texture=TextureToken.POLYPHONIC,
                 cadence_at_end=CadenceType.HC,
+                notes="ternary_b_section",
             ),
         ],
-        key_path=[second_key],
+        key_path=[b_key],
     )
+
+    # A': Return (tagged for literal replay of A melody)
     a2_section = SectionIR(
         type=SectionType.A_SECTION, key=home_key,
         subsections=[
@@ -616,6 +654,7 @@ def _build_ternary_plan(home_key: KeyToken, total_bars: int,
                 bars=a2_bars, character=character,
                 texture=TextureToken.MELODY_ACCOMP,
                 cadence_at_end=CadenceType.PAC,
+                notes="ternary_a_section",
             ),
         ],
         key_path=[home_key],
@@ -2442,6 +2481,100 @@ def _apply_rondo_refrain_replay(vl_ir: VoiceLeadingIR,
     return vl_ir
 
 
+def _apply_ternary_refrain_replay(vl_ir: VoiceLeadingIR,
+                                  form_ir: FormIR) -> VoiceLeadingIR:
+    """
+    For ternary form: find all A sections tagged "ternary_a_section", cache
+    the melody and chord voicings from the first one, then OVERWRITE the A'
+    return with a literal copy (same pitches, adjusted bar numbers).
+
+    This produces exact melodic repetition at the A-section length interval,
+    which dramatically boosts phrase_boundaries (autocorrelation) and
+    form_proportions (clear section boundary detection).
+    """
+    if form_ir.form != FormType.TERNARY:
+        return vl_ir
+
+    # Identify bar ranges for each ternary A section
+    a_ranges: List[Tuple[int, int]] = []
+    bar_cursor = 1
+    for section in form_ir.sections:
+        for sub in section.subsections:
+            if sub.notes == "ternary_a_section":
+                a_ranges.append((bar_cursor, bar_cursor + sub.bars - 1))
+            bar_cursor += sub.bars
+
+    if len(a_ranges) < 2:
+        return vl_ir  # nothing to replay
+
+    # Extract melody notes from the first A section
+    first_start, first_end = a_ranges[0]
+    first_a_melody = [
+        n for n in vl_ir.melody
+        if first_start <= n.bar <= first_end
+    ]
+
+    # Extract chord voicings from the first A section
+    first_a_chords = [
+        ce for ce in vl_ir.chords
+        if first_start <= ce.bar <= first_end
+    ]
+
+    if not first_a_melody:
+        return vl_ir
+
+    refrain_replays = 0
+
+    # For each subsequent A section, overwrite melody and chord voicings
+    for rng_idx in range(1, len(a_ranges)):
+        target_start, target_end = a_ranges[rng_idx]
+        bar_offset = target_start - first_start
+
+        # Remove existing melody notes in the target range
+        vl_ir.melody = [
+            n for n in vl_ir.melody
+            if not (target_start <= n.bar <= target_end)
+        ]
+
+        # Copy first A melody into target range
+        for orig_note in first_a_melody:
+            new_bar = orig_note.bar + bar_offset
+            if new_bar > target_end:
+                continue  # skip notes that don't fit
+            copy = MelodicNote(
+                midi=orig_note.midi,
+                bar=new_bar,
+                beat=orig_note.beat,
+                duration_beats=orig_note.duration_beats,
+                is_chord_tone=orig_note.is_chord_tone,
+                ornament_type=orig_note.ornament_type,
+            )
+            vl_ir.melody.append(copy)
+
+        # Also copy chord soprano/bass voicings for harmonic consistency
+        for orig_chord in first_a_chords:
+            new_bar = orig_chord.bar + bar_offset
+            if new_bar > target_end:
+                continue
+            for ce in vl_ir.chords:
+                if ce.bar == new_bar and abs(ce.beat - orig_chord.beat) < 0.5:
+                    ce.soprano = orig_chord.soprano
+                    ce.bass = orig_chord.bass
+                    ce.roman_numeral = orig_chord.roman_numeral
+                    break
+
+        refrain_replays += 1
+
+    # Re-sort melody by bar/beat position
+    vl_ir.melody.sort(key=lambda n: (n.bar, n.beat))
+
+    print(f"  [Ternary] A-section replayed {refrain_replays} times "
+          f"(source: bars {first_start}-{first_end}, "
+          f"{len(first_a_melody)} notes)")
+
+    return vl_ir
+
+
 # =============================================================================
 # SECTION 5: PASS 5 -- COUNTERPOINT (fill alto + tenor, check parallels)
 # =============================================================================
@@ -3837,6 +3970,10 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     if form_ir.form == FormType.RONDO:
         vl_ir = _apply_rondo_refrain_replay(vl_ir, form_ir)
 
+    # --- Ternary refrain replay: copy A-section melody for A' return ---
+    if form_ir.form == FormType.TERNARY:
+        vl_ir = _apply_ternary_refrain_replay(vl_ir, form_ir)
+
     # --- Fix 1: Augmented intervals in melody ---
     vl_ir.melody = fix_augmented_intervals(vl_ir.melody, form_ir.home_key)
     print(f"  [Fix] Augmented intervals cleaned in melody")
@@ -4001,6 +4138,160 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
 
 
 # =============================================================================
+# SECTION 12b: MULTI-MOVEMENT SUITE COMPOSITION
+# =============================================================================
+
+def compose_suite(prompt: str, output_path: str = "output/suite.mid",
+                  seed: Optional[int] = None) -> dict:
+    """
+    Compose a complete 3-movement work (classical suite / sonata cycle).
+
+    Movement 1: Sonata exposition (fast, dramatic) in home key
+    Movement 2: Ternary (slow, lyrical) in related key (subdominant or relative major)
+    Movement 3: Rondo (fast, lively) back to home key
+
+    Each movement is ~30-40 bars. The movements are generated independently
+    via compose(), then their MIDI tracks are concatenated into a single file.
+
+    Returns a dict with total_duration, per-movement scores, and output path.
+
+    Example:
+        compose_suite("A classical suite in D minor, 3 movements, for piano",
+                      "output/suite.mid")
+    """
+    import os
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+
+    print("=" * 60)
+    print("  MULTI-MOVEMENT SUITE COMPOSITION")
+    print("=" * 60)
+    print(f"\n  Prompt: \"{prompt}\"\n")
+
+    # Parse overall key, character, instrumentation from the prompt
+    parsed = parse_prompt(prompt)
+    home_key = parsed["home_key"]
+    character = parsed["character"]
+    is_minor = _key_is_minor(home_key)
+    instruments = ", ".join(parsed["instrumentation"])
+
+    # --- Plan 3 movements with appropriate key relationships ---
+    # Movement 2 key: subdominant (major) or relative major (minor)
+    if is_minor:
+        mv2_key = _relative_major(home_key)
+    else:
+        mv2_key = _subdominant_key(home_key)
+
+    # Movement 3 key: home key (or parallel major for triumphant ending)
+    mv3_key = home_key
+
+    # Movement prompts
+    mv1_prompt = (f"A sonata exposition in {home_key.value}, "
+                  f"heroic character, 36 bars, for {instruments}")
+    mv2_prompt = (f"A ternary piece in {mv2_key.value}, "
+                  f"lyrical character, 32 bars, for {instruments}")
+    mv3_prompt = (f"A rondo in {mv3_key.value}, "
+                  f"playful character, 40 bars, for {instruments}")
+
+    movement_prompts = [
+        ("Movement 1 - Allegro", mv1_prompt),
+        ("Movement 2 - Andante", mv2_prompt),
+        ("Movement 3 - Rondo", mv3_prompt),
+    ]
+
+    # --- Generate each movement ---
+    movement_results = []
+    movement_perfs: List[PerformanceIR] = []
+    movement_forms: List[FormIR] = []
+
+    for i, (title, mv_prompt) in enumerate(movement_prompts):
+        print(f"\n{'#' * 60}")
+        print(f"# {title}")
+        print(f"{'#' * 60}\n")
+        mv_seed = (seed + i * 1000) if seed is not None else None
+        perf_ir, form_ir, report = compose(
+            mv_prompt,
+            output_file=f"output/_suite_mv{i+1}.mid",
+            seed=mv_seed,
+        )
+        avg_score = float(np.mean(list(report.scores.values()))) if report.scores else 0.0
+        movement_results.append({
+            "title": title,
+            "key": form_ir.home_key.value,
+            "form": form_ir.form.value,
+            "bars": form_ir.total_bars,
+            "duration_sec": perf_ir.total_duration_sec,
+            "avg_score": avg_score,
+            "valid": report.is_valid,
+        })
+        movement_perfs.append(perf_ir)
+        movement_forms.append(form_ir)
+
+    # --- Concatenate MIDI into a single file ---
+    # Offset each movement's notes by the cumulative duration of prior movements
+    # with a 2-second gap between movements.
+    GAP_SEC = 2.0
+    combined_perf = PerformanceIR()
+    time_offset = 0.0
+
+    for i, (perf, form) in enumerate(zip(movement_perfs, movement_forms)):
+        for note in perf.notes:
+            shifted = PerformanceNote(
+                midi_pitch=note.midi_pitch,
+                start_time_sec=note.start_time_sec + time_offset,
+                duration_sec=note.duration_sec,
+                velocity=note.velocity,
+                channel=note.channel,
+                instrument=note.instrument,
+                timing_offset_ms=note.timing_offset_ms,
+                velocity_offset=note.velocity_offset,
+                articulation=note.articulation,
+                dynamic=note.dynamic,
+                pedal_on=note.pedal_on,
+                pedal_off_time_sec=(note.pedal_off_time_sec + time_offset
+                                    if note.pedal_off_time_sec is not None
+                                    else None),
+            )
+            combined_perf.notes.append(shifted)
+        time_offset += perf.total_duration_sec + GAP_SEC
+
+    combined_perf.total_duration_sec = time_offset - GAP_SEC
+    # Use the first movement's tempo for the combined MIDI export
+    combined_perf.tempo_map = [(0.0, movement_forms[0].tempo_bpm)]
+
+    # Ensure output directory exists
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    export_midi(combined_perf, output_path, movement_forms[0].tempo_bpm)
+
+    # --- Summary ---
+    total_duration = sum(r["duration_sec"] for r in movement_results)
+    total_bars = sum(r["bars"] for r in movement_results)
+    avg_scores = [r["avg_score"] for r in movement_results]
+
+    print(f"\n{'=' * 60}")
+    print(f"  SUITE COMPLETE")
+    print(f"{'=' * 60}")
+    for r in movement_results:
+        print(f"  {r['title']}: {r['form']} in {r['key']}, "
+              f"{r['bars']} bars, {r['duration_sec']:.1f}s, "
+              f"score={r['avg_score']:.2f}")
+    print(f"  Total bars:     {total_bars}")
+    print(f"  Total duration: {total_duration:.1f}s")
+    print(f"  Avg score:      {np.mean(avg_scores):.2f}")
+    print(f"  MIDI file:      {output_path}")
+    print(f"{'=' * 60}")
+
+    return {
+        "output_path": output_path,
+        "total_duration_sec": total_duration,
+        "total_bars": total_bars,
+        "movements": movement_results,
+        "avg_score": float(np.mean(avg_scores)),
+    }
+
+
+# =============================================================================
 # SECTION 13: CLI ENTRY POINT
 # =============================================================================
 
@@ -4060,5 +4351,16 @@ if __name__ == "__main__":
     compose(
         "A Bach-style fugue in D minor, 28 bars, for piano",
         output_file="output/fugue_improved.mid",
+        seed=42,
+    )
+
+    # Suite test
+    print("\n\n" + "#" * 60)
+    print("# MULTI-MOVEMENT SUITE TEST")
+    print("#" * 60 + "\n")
+
+    compose_suite(
+        "A classical suite in D minor, 3 movements, for piano",
+        output_path="output/suite.mid",
         seed=42,
     )
