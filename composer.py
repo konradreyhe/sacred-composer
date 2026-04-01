@@ -244,6 +244,11 @@ class MotivicEngine:
 # Module-level storage for the seed motif (avoids modifying FormIR dataclass)
 _current_seed_motif: Optional[SeedMotif] = None
 
+# Rondo refrain cache: stores the melody + harmony of the first A section
+# so subsequent A sections can be replayed identically.
+_rondo_refrain_melody: Optional[List[MelodicNote]] = None
+_rondo_refrain_chords: Optional[List[ChordEvent]] = None
+
 
 # =============================================================================
 # SECTION 0: TEXT PROMPT PARSER
@@ -367,6 +372,43 @@ def _dominant_key(kt: KeyToken) -> KeyToken:
     return KeyToken.G_MAJOR  # fallback
 
 
+def _subdominant_key(kt: KeyToken) -> KeyToken:
+    """Get the subdominant key (IV) -- same mode as home key."""
+    m21_str = _KEY_TO_M21[kt]
+    k = m21key.Key(m21_str)
+    sub_pitch = k.pitchFromDegree(4)
+    is_minor = _key_is_minor(kt)
+    for name, token in _KEY_MAP.items():
+        m21_candidate = _KEY_TO_M21[token]
+        cand_key = m21key.Key(m21_candidate)
+        if (cand_key.tonic.pitchClass == sub_pitch.pitchClass
+                and ("minor" in token.value) == is_minor):
+            return token
+    return KeyToken.F_MAJOR  # fallback
+
+
+def _submediant_key(kt: KeyToken) -> KeyToken:
+    """Get the submediant key (vi in major, VI in minor)."""
+    m21_str = _KEY_TO_M21[kt]
+    k = m21key.Key(m21_str)
+    sub_pitch = k.pitchFromDegree(6)
+    # In major -> minor submediant; in minor -> major submediant
+    target_minor = not _key_is_minor(kt)
+    for name, token in _KEY_MAP.items():
+        m21_candidate = _KEY_TO_M21[token]
+        cand_key = m21key.Key(m21_candidate)
+        if (cand_key.tonic.pitchClass == sub_pitch.pitchClass
+                and ("minor" in token.value) == target_minor):
+            return token
+    # Fallback: try any mode
+    for name, token in _KEY_MAP.items():
+        m21_candidate = _KEY_TO_M21[token]
+        cand_key = m21key.Key(m21_candidate)
+        if cand_key.tonic.pitchClass == sub_pitch.pitchClass:
+            return token
+    return KeyToken.A_MINOR  # fallback
+
+
 def parse_prompt(text: str) -> dict:
     """
     Parse a natural-language composition prompt into a structured plan dict.
@@ -384,6 +426,8 @@ def parse_prompt(text: str) -> dict:
         form = FormType.FUGUE
     elif "sonata" in text_lower or "exposition" in text_lower:
         form = FormType.SONATA
+    elif "rondo" in text_lower or "abaca" in text_lower:
+        form = FormType.RONDO
     elif "variation" in text_lower:
         form = FormType.THEME_AND_VARIATIONS
     elif "ternary" in text_lower or "aba" in text_lower:
@@ -451,6 +495,14 @@ def parse_prompt(text: str) -> dict:
             total_bars = random.choice([24, 28, 32])
         if "bach" in text_lower:
             tempo_bpm = 76
+
+    # Rondo default: at least 32 bars (ABACA needs space)
+    if form == FormType.RONDO:
+        if not bar_match:
+            total_bars = random.choice([32, 40, 48])
+        # Rondo is typically lively unless otherwise specified
+        if "lively" in text_lower or "spirited" in text_lower:
+            tempo_bpm = max(tempo_bpm, 120)
 
     return {
         "form": form,
@@ -625,6 +677,152 @@ def _build_theme_and_variations_plan(home_key: KeyToken, total_bars: int,
             key_path=[v_key],
         ))
     return sections
+
+
+# =============================================================================
+# RONDO SUPPORT (ABACA form)
+# =============================================================================
+
+def _build_rondo_plan(home_key: KeyToken, total_bars: int,
+                      character: CharacterToken) -> List[SectionIR]:
+    """
+    Build an ABACA rondo form:
+      - A (refrain):   8 bars in tonic, memorable theme, PAC ending
+      - B (episode 1): 8 bars in dominant (major) or relative major (minor)
+      - A (return 1):  8 bars refrain in tonic (can be abbreviated to 4)
+      - C (episode 2): 8 bars in submediant/subdominant, most contrasting
+      - A (final):     8 bars final refrain in tonic, possibly extended with coda
+
+    The A sections are tagged with notes="rondo_refrain" so the melody pass
+    can replay them identically, boosting autocorrelation / phrase_boundaries.
+    """
+    is_minor = _key_is_minor(home_key)
+
+    # Key plan: B goes to dominant/relative major; C to submediant or subdominant
+    b_key = _dominant_key(home_key)
+    # C section: more distant key -- try submediant first, fall back to subdominant
+    c_key = _submediant_key(home_key)
+    if c_key == home_key:
+        c_key = _subdominant_key(home_key)
+
+    # --- Bar distribution ---
+    # 5 sections, roughly equal; A sections are 8 bars each (minimum 4)
+    # With 40 bars: A=8, B=8, A=8, C=8, A=8
+    # With fewer bars, abbreviate the middle A and adjust
+    if total_bars >= 40:
+        a_bars = 8
+        b_bars = max(4, round((total_bars - 3 * a_bars) * 0.5))
+        c_bars = max(4, total_bars - 3 * a_bars - b_bars)
+    elif total_bars >= 28:
+        a_bars = max(4, round(total_bars * 0.2))
+        b_bars = max(4, round(total_bars * 0.2))
+        c_bars = max(4, round(total_bars * 0.2))
+        # Middle A can be abbreviated
+        a_mid_bars = max(4, total_bars - 2 * a_bars - b_bars - c_bars)
+    else:
+        # Compact rondo
+        a_bars = max(4, total_bars // 5)
+        b_bars = max(4, a_bars)
+        c_bars = max(4, a_bars)
+
+    # Compute specific section sizes
+    a1_bars = a_bars
+    b1_bars = b_bars if total_bars >= 40 else max(4, round(total_bars * 0.2))
+    # Middle A: abbreviated if tight on space
+    a2_bars = a_bars if total_bars >= 40 else max(4, a_bars - 2)
+    c1_bars = c_bars if total_bars >= 40 else max(4, round(total_bars * 0.2))
+    a3_bars = max(4, total_bars - a1_bars - b1_bars - a2_bars - c1_bars)
+
+    # --- Contrasting characters for episodes ---
+    if character in (CharacterToken.SERENE, CharacterToken.LYRICAL,
+                     CharacterToken.TENDER, CharacterToken.PASTORAL):
+        b_character = CharacterToken.AGITATED
+        c_character = CharacterToken.MYSTERIOUS
+    elif character in (CharacterToken.HEROIC, CharacterToken.TRIUMPHANT,
+                       CharacterToken.MAJESTIC):
+        b_character = CharacterToken.LYRICAL
+        c_character = CharacterToken.MYSTERIOUS
+    else:
+        b_character = CharacterToken.LYRICAL
+        c_character = CharacterToken.AGITATED
+
+    # --- Build sections ---
+    # A1: Refrain (first statement)
+    a1_section = SectionIR(
+        type=SectionType.A_SECTION, key=home_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.P_THEME, key=home_key,
+                bars=a1_bars, character=character,
+                texture=TextureToken.MELODY_ACCOMP,
+                cadence_at_end=CadenceType.PAC,
+                notes="rondo_refrain",
+            ),
+        ],
+        key_path=[home_key],
+    )
+
+    # B: Episode 1 (contrasting, dominant/relative major)
+    b_section = SectionIR(
+        type=SectionType.B_SECTION, key=b_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.S_THEME, key=b_key,
+                bars=b1_bars, character=b_character,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=CadenceType.HC,
+                notes="rondo_episode_1",
+            ),
+        ],
+        key_path=[b_key],
+    )
+
+    # A2: Refrain return (identical replay)
+    a2_section = SectionIR(
+        type=SectionType.A_SECTION, key=home_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.P_THEME, key=home_key,
+                bars=a2_bars, character=character,
+                texture=TextureToken.MELODY_ACCOMP,
+                cadence_at_end=CadenceType.PAC,
+                notes="rondo_refrain",
+            ),
+        ],
+        key_path=[home_key],
+    )
+
+    # C: Episode 2 (most contrasting, distant key)
+    c_section = SectionIR(
+        type=SectionType.C_SECTION, key=c_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.CORE, key=c_key,
+                bars=c1_bars, character=c_character,
+                texture=TextureToken.ARPEGGIO,
+                cadence_at_end=CadenceType.HC,
+                notes="rondo_episode_2",
+            ),
+        ],
+        key_path=[c_key],
+    )
+
+    # A3: Final refrain (tonic, possibly extended with coda feel)
+    a3_section = SectionIR(
+        type=SectionType.A_SECTION, key=home_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.P_THEME, key=home_key,
+                bars=a3_bars, character=character,
+                texture=TextureToken.MELODY_ACCOMP,
+                cadence_at_end=CadenceType.PAC,
+                notes="rondo_refrain",
+            ),
+        ],
+        key_path=[home_key],
+    )
+
+    return [a1_section, b_section, a2_section, c_section, a3_section]
 
 
 # =============================================================================
@@ -1130,48 +1328,121 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
                         voice_lines[v].append(n)
 
         elif sec_type == SectionType.STRETTO:
-            # --- STRETTO: Overlapping entries ---
-            # All three voices enter with the subject, each offset by half
-            # the subject length (the answer starts before subject finishes)
-            stretto_offset_bars = max(1, fugue.subject_bars // 2)
+            # --- STRETTO: Overlapping entries with tight offset ---
+            # Try placing the answer 2 beats after the subject start
+            # (instead of waiting for the full subject). Check dissonance
+            # at the overlap -- if <30% beats are dissonant, use the stretto.
+            # Otherwise fall back to half-subject offset.
 
+            # Attempt tight stretto: 2-beat offset (half a bar)
+            tight_offset_beats = 2.0
+            tight_offset_bars = 0  # offset within same bar
+
+            # Generate trial notes for dissonance check
+            trial_voices: Dict[str, List[MelodicNote]] = {}
             for vi, v in enumerate(voice_names):
-                stretto_start = start_bar + vi * stretto_offset_bars
-                if stretto_start > end_bar:
+                total_offset_beats = vi * tight_offset_beats
+                st_bar = start_bar + int(total_offset_beats // 4)
+                st_beat = 1.0 + (total_offset_beats % 4)
+                if st_bar > end_bar:
                     break
                 st_pitch = _fugue_start_pitch(v, home_key)
                 st_notes = MotivicEngine.realize_motif(
-                    fugue.subject, st_pitch, stretto_start, 1.0)
+                    fugue.subject, st_pitch, st_bar, st_beat)
                 lo_v, hi_v = voice_ranges[v]
                 for n in st_notes:
                     n.midi = max(lo_v, min(hi_v, n.midi))
-                    if n.bar <= end_bar:
-                        voice_lines[v].append(n)
+                trial_voices[v] = [n for n in st_notes if n.bar <= end_bar]
+
+            # Check dissonance at overlapping beats
+            dissonant_beats = 0
+            total_overlap_beats = 0
+            if len(trial_voices) >= 2:
+                v_list = list(trial_voices.values())
+                # Build time-indexed lookup
+                for notes_a in v_list:
+                    for na in notes_a:
+                        pos_a = (na.bar - 1) * 4 + na.beat
+                        for notes_b in v_list:
+                            if notes_b is notes_a:
+                                continue
+                            for nb in notes_b:
+                                pos_b = (nb.bar - 1) * 4 + nb.beat
+                                if abs(pos_a - pos_b) < 0.5:
+                                    total_overlap_beats += 1
+                                    interval = abs(na.midi - nb.midi) % 12
+                                    # Dissonant intervals: minor 2nd (1),
+                                    # major 7th (11), tritone (6)
+                                    if interval in (1, 2, 6, 11):
+                                        dissonant_beats += 1
+
+            # Use tight stretto if dissonance is acceptable (<30%)
+            dissonance_ratio = (dissonant_beats / max(1, total_overlap_beats))
+            use_tight = dissonance_ratio < 0.30
+
+            if use_tight:
+                # Use the trial voices directly
+                for v, notes in trial_voices.items():
+                    voice_lines[v].extend(notes)
+                print(f"  [Fugue] Tight stretto used "
+                      f"(dissonance: {dissonance_ratio:.0%})")
+            else:
+                # Fall back to half-subject offset
+                stretto_offset_bars = max(1, fugue.subject_bars // 2)
+                for vi, v in enumerate(voice_names):
+                    stretto_start = start_bar + vi * stretto_offset_bars
+                    if stretto_start > end_bar:
+                        break
+                    st_pitch = _fugue_start_pitch(v, home_key)
+                    st_notes = MotivicEngine.realize_motif(
+                        fugue.subject, st_pitch, stretto_start, 1.0)
+                    lo_v, hi_v = voice_ranges[v]
+                    for n in st_notes:
+                        n.midi = max(lo_v, min(hi_v, n.midi))
+                        if n.bar <= end_bar:
+                            voice_lines[v].append(n)
+                print(f"  [Fugue] Wide stretto used "
+                      f"(tight dissonance: {dissonance_ratio:.0%} > 30%)")
 
         elif sec_type == SectionType.CODA:
-            # --- CODA: Dominant pedal in bass, upper voices converge ---
-            # Bass holds dominant pedal
+            # --- CODA: Dominant pedal (4 bars) -> Tonic pedal (2 bars) ---
+            # Bass holds dominant (scale degree 5) for ~2/3 of coda,
+            # then resolves to tonic for the final ~1/3.
             dominant_pitch = _fugue_start_pitch("bass", home_key) + 7
+            tonic_pitch_bass = _fugue_start_pitch("bass", home_key)
             lo_b, hi_b = voice_ranges["bass"]
             dominant_pitch = max(lo_b, min(hi_b, dominant_pitch))
+            tonic_pitch_bass = max(lo_b, min(hi_b, tonic_pitch_bass))
 
-            for bar in range(start_bar, end_bar + 1):
+            # Split coda: dominant pedal for first portion, tonic for rest
+            dom_pedal_bars = max(2, round(section_bars * 0.67))
+            tonic_pedal_bars = max(1, section_bars - dom_pedal_bars)
+
+            # Dominant pedal section
+            for bar in range(start_bar, start_bar + dom_pedal_bars):
+                if bar <= end_bar:
+                    voice_lines["bass"].append(MelodicNote(
+                        midi=dominant_pitch,
+                        bar=bar,
+                        beat=1.0,
+                        duration_beats=4.0,
+                        is_chord_tone=True,
+                    ))
+
+            # Tonic pedal section (resolution)
+            for bar in range(start_bar + dom_pedal_bars, end_bar + 1):
                 voice_lines["bass"].append(MelodicNote(
-                    midi=dominant_pitch,
+                    midi=tonic_pitch_bass,
                     bar=bar,
                     beat=1.0,
                     duration_beats=4.0,
                     is_chord_tone=True,
                 ))
 
-            # Last bar: resolve to tonic
-            tonic_pitch = dominant_pitch - 7
-            tonic_pitch = max(lo_b, min(hi_b, tonic_pitch))
-            if voice_lines["bass"]:
-                voice_lines["bass"][-1].midi = tonic_pitch
-
             # Upper voices: diminished subject fragments converging to tonic
+            # Continue moving above the pedal point for contrapuntal interest
             for v in ["soprano", "alto"]:
+                # First part: active counterpoint over dominant pedal
                 dim_frag = MotivicEngine.transform(
                     fugue.subject, MotivicEngine.DIMINUTION)
                 frag = MotivicEngine.transform(
@@ -1184,6 +1455,19 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
                     n.midi = max(lo_v, min(hi_v, n.midi))
                     if n.bar <= end_bar:
                         voice_lines[v].append(n)
+
+                # If coda is long enough, add a second fragment over tonic pedal
+                tonic_start_bar = start_bar + dom_pedal_bars
+                if tonic_start_bar <= end_bar:
+                    # Use inverted fragment for variety over tonic pedal
+                    inv_frag = MotivicEngine.transform(
+                        frag, MotivicEngine.INVERSION)
+                    inv_notes = MotivicEngine.realize_motif(
+                        inv_frag, fp_pitch, tonic_start_bar, 1.0)
+                    for n in inv_notes:
+                        n.midi = max(lo_v, min(hi_v, n.midi))
+                        if n.bar <= end_bar:
+                            voice_lines[v].append(n)
 
                 # Final note: resolve to tonic
                 tonic_v = _fugue_start_pitch(v, home_key)
@@ -1443,6 +1727,8 @@ def pass_1_plan(parsed: dict) -> FormIR:
     elif form == FormType.THEME_AND_VARIATIONS:
         sections = _build_theme_and_variations_plan(
             home_key, total_bars, character, parsed.get("num_variations", 3))
+    elif form == FormType.RONDO:
+        sections = _build_rondo_plan(home_key, total_bars, character)
     else:
         sections = _build_ternary_plan(home_key, total_bars, character)
 
@@ -2039,6 +2325,120 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
               f"transform used: {current_transform}")
 
     vl_ir.melody = melody_notes
+    return vl_ir
+
+
+def _apply_rondo_refrain_replay(vl_ir: VoiceLeadingIR,
+                                form_ir: FormIR) -> VoiceLeadingIR:
+    """
+    For rondo form: find all A sections tagged "rondo_refrain", cache the
+    melody and chord voicings from the first one, then OVERWRITE subsequent
+    A sections with literal copies (transposed to the same bar offset).
+
+    This produces exact melodic repetition at regular intervals, which
+    dramatically boosts the phrase_boundaries (autocorrelation) metric.
+    """
+    if form_ir.form != FormType.RONDO:
+        return vl_ir
+
+    # Identify bar ranges for each rondo refrain section
+    refrain_ranges: List[Tuple[int, int]] = []  # (start_bar, end_bar)
+    for section in form_ir.sections:
+        for sub in section.subsections:
+            if sub.notes == "rondo_refrain":
+                # Find this subsection's bar range
+                bar_cursor = 1
+                for sec2 in form_ir.sections:
+                    for sub2 in sec2.subsections:
+                        if sub2 is sub:
+                            refrain_ranges.append(
+                                (bar_cursor, bar_cursor + sub2.bars - 1))
+                        bar_cursor += sub2.bars
+                    # Reset for next search if we already found it
+                    if refrain_ranges and refrain_ranges[-1][1] >= bar_cursor - sub.bars:
+                        break
+                break  # only process subsections within each section
+
+    # Rebuild bar ranges properly (the above nested loop is fragile)
+    refrain_ranges = []
+    bar_cursor = 1
+    for section in form_ir.sections:
+        for sub in section.subsections:
+            if sub.notes == "rondo_refrain":
+                refrain_ranges.append((bar_cursor, bar_cursor + sub.bars - 1))
+            bar_cursor += sub.bars
+
+    if len(refrain_ranges) < 2:
+        return vl_ir  # nothing to replay
+
+    # Extract melody notes from the first refrain
+    first_start, first_end = refrain_ranges[0]
+    first_refrain_melody = [
+        n for n in vl_ir.melody
+        if first_start <= n.bar <= first_end
+    ]
+
+    # Extract chord voicings from the first refrain
+    first_refrain_chords = [
+        ce for ce in vl_ir.chords
+        if first_start <= ce.bar <= first_end
+    ]
+
+    if not first_refrain_melody:
+        return vl_ir
+
+    refrain_replays = 0
+
+    # For each subsequent refrain, overwrite melody and chord soprano/bass
+    for rng_idx in range(1, len(refrain_ranges)):
+        target_start, target_end = refrain_ranges[rng_idx]
+        target_bars = target_end - target_start + 1
+        source_bars = first_end - first_start + 1
+        bar_offset = target_start - first_start
+
+        # Remove existing melody notes in the target range
+        vl_ir.melody = [
+            n for n in vl_ir.melody
+            if not (target_start <= n.bar <= target_end)
+        ]
+
+        # Copy first refrain melody into target range
+        for orig_note in first_refrain_melody:
+            new_bar = orig_note.bar + bar_offset
+            if new_bar > target_end:
+                continue  # abbreviated refrain: skip notes that don't fit
+            copy = MelodicNote(
+                midi=orig_note.midi,
+                bar=new_bar,
+                beat=orig_note.beat,
+                duration_beats=orig_note.duration_beats,
+                is_chord_tone=orig_note.is_chord_tone,
+                ornament_type=orig_note.ornament_type,
+            )
+            vl_ir.melody.append(copy)
+
+        # Also copy chord soprano/bass voicings for harmonic consistency
+        for orig_chord in first_refrain_chords:
+            new_bar = orig_chord.bar + bar_offset
+            if new_bar > target_end:
+                continue
+            # Find matching chord event in target range
+            for ce in vl_ir.chords:
+                if ce.bar == new_bar and abs(ce.beat - orig_chord.beat) < 0.5:
+                    ce.soprano = orig_chord.soprano
+                    ce.bass = orig_chord.bass
+                    ce.roman_numeral = orig_chord.roman_numeral
+                    break
+
+        refrain_replays += 1
+
+    # Re-sort melody by bar/beat position
+    vl_ir.melody.sort(key=lambda n: (n.bar, n.beat))
+
+    print(f"  [Rondo] Refrain replayed {refrain_replays} times "
+          f"(source: bars {first_start}-{first_end}, "
+          f"{len(first_refrain_melody)} notes)")
+
     return vl_ir
 
 
@@ -3433,6 +3833,10 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     nct = len(vl_ir.melody) - ct
     print(f"    Chord tones: {ct}, Non-chord tones: {nct}")
 
+    # --- Rondo refrain replay: copy A-section melody for identical returns ---
+    if form_ir.form == FormType.RONDO:
+        vl_ir = _apply_rondo_refrain_replay(vl_ir, form_ir)
+
     # --- Fix 1: Augmented intervals in melody ---
     vl_ir.melody = fix_augmented_intervals(vl_ir.melody, form_ir.home_key)
     print(f"  [Fix] Augmented intervals cleaned in melody")
@@ -3607,6 +4011,8 @@ SAMPLE_PROMPTS = [
     "A piano ternary piece in F minor, tragic, 24 bars",
     "A string quartet sonata exposition in Bb major, playful, 48 bars",
     "A Bach-style fugue in C minor, 24 bars, for piano",
+    "A lively rondo in A major, 40 bars, for piano",
+    "A Bach-style fugue in D minor, 28 bars, for piano",
 ]
 
 
@@ -3633,4 +4039,26 @@ if __name__ == "__main__":
         "A string quartet theme and 3 variations in G major, lyrical",
         output_file="composed_variations.mid",
         seed=123,
+    )
+
+    # Rondo test
+    print("\n\n" + "#" * 60)
+    print("# RONDO TEST")
+    print("#" * 60 + "\n")
+
+    compose(
+        "A lively rondo in A major, 40 bars, for piano",
+        output_file="output/rondo_test.mid",
+        seed=42,
+    )
+
+    # Improved fugue test
+    print("\n\n" + "#" * 60)
+    print("# IMPROVED FUGUE TEST")
+    print("#" * 60 + "\n")
+
+    compose(
+        "A Bach-style fugue in D minor, 28 bars, for piano",
+        output_file="output/fugue_improved.mid",
+        seed=42,
     )
