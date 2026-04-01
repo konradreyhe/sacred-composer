@@ -1625,6 +1625,86 @@ def pass_3_harmony(schema_ir: SchemaIR) -> VoiceLeadingIR:
 
 
 # =============================================================================
+# NATURE-INSPIRED ALGORITHM HELPERS (biomimicry research)
+# =============================================================================
+
+def generate_1f_noise(n: int, sigma_ms: float = 12.0) -> np.ndarray:
+    """Generate 1/f (pink) noise for natural tempo variation.
+
+    Returns *n* samples of correlated noise with the given standard
+    deviation (in seconds).  The 1/f spectrum produces phrase-level
+    accelerandos and ritardandos that resemble a real performer's rubato.
+    """
+    if n <= 0:
+        return np.array([])
+    white = np.random.randn(n)
+    freqs = np.fft.rfftfreq(n)
+    freqs[0] = 1  # avoid division by zero
+    spectrum = np.fft.rfft(white)
+    spectrum *= 1.0 / np.sqrt(freqs)
+    pink = np.fft.irfft(spectrum, n=n)
+    # Normalize to desired standard deviation (convert ms -> seconds)
+    if np.std(pink) > 0:
+        pink = pink / np.std(pink) * (sigma_ms / 1000.0)
+    return pink
+
+
+def phyllotaxis_interval() -> int:
+    """Choose a melodic interval inspired by the golden angle.
+
+    The golden angle as a fraction of chromatic space is ~4.58 semitones.
+    We approximate this as: 58 % chance of a perfect 4th (5 semitones),
+    42 % chance of a major 3rd (4 semitones).  This produces melodies
+    that spread through pitch space efficiently, like leaves on a stem.
+    """
+    return 5 if random.random() < 0.58 else 4
+
+
+def flocking_voice_force(
+    current_midi: int,
+    other_voices: List[int],
+    nearest_chord_tone: int,
+    avg_melodic_direction: float,
+    *,
+    w_cohesion: float = 0.5,
+    w_separation: float = 0.3,
+    w_alignment: float = 0.2,
+    separation_threshold: int = 3,
+) -> float:
+    """Compute a Boids-style force for inner voice leading.
+
+    Three forces:
+      * Cohesion  -- attract toward *nearest_chord_tone*.
+      * Separation -- repel from voices within *separation_threshold* semitones.
+      * Alignment -- bias toward the average melodic direction of other voices.
+
+    Returns a signed float representing the net pitch adjustment.
+    """
+    # Cohesion: pull toward nearest chord tone
+    cohesion = nearest_chord_tone - current_midi
+
+    # Separation: push away from close voices
+    separation = 0.0
+    for v in other_voices:
+        dist = current_midi - v
+        if 0 < abs(dist) <= separation_threshold:
+            # Repel proportionally (stronger when closer)
+            separation += (separation_threshold - abs(dist) + 1) * (1 if dist > 0 else -1)
+
+    # Alignment: bias toward the average direction of other voices
+    alignment = avg_melodic_direction
+
+    return w_cohesion * cohesion + w_separation * separation + w_alignment * alignment
+
+
+def _snap_to_scale(midi_val: int, scale_pitches: List[int]) -> int:
+    """Snap a MIDI pitch to the nearest pitch in *scale_pitches*."""
+    if not scale_pitches:
+        return midi_val
+    return min(scale_pitches, key=lambda p: abs(p - midi_val))
+
+
+# =============================================================================
 # SECTION 4: PASS 4 -- MELODY (add melodic line to VoiceLeadingIR)
 # =============================================================================
 
@@ -1900,12 +1980,21 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
                             # Override: keep going same way
                             direction = prev_direction
 
+                    # Interval selection: mostly stepwise (Zipf), occasionally
+                    # phyllotaxis-inspired leaps for pitch-space coverage.
+                    if random.random() < 0.25:
+                        # 25% chance: phyllotaxis leap (4-5 semitones)
+                        target_interval = phyllotaxis_interval()
+                    else:
+                        # 75% chance: stepwise (1-2 semitones)
+                        target_interval = random.choice([1, 1, 2, 2, 2])
+                    target_midi = current_midi + direction * target_interval
                     candidates = [p for p in pool
                                   if (p.midi - current_midi) * direction > 0
-                                  and abs(p.midi - current_midi) <= 4]
+                                  and abs(p.midi - current_midi) <= target_interval + 1]
                     if candidates:
                         chosen = min(candidates,
-                                     key=lambda p: abs(p.midi - current_midi))
+                                     key=lambda p: abs(p.midi - target_midi))
                         current_midi = chosen.midi
 
                     # Update momentum tracker
@@ -1975,6 +2064,9 @@ def pass_5_counterpoint(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
     tenor_range = (48, 69)
 
     prev_voicing = None
+    # Track melodic directions for flocking alignment force
+    prev_alto_midi = None
+    prev_tenor_midi = None
 
     for chord_evt in vl_ir.chords:
         soprano = chord_evt.soprano if chord_evt.soprano != 0 else 72
@@ -1988,6 +2080,23 @@ def pass_5_counterpoint(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
         except Exception:
             # Fallback: major triad on bass note
             available_pcs = [bass % 12, (bass + 4) % 12, (bass + 7) % 12]
+
+        # Compute average melodic direction of outer voices for flocking
+        soprano_dir = (soprano - prev_voicing[0]) if prev_voicing else 0.0
+        bass_dir = (bass - prev_voicing[3]) if prev_voicing else 0.0
+        avg_outer_direction = (soprano_dir + bass_dir) / 2.0
+
+        # Build list of chord tones in alto/tenor ranges for flocking cohesion
+        alto_chord_tones = [
+            m for pc in available_pcs
+            for m in range(alto_range[0], alto_range[1] + 1)
+            if m % 12 == pc
+        ]
+        tenor_chord_tones = [
+            m for pc in available_pcs
+            for m in range(tenor_range[0], tenor_range[1] + 1)
+            if m % 12 == pc
+        ]
 
         # Find alto and tenor pitches from available pitch classes
         # that are within range and don't create parallels
@@ -2027,6 +2136,31 @@ def pass_5_counterpoint(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
                             cost += 500
                         if alto_midi - tenor_midi > 12:
                             cost += 500
+
+                        # --- Flocking voice-leading forces ---
+                        # Alto: compute force from soprano, tenor, bass
+                        nearest_alto_ct = min(alto_chord_tones,
+                                              key=lambda t: abs(t - alto_midi)) if alto_chord_tones else alto_midi
+                        alto_force = flocking_voice_force(
+                            alto_midi,
+                            other_voices=[soprano, tenor_midi, bass],
+                            nearest_chord_tone=nearest_alto_ct,
+                            avg_melodic_direction=avg_outer_direction,
+                        )
+                        # Tenor: compute force from soprano, alto, bass
+                        nearest_tenor_ct = min(tenor_chord_tones,
+                                               key=lambda t: abs(t - tenor_midi)) if tenor_chord_tones else tenor_midi
+                        tenor_force = flocking_voice_force(
+                            tenor_midi,
+                            other_voices=[soprano, alto_midi, bass],
+                            nearest_chord_tone=nearest_tenor_ct,
+                            avg_melodic_direction=avg_outer_direction,
+                        )
+                        # The flocking force is a penalty: higher absolute
+                        # force means the candidate is farther from the
+                        # "ideal" flocking position, so add it as cost.
+                        cost += abs(alto_force) * 2.0
+                        cost += abs(tenor_force) * 2.0
 
                         if cost < best_cost:
                             best_cost = cost
@@ -2618,7 +2752,9 @@ def pass_8_humanization(tracks: Dict[str, List[PerformanceNote]],
     """
     PASS 8: Apply human-like performance deviations.
 
-    1. Timing jitter: Gaussian noise (sigma=12ms) + mean-reverting drift.
+    1. Timing jitter: 1/f (pink) noise for natural rubato instead of
+       uncorrelated Gaussian jitter.  Produces phrase-level accelerandos
+       and ritardandos that mimic a real performer.
     2. Melody leads accompaniment by 10-20ms.
     3. Cadential ritardando: slow down last 2 beats of cadence bars by 15-25%.
     4. Velocity micro-variation: Gaussian (sigma=3).
@@ -2634,17 +2770,17 @@ def pass_8_humanization(tracks: Dict[str, List[PerformanceNote]],
 
     for inst_name, notes in tracks.items():
         is_melody = inst_name in melody_instruments
-        drift = 0.0
 
         notes.sort(key=lambda n: n.start_time_sec)
 
+        # Generate 1/f correlated noise for the entire track at once
+        pink_noise = generate_1f_noise(len(notes), sigma_ms=12.0)
+
         for i, note in enumerate(notes):
-            # Timing jitter
-            jitter_ms = np.random.normal(0, 12)
-            drift += np.random.normal(0, 5)
-            drift *= 0.95  # mean-reverting
+            # Timing jitter: 1/f rubato (replaces Gaussian jitter + drift)
+            jitter_sec = pink_noise[i] if i < len(pink_noise) else 0.0
             melody_lead_ms = -15.0 if is_melody else 0.0
-            note.timing_offset_ms = jitter_ms + drift + melody_lead_ms
+            note.timing_offset_ms = jitter_sec * 1000.0 + melody_lead_ms
 
             # Cadential ritardando: if note is near the end of the piece,
             # stretch duration and delay subsequent notes
