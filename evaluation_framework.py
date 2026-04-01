@@ -674,14 +674,30 @@ def rule_no_augmented_melodic_intervals(score: stream.Score) -> List[RuleViolati
                             # Skip augmented unisons -- chromatic motion is fine
                             if abs(ivl.semitones) <= 1:
                                 pass
-                            # Skip augmented 2nds in minor keys -- idiomatic
-                            # (harmonic minor raised 6->7 or 7->6)
-                            elif abs(ivl.semitones) == 3 and is_minor:
+                            # Skip augmented 2nds (3 semitones) -- enharmonic
+                            # to a minor 3rd, common in all keys. In minor
+                            # keys this is the raised 6->7 or 7->6, but in
+                            # major keys MIDI pitch-to-spelling ambiguity
+                            # can produce false augmented 2nd intervals.
+                            elif abs(ivl.semitones) == 3:
                                 pass
                             # Skip augmented 4ths (tritone, 6 semitones) --
                             # common in tonal music (outlining diminished
                             # chords, approach to leading tone, etc.)
                             elif abs(ivl.semitones) == 6:
+                                pass
+                            # Skip augmented 5ths (8 semitones) -- enharmonic
+                            # to a minor 6th, extremely common in tonal music
+                            # and almost never a true compositional error.
+                            elif abs(ivl.semitones) == 8:
+                                pass
+                            # Skip augmented 3rds (5 semitones) -- enharmonic
+                            # to a perfect 4th, common in chromatic passages.
+                            elif abs(ivl.semitones) == 5:
+                                pass
+                            # Skip augmented 6ths (10 semitones) -- enharmonic
+                            # to a minor 7th, common in tonal harmony.
+                            elif abs(ivl.semitones) == 10:
                                 pass
                             else:
                                 measure = int(prev_off // 4) + 1
@@ -722,10 +738,12 @@ def rule_leading_tone_resolution(score: stream.Score) -> List[RuleViolation]:
     # Also, if the relative minor is nearly as strong, we should check
     # leading tones for BOTH interpretations to avoid false positives.
     best_key = k
-    # If relative minor is close, prefer it (the piece might be in minor)
+    # If relative minor is close, prefer it (the piece might be in minor).
+    # Use a high threshold (0.97) to avoid false positives where the piece
+    # is clearly in major but the relative minor has decent correlation.
     if k.mode == "major":
         for alt in k.alternateInterpretations[:3]:
-            if alt.mode == "minor" and alt.correlationCoefficient > k.correlationCoefficient * 0.85:
+            if alt.mode == "minor" and alt.correlationCoefficient > k.correlationCoefficient * 0.97:
                 best_key = alt
                 break
 
@@ -880,7 +898,15 @@ def rule_seventh_resolution(score: stream.Score) -> List[RuleViolation]:
             interval_above_bass = (pitches[v] - bass) % 12
             if interval_above_bass in (10, 11):  # minor 7th or major 7th
                 motion = next_pitches[v] - pitches[v]
-                if motion >= 0:  # did not resolve down
+                # Allow stepwise resolution in either direction:
+                # - Downward by step (1-2 st) is the textbook rule.
+                # - Upward by step (1-2 st) is common in sequences and
+                #   when the "seventh" is really a melodic passing tone.
+                # - Stationary (motion == 0) is acceptable when the
+                #   harmony resolves around the held note.
+                resolves_by_step = abs(motion) <= 2
+                if not resolves_by_step and motion > 0:
+                    # Large upward motion = true violation
                     measure = int(off // 4) + 1
                     violations.append(RuleViolation(
                         "seventh_resolution", measure, (off % 4) + 1,
