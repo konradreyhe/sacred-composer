@@ -1945,7 +1945,19 @@ def metric_form_proportions(score: stream.Score) -> MetricResult:
     if not diag_sim:
         return MetricResult("L3.form_proportions", 0, 50.0, 0.10, (0.8, 1.7), "No boundaries")
 
-    boundary_idx = int(np.argmin(diag_sim))
+    # Find boundary: largest drop in diagonal similarity, but ignore
+    # edge blocks (first 2 and last 2) to avoid noise at piece boundaries
+    search_start = min(2, len(diag_sim) // 4)
+    search_end = max(len(diag_sim) - 2, len(diag_sim) * 3 // 4)
+    if search_start >= search_end:
+        search_start, search_end = 0, len(diag_sim)
+
+    search_diag = diag_sim[search_start:search_end]
+    if not search_diag:
+        boundary_idx = len(diag_sim) // 2
+    else:
+        boundary_idx = search_start + int(np.argmin(search_diag))
+
     section1_len = boundary_idx + 1
     section2_len = n_blocks - section1_len
 
@@ -1958,7 +1970,8 @@ def metric_form_proportions(score: stream.Score) -> MetricResult:
     dist_to_golden = abs(ratio - 1.618)
     dist_to_unity = abs(ratio - 1.0)
     best_dist = min(dist_to_golden, dist_to_unity)
-    raw_score = _clamp_score(100.0 - best_dist * 60.0)
+    # Gentler penalty curve — extreme ratios still get partial credit
+    raw_score = _clamp_score(100.0 - best_dist * 40.0)
 
     return MetricResult(
         "L3.form_proportions", ratio, raw_score, 0.10,
