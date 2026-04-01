@@ -921,6 +921,7 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
 
     # Track the antecedent phrase for consequent echoing
     antecedent_motif: Optional[SeedMotif] = None
+    antecedent_pitch: int = 72  # starting pitch of antecedent
     is_antecedent_next = True  # alternates: antecedent, then consequent
 
     # Pre-compute scale pool for gap-filling
