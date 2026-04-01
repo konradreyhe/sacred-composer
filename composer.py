@@ -99,6 +99,10 @@ class MotivicEngine:
         SubsectionType.CORE: ["inversion", "augmentation", "diminution",
                               "fragmentation", "sequence"],
         SubsectionType.RETRANSITION: ["augmentation", "fragmentation"],
+        SubsectionType.SUBJECT_ENTRY: ["literal", "transposition"],
+        SubsectionType.ANSWER_ENTRY: ["transposition"],
+        SubsectionType.COUNTERSUBJECT: ["inversion", "transposition"],
+        SubsectionType.PEDAL_POINT: ["augmentation", "fragmentation"],
     }
 
     @staticmethod
@@ -376,7 +380,9 @@ def parse_prompt(text: str) -> dict:
 
     # --- Detect form ---
     form = FormType.TERNARY  # default
-    if "sonata" in text_lower or "exposition" in text_lower:
+    if "fugue" in text_lower or "fugal" in text_lower:
+        form = FormType.FUGUE
+    elif "sonata" in text_lower or "exposition" in text_lower:
         form = FormType.SONATA
     elif "variation" in text_lower:
         form = FormType.THEME_AND_VARIATIONS
@@ -421,6 +427,12 @@ def parse_prompt(text: str) -> dict:
         num_variations = int(var_match.group(1))
         num_variations = max(1, min(6, num_variations))
 
+    # --- Detect fugue voice count ---
+    fugue_voices = 3
+    voice_match = re.search(r"(\d+)\s*voice", text_lower)
+    if voice_match:
+        fugue_voices = max(2, min(4, int(voice_match.group(1))))
+
     # --- Detect tempo from character ---
     tempo_map = {
         CharacterToken.HEROIC: 132, CharacterToken.LYRICAL: 72,
@@ -433,6 +445,13 @@ def parse_prompt(text: str) -> dict:
     }
     tempo_bpm = tempo_map.get(character, 108)
 
+    # Fugue default: moderate tempo (Bach-style), default 24-32 bars
+    if form == FormType.FUGUE:
+        if not bar_match:
+            total_bars = random.choice([24, 28, 32])
+        if "bach" in text_lower:
+            tempo_bpm = 76
+
     return {
         "form": form,
         "home_key": home_key,
@@ -441,6 +460,7 @@ def parse_prompt(text: str) -> dict:
         "instrumentation": instrumentation,
         "tempo_bpm": tempo_bpm,
         "num_variations": num_variations,
+        "fugue_voices": fugue_voices,
         "title": text.strip(),
     }
 
@@ -607,6 +627,803 @@ def _build_theme_and_variations_plan(home_key: KeyToken, total_bars: int,
     return sections
 
 
+# =============================================================================
+# FUGUE SUPPORT
+# =============================================================================
+
+def _build_fugue_plan(home_key: KeyToken, total_bars: int,
+                      character: CharacterToken,
+                      num_voices: int = 3) -> List[SectionIR]:
+    """
+    Build a 3-voice fugue plan with:
+      - Exposition: Subject(I) -> Answer(V) -> Subject(I) with countersubject
+      - Episode 1: Sequential passage modulating to relative major/dominant
+      - Middle Entry: Subject in a related key
+      - Episode 2: Sequential passage modulating back
+      - Final Entry: Subject in tonic, possibly with stretto
+      - Coda: Dominant pedal -> tonic cadence
+
+    Bar distribution roughly:
+      Exposition ~35%, Episode1 ~15%, Middle ~15%, Episode2 ~15%, Final ~12%, Coda ~8%
+    """
+    is_minor = _key_is_minor(home_key)
+    related_key = _relative_major(home_key) if is_minor else _dominant_key(home_key)
+
+    # Bar distribution
+    expo_bars = max(6, round(total_bars * 0.35))
+    ep1_bars = max(3, round(total_bars * 0.15))
+    mid_bars = max(3, round(total_bars * 0.15))
+    ep2_bars = max(3, round(total_bars * 0.15))
+    final_bars = max(3, round(total_bars * 0.12))
+    coda_bars = max(2, total_bars - expo_bars - ep1_bars - mid_bars - ep2_bars - final_bars)
+
+    # Subject length in bars (2-4, must fit in exposition with answer+subject)
+    subject_bars = max(2, min(4, expo_bars // num_voices))
+
+    exposition = SectionIR(
+        type=SectionType.FUGUE_EXPOSITION, key=home_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.SUBJECT_ENTRY, key=home_key,
+                bars=subject_bars, character=character,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=None,
+                notes=f"voice_0_subject",
+            ),
+            SubsectionIR(
+                type=SubsectionType.ANSWER_ENTRY, key=home_key,
+                bars=subject_bars, character=character,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=None,
+                notes=f"voice_1_answer",
+            ),
+            SubsectionIR(
+                type=SubsectionType.SUBJECT_ENTRY, key=home_key,
+                bars=max(2, expo_bars - 2 * subject_bars), character=character,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=CadenceType.HC,
+                notes=f"voice_2_subject",
+            ),
+        ],
+        key_path=[home_key, home_key, home_key],
+    )
+
+    episode_1 = SectionIR(
+        type=SectionType.EPISODE, key=home_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.TR, key=home_key,
+                bars=ep1_bars, character=CharacterToken.AGITATED,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=CadenceType.HC,
+                notes="episode_sequential",
+            ),
+        ],
+        key_path=[home_key, related_key],
+    )
+
+    middle_entry = SectionIR(
+        type=SectionType.MIDDLE_ENTRY, key=related_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.SUBJECT_ENTRY, key=related_key,
+                bars=mid_bars, character=character,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=CadenceType.PAC,
+                notes="middle_subject",
+            ),
+        ],
+        key_path=[related_key],
+    )
+
+    episode_2 = SectionIR(
+        type=SectionType.EPISODE, key=related_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.TR, key=related_key,
+                bars=ep2_bars, character=CharacterToken.MYSTERIOUS,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=CadenceType.HC,
+                notes="episode_sequential",
+            ),
+        ],
+        key_path=[related_key, home_key],
+    )
+
+    final_entry = SectionIR(
+        type=SectionType.STRETTO, key=home_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.SUBJECT_ENTRY, key=home_key,
+                bars=final_bars, character=character,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=CadenceType.PAC,
+                notes="stretto_subject",
+            ),
+        ],
+        key_path=[home_key],
+    )
+
+    coda = SectionIR(
+        type=SectionType.CODA, key=home_key,
+        subsections=[
+            SubsectionIR(
+                type=SubsectionType.PEDAL_POINT, key=home_key,
+                bars=coda_bars, character=character,
+                texture=TextureToken.POLYPHONIC,
+                cadence_at_end=CadenceType.PAC,
+                notes="dominant_pedal_to_tonic",
+            ),
+        ],
+        key_path=[home_key],
+    )
+
+    return [exposition, episode_1, middle_entry, episode_2, final_entry, coda]
+
+
+# -- Fugue subject/answer/countersubject generators --
+
+@dataclass
+class FugueSubject:
+    """Holds the fugue subject, answer, and countersubject as SeedMotif objects."""
+    subject: SeedMotif
+    answer: SeedMotif           # tonal answer (transposed to dominant)
+    countersubject: SeedMotif   # complementary line
+    subject_bars: int           # how many bars the subject spans
+
+
+def _generate_fugue_subject(seed_motif: SeedMotif, home_key: KeyToken,
+                            subject_bars: int = 2) -> FugueSubject:
+    """
+    Build the fugue subject from the seed motif, then derive the answer
+    (tonal answer at the dominant) and a countersubject.
+
+    The subject IS the seed motif extended to fill subject_bars.
+    The tonal answer transposes by +7 semitones (perfect fifth) but mutates
+    scale degree 5->1 at the start (the hallmark of a tonal answer).
+    The countersubject uses contrary motion (inversion) with complementary rhythm.
+    """
+    # --- Subject: extend seed motif to fill subject_bars ---
+    target_beats = subject_bars * 4.0
+    subj_ivls = list(seed_motif.intervals)
+    subj_rhy = list(seed_motif.rhythm)
+
+    # Extend or trim to fill the bar count
+    current_beats = sum(subj_rhy)
+    while current_beats < target_beats - 0.5:
+        # Append more notes from the motif cyclically
+        idx = len(subj_ivls) % len(seed_motif.intervals) if seed_motif.intervals else 0
+        if seed_motif.intervals:
+            subj_ivls.append(seed_motif.intervals[idx])
+        else:
+            subj_ivls.append(random.choice([1, 2, -1, -2]))
+        r_idx = (len(subj_rhy)) % len(seed_motif.rhythm)
+        subj_rhy.append(seed_motif.rhythm[r_idx])
+        current_beats = sum(subj_rhy)
+
+    # Trim if we overshot
+    while sum(subj_rhy) > target_beats + 0.5 and len(subj_rhy) > 2:
+        subj_rhy.pop()
+        if len(subj_ivls) >= len(subj_rhy):
+            subj_ivls.pop()
+
+    subject = SeedMotif(intervals=subj_ivls, rhythm=subj_rhy)
+
+    # --- Tonal Answer: transpose intervals up a 5th (7 semitones) ---
+    # Classic tonal answer: the first interval that leaps from scale degree 1->5
+    # becomes 5->1 (i.e., the answer "mutates" to stay in the key).
+    ans_ivls = list(subj_ivls)
+    # Simple tonal answer: transpose all by +7 but adjust first interval
+    # If first interval is ascending (positive), flip direction for tonal answer
+    if ans_ivls:
+        # The tonal mutation: first note answers at the 5th, second note
+        # adjusts so we stay diatonic. Simple approach: reduce first interval.
+        original_first = ans_ivls[0]
+        # Tonal answer mutation: if original goes up by N, answer goes up by (N-1) or (N+1)
+        # to compensate for the 5th transposition
+        mutation = -1 if original_first > 0 else 1
+        ans_ivls[0] = original_first + mutation
+
+    answer = SeedMotif(intervals=ans_ivls, rhythm=list(subj_rhy))
+
+    # --- Countersubject: inverted motion, offset rhythms ---
+    cs_ivls = [-iv for iv in subj_ivls]  # inversion
+    # Offset rhythm: shift pattern (if subject starts long, CS starts short)
+    cs_rhy = list(subj_rhy)
+    if len(cs_rhy) >= 2:
+        # Swap pairs to create rhythmic independence
+        for idx in range(0, len(cs_rhy) - 1, 2):
+            cs_rhy[idx], cs_rhy[idx + 1] = cs_rhy[idx + 1], cs_rhy[idx]
+
+    countersubject = SeedMotif(intervals=cs_ivls, rhythm=cs_rhy)
+
+    return FugueSubject(
+        subject=subject,
+        answer=answer,
+        countersubject=countersubject,
+        subject_bars=subject_bars,
+    )
+
+
+def _build_fugue_episode_sequence(subject: SeedMotif,
+                                  bars: int,
+                                  direction: int = -1) -> SeedMotif:
+    """
+    Build a sequential passage for a fugue episode.
+    Takes the first 3-4 notes of the subject and sequences them
+    (repeats transposed by step in the given direction).
+
+    Args:
+        subject: The fugue subject motif
+        bars: Number of bars for the episode
+        direction: -1 for descending sequence, +1 for ascending
+    """
+    # Fragment: first 3-4 intervals of subject
+    frag_len = min(3, len(subject.intervals))
+    frag_ivls = subject.intervals[:frag_len]
+    frag_rhy = subject.rhythm[:frag_len + 1]
+
+    # How many times to repeat the fragment
+    target_beats = bars * 4.0
+    frag_beats = sum(frag_rhy)
+    if frag_beats <= 0:
+        frag_beats = 2.0
+    repetitions = max(2, int(target_beats / frag_beats))
+
+    # Build the sequence: fragment, step, fragment, step, ...
+    seq_ivls: List[int] = []
+    seq_rhy: List[float] = list(frag_rhy)  # first statement rhythm
+
+    step_interval = direction * 2  # step down/up by a whole tone between repeats
+
+    for rep in range(1, repetitions):
+        seq_ivls.extend(frag_ivls)
+        seq_ivls.append(step_interval)  # bridge interval between repetitions
+        seq_rhy.extend(frag_rhy)
+
+    # Final statement
+    seq_ivls.extend(frag_ivls)
+
+    # Trim to target length
+    total = sum(seq_rhy)
+    while total > target_beats + 0.5 and len(seq_rhy) > 2:
+        seq_rhy.pop()
+        if len(seq_ivls) >= len(seq_rhy):
+            seq_ivls.pop()
+        total = sum(seq_rhy)
+
+    return SeedMotif(intervals=seq_ivls, rhythm=seq_rhy)
+
+
+# Module-level fugue state
+_current_fugue: Optional[FugueSubject] = None
+
+
+def _get_fugue_voice_ranges() -> Dict[str, Tuple[int, int]]:
+    """Return MIDI pitch ranges for the three fugue voices (piano)."""
+    return {
+        "soprano": (60, 84),   # C4-C6
+        "alto": (53, 74),      # F3-D5
+        "bass": (36, 60),      # C2-C4
+    }
+
+
+def _fugue_start_pitch(voice: str, home_key: KeyToken) -> int:
+    """Get a good starting pitch for each fugue voice in the given key."""
+    m21_str = _KEY_TO_M21.get(home_key, "C")
+    k = m21key.Key(m21_str)
+    tonic_pc = k.tonic.pitchClass
+
+    ranges = _get_fugue_voice_ranges()
+    lo, hi = ranges.get(voice, (48, 72))
+    mid = (lo + hi) // 2
+
+    # Find the tonic pitch class nearest to the middle of the range
+    for candidate in range(mid - 6, mid + 7):
+        if candidate % 12 == tonic_pc and lo <= candidate <= hi:
+            return candidate
+    return mid
+
+
+def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
+    """
+    PASS 4 (Fugue variant): Generate 3-voice fugue texture.
+
+    Instead of a single melody line + chord accompaniment, generates three
+    independent voice lines that enter in staggered fashion with the subject.
+
+    Strategy:
+      1. Exposition: Voice 1 states subject alone, voice 2 enters with answer
+         while voice 1 plays countersubject, voice 3 enters with subject while
+         voices 1-2 play free counterpoint.
+      2. Episodes: All voices play sequential material derived from subject.
+      3. Middle Entry: One voice restates subject in related key.
+      4. Final Entry / Stretto: Overlapping entries.
+      5. Coda: Dominant pedal in bass, upper voices converge to tonic.
+    """
+    global _current_fugue, _current_seed_motif
+
+    if _current_seed_motif is None:
+        # Shouldn't happen, but safety fallback
+        _current_seed_motif = MotivicEngine.generate_seed(
+            _KEY_TO_M21.get(form_ir.home_key, "C"))
+
+    # Build fugue subject from seed motif
+    sub_ranges = _build_subsection_bar_ranges(form_ir)
+    if not sub_ranges:
+        return vl_ir
+
+    # Determine subject length from first subsection (SUBJECT_ENTRY)
+    first_sub = sub_ranges[0]
+    subject_bars = first_sub[4] - first_sub[3] + 1
+
+    fugue = _generate_fugue_subject(_current_seed_motif, form_ir.home_key,
+                                     subject_bars=subject_bars)
+    _current_fugue = fugue
+
+    home_key = form_ir.home_key
+    m21_key_str = _KEY_TO_M21.get(home_key, "C")
+    key_obj = m21key.Key(m21_key_str)
+
+    # Voice names and their starting pitches
+    voice_names = ["soprano", "alto", "bass"]
+    voice_starts = {v: _fugue_start_pitch(v, home_key) for v in voice_names}
+    voice_ranges = _get_fugue_voice_ranges()
+
+    # Build scale pool for free counterpoint fill
+    sc = key_obj.getScale()
+    scale_pitches = sorted(
+        [p.midi for p in sc.getPitches("C2", "C7")],
+    )
+
+    # Output: three voice lines
+    voice_lines: Dict[str, List[MelodicNote]] = {v: [] for v in voice_names}
+
+    # Track which bar each voice is "busy" until (for staggered entries)
+    voice_busy_until: Dict[str, int] = {v: 0 for v in voice_names}
+
+    # -- Walk through sections and subsections --
+    for sub_type, sec_type, sec_idx, start_bar, end_bar in sub_ranges:
+        section_bars = end_bar - start_bar + 1
+
+        # Find the local key from the subsection
+        local_key = home_key
+        for section in form_ir.sections:
+            for sub in section.subsections:
+                # Match by checking bar range
+                pass
+        # Get local key from the section's key_path
+        for section in form_ir.sections:
+            for si, sub in enumerate(section.subsections):
+                if sub.type == sub_type and sub.notes:
+                    local_key = sub.key
+                    break
+
+        local_key_str = _KEY_TO_M21.get(local_key, m21_key_str)
+        local_key_obj = m21key.Key(local_key_str)
+        local_tonic_pc = local_key_obj.tonic.pitchClass
+
+        if sec_type == SectionType.FUGUE_EXPOSITION:
+            # --- EXPOSITION: Staggered voice entries ---
+            # Determine which voice enters in this subsection
+            notes_annotation = ""
+            for section in form_ir.sections:
+                for sub in section.subsections:
+                    if (sub.type == sub_type and sub.key == local_key
+                            and sub.bars == section_bars):
+                        notes_annotation = sub.notes
+                        break
+
+            if "voice_0" in notes_annotation or (
+                    sub_type == SubsectionType.SUBJECT_ENTRY and sec_idx == 0
+                    and start_bar == sub_ranges[0][3]):
+                # Voice 0 (soprano) enters with subject
+                entering_voice = "soprano"
+                motif = fugue.subject
+                start_pitch = voice_starts["soprano"]
+            elif "voice_1" in notes_annotation or sub_type == SubsectionType.ANSWER_ENTRY:
+                # Voice 1 (alto) enters with answer (at the 5th)
+                entering_voice = "alto"
+                motif = fugue.answer
+                start_pitch = voice_starts["alto"] + 7  # answer at dominant
+                # Clamp to range
+                lo, hi = voice_ranges["alto"]
+                while start_pitch > hi:
+                    start_pitch -= 12
+                while start_pitch < lo:
+                    start_pitch += 12
+            else:
+                # Voice 2 (bass) enters with subject
+                entering_voice = "bass"
+                motif = fugue.subject
+                start_pitch = voice_starts["bass"]
+
+            # Realize the entering voice's motif
+            entry_notes = MotivicEngine.realize_motif(
+                motif, start_pitch, start_bar, 1.0)
+            # Clamp to range and add
+            lo, hi = voice_ranges[entering_voice]
+            for n in entry_notes:
+                n.midi = max(lo, min(hi, n.midi))
+                if n.bar <= end_bar:
+                    voice_lines[entering_voice].append(n)
+            voice_busy_until[entering_voice] = end_bar
+
+            # Voices that entered earlier play countersubject or free counterpoint
+            for v in voice_names:
+                if v == entering_voice:
+                    continue
+                if voice_busy_until[v] < start_bar:
+                    continue  # this voice hasn't entered yet
+                # Play countersubject
+                cs_pitch = voice_starts[v]
+                # Adjust countersubject starting pitch to complement
+                if v == "soprano" and entering_voice == "alto":
+                    cs_pitch = voice_starts["soprano"]
+                elif v == "soprano" and entering_voice == "bass":
+                    cs_pitch = voice_starts["soprano"]
+                elif v == "alto" and entering_voice == "bass":
+                    cs_pitch = voice_starts["alto"]
+
+                cs_notes = MotivicEngine.realize_motif(
+                    fugue.countersubject, cs_pitch, start_bar, 1.0)
+                lo_v, hi_v = voice_ranges[v]
+                for n in cs_notes:
+                    n.midi = max(lo_v, min(hi_v, n.midi))
+                    if n.bar <= end_bar:
+                        voice_lines[v].append(n)
+
+        elif sec_type == SectionType.EPISODE:
+            # --- EPISODE: Sequential passage in all voices ---
+            episode_seq = _build_fugue_episode_sequence(
+                fugue.subject, section_bars, direction=-1)
+
+            for vi, v in enumerate(voice_names):
+                # Stagger episode entries by 1 beat for rhythmic interest
+                ep_start_beat = 1.0 + vi * 0.5
+                ep_start_bar = start_bar
+                if ep_start_beat > 4.0:
+                    ep_start_beat -= 4.0
+                    ep_start_bar += 1
+
+                # Transpose each voice's episode differently
+                pitch_offset = vi * 7  # voices enter at different pitch levels
+                ep_pitch = voice_starts[v] + (pitch_offset % 12)
+                lo_v, hi_v = voice_ranges[v]
+                ep_pitch = max(lo_v, min(hi_v, ep_pitch))
+
+                ep_notes = MotivicEngine.realize_motif(
+                    episode_seq, ep_pitch, ep_start_bar, ep_start_beat)
+                for n in ep_notes:
+                    n.midi = max(lo_v, min(hi_v, n.midi))
+                    if n.bar <= end_bar:
+                        voice_lines[v].append(n)
+                voice_busy_until[v] = end_bar
+
+        elif sec_type == SectionType.MIDDLE_ENTRY:
+            # --- MIDDLE ENTRY: Subject in related key ---
+            # One voice (alto) states the subject, others accompany
+            # Find the tonic of the related key
+            rel_tonic = _fugue_start_pitch("alto", local_key)
+            mid_notes = MotivicEngine.realize_motif(
+                fugue.subject, rel_tonic, start_bar, 1.0)
+            lo_a, hi_a = voice_ranges["alto"]
+            for n in mid_notes:
+                n.midi = max(lo_a, min(hi_a, n.midi))
+                if n.bar <= end_bar:
+                    voice_lines["alto"].append(n)
+
+            # Soprano and bass: free counterpoint (countersubject fragments)
+            for v in ["soprano", "bass"]:
+                fp_pitch = voice_starts[v]
+                frag = MotivicEngine.transform(
+                    fugue.countersubject, MotivicEngine.FRAGMENTATION)
+                # Extend to fill bars
+                fp_motif = _build_fugue_episode_sequence(
+                    frag, section_bars, direction=1 if v == "soprano" else -1)
+                fp_notes = MotivicEngine.realize_motif(
+                    fp_motif, fp_pitch, start_bar, 1.0)
+                lo_v, hi_v = voice_ranges[v]
+                for n in fp_notes:
+                    n.midi = max(lo_v, min(hi_v, n.midi))
+                    if n.bar <= end_bar:
+                        voice_lines[v].append(n)
+
+        elif sec_type == SectionType.STRETTO:
+            # --- STRETTO: Overlapping entries ---
+            # All three voices enter with the subject, each offset by half
+            # the subject length (the answer starts before subject finishes)
+            stretto_offset_bars = max(1, fugue.subject_bars // 2)
+
+            for vi, v in enumerate(voice_names):
+                stretto_start = start_bar + vi * stretto_offset_bars
+                if stretto_start > end_bar:
+                    break
+                st_pitch = _fugue_start_pitch(v, home_key)
+                st_notes = MotivicEngine.realize_motif(
+                    fugue.subject, st_pitch, stretto_start, 1.0)
+                lo_v, hi_v = voice_ranges[v]
+                for n in st_notes:
+                    n.midi = max(lo_v, min(hi_v, n.midi))
+                    if n.bar <= end_bar:
+                        voice_lines[v].append(n)
+
+        elif sec_type == SectionType.CODA:
+            # --- CODA: Dominant pedal in bass, upper voices converge ---
+            # Bass holds dominant pedal
+            dominant_pitch = _fugue_start_pitch("bass", home_key) + 7
+            lo_b, hi_b = voice_ranges["bass"]
+            dominant_pitch = max(lo_b, min(hi_b, dominant_pitch))
+
+            for bar in range(start_bar, end_bar + 1):
+                voice_lines["bass"].append(MelodicNote(
+                    midi=dominant_pitch,
+                    bar=bar,
+                    beat=1.0,
+                    duration_beats=4.0,
+                    is_chord_tone=True,
+                ))
+
+            # Last bar: resolve to tonic
+            tonic_pitch = dominant_pitch - 7
+            tonic_pitch = max(lo_b, min(hi_b, tonic_pitch))
+            if voice_lines["bass"]:
+                voice_lines["bass"][-1].midi = tonic_pitch
+
+            # Upper voices: diminished subject fragments converging to tonic
+            for v in ["soprano", "alto"]:
+                dim_frag = MotivicEngine.transform(
+                    fugue.subject, MotivicEngine.DIMINUTION)
+                frag = MotivicEngine.transform(
+                    dim_frag, MotivicEngine.FRAGMENTATION)
+                fp_pitch = voice_starts[v]
+                fp_notes = MotivicEngine.realize_motif(
+                    frag, fp_pitch, start_bar, 1.0)
+                lo_v, hi_v = voice_ranges[v]
+                for n in fp_notes:
+                    n.midi = max(lo_v, min(hi_v, n.midi))
+                    if n.bar <= end_bar:
+                        voice_lines[v].append(n)
+
+                # Final note: resolve to tonic
+                tonic_v = _fugue_start_pitch(v, home_key)
+                voice_lines[v].append(MelodicNote(
+                    midi=tonic_v, bar=end_bar, beat=3.0,
+                    duration_beats=2.0, is_chord_tone=True,
+                ))
+
+        else:
+            # Fallback for any unhandled section type:
+            # fill with free counterpoint based on countersubject
+            for v in voice_names:
+                fp_pitch = voice_starts[v]
+                fp_motif = _build_fugue_episode_sequence(
+                    fugue.countersubject, section_bars, direction=-1)
+                fp_notes = MotivicEngine.realize_motif(
+                    fp_motif, fp_pitch, start_bar, 1.0)
+                lo_v, hi_v = voice_ranges[v]
+                for n in fp_notes:
+                    n.midi = max(lo_v, min(hi_v, n.midi))
+                    if n.bar <= end_bar:
+                        voice_lines[v].append(n)
+
+    # --- Counterpoint enforcement: fix parallel 5ths/octaves ---
+    _fix_fugue_parallels(voice_lines, scale_pitches)
+
+    # Store voices in the VoiceLeadingIR
+    # Soprano becomes the "melody", alto/bass become inner_voices and bass_line
+    vl_ir.melody = voice_lines["soprano"]
+    vl_ir.inner_voices = {"alto": voice_lines["alto"], "tenor": []}
+    vl_ir.bass_line = voice_lines["bass"]
+
+    # Also update chord events to reflect the fugue voicing
+    # Map each chord event to the nearest fugue voice notes
+    for ce in vl_ir.chords:
+        # Find nearest soprano note
+        s_note = _find_nearest_note(voice_lines["soprano"], ce.bar, ce.beat)
+        a_note = _find_nearest_note(voice_lines["alto"], ce.bar, ce.beat)
+        b_note = _find_nearest_note(voice_lines["bass"], ce.bar, ce.beat)
+        if s_note:
+            ce.soprano = s_note.midi
+        if a_note:
+            ce.alto = a_note.midi
+            ce.tenor = a_note.midi  # 3-voice fugue: no separate tenor
+        if b_note:
+            ce.bass = b_note.midi
+
+    # Log fugue info
+    total_notes = sum(len(v) for v in voice_lines.values())
+    print(f"  [Fugue] Subject: {len(fugue.subject.intervals)+1} notes, "
+          f"{fugue.subject_bars} bars")
+    print(f"  [Fugue] Voice lines: S={len(voice_lines['soprano'])}, "
+          f"A={len(voice_lines['alto'])}, B={len(voice_lines['bass'])}")
+    print(f"  [Fugue] Total notes: {total_notes}")
+
+    return vl_ir
+
+
+def _find_nearest_note(notes: List[MelodicNote], bar: int, beat: float
+                       ) -> Optional[MelodicNote]:
+    """Find the note closest to the given bar/beat position."""
+    if not notes:
+        return None
+    target_pos = (bar - 1) * 4 + beat
+    best = None
+    best_dist = float("inf")
+    for n in notes:
+        pos = (n.bar - 1) * 4 + n.beat
+        dist = abs(pos - target_pos)
+        if dist < best_dist:
+            best_dist = dist
+            best = n
+    return best
+
+
+def _fix_fugue_parallels(voice_lines: Dict[str, List[MelodicNote]],
+                         scale_pitches: List[int]) -> None:
+    """
+    Check for parallel 5ths and octaves between voice pairs at simultaneous
+    time points and fix them by shifting the offending note by a step.
+    """
+    voice_names = ["soprano", "alto", "bass"]
+
+    # Build a time-indexed lookup for each voice
+    def _notes_by_pos(notes: List[MelodicNote]) -> Dict[float, MelodicNote]:
+        d: Dict[float, MelodicNote] = {}
+        for n in notes:
+            pos = round((n.bar - 1) * 4 + n.beat, 2)
+            d[pos] = n
+        return d
+
+    indexed = {v: _notes_by_pos(voice_lines[v]) for v in voice_names}
+
+    # Get all time positions across all voices
+    all_positions = sorted(set().union(*(indexed[v].keys() for v in voice_names)))
+
+    for i in range(len(all_positions) - 1):
+        t1 = all_positions[i]
+        t2 = all_positions[i + 1]
+
+        for vi in range(len(voice_names)):
+            for vj in range(vi + 1, len(voice_names)):
+                v_upper = voice_names[vi]
+                v_lower = voice_names[vj]
+
+                n1_u = indexed[v_upper].get(t1)
+                n1_l = indexed[v_lower].get(t1)
+                n2_u = indexed[v_upper].get(t2)
+                n2_l = indexed[v_lower].get(t2)
+
+                if not (n1_u and n1_l and n2_u and n2_l):
+                    continue
+
+                int1 = (n1_u.midi - n1_l.midi) % 12
+                int2 = (n2_u.midi - n2_l.midi) % 12
+
+                # Parallel 5ths or octaves: same interval class, both voices moved
+                if int1 in (0, 7) and int1 == int2:
+                    if n1_u.midi != n2_u.midi and n1_l.midi != n2_l.midi:
+                        # Fix: shift the lower voice's second note by +1 or -1
+                        # Find nearest scale pitch that breaks the parallel
+                        target = n2_l.midi
+                        for delta in [1, -1, 2, -2]:
+                            candidate = target + delta
+                            new_int = (n2_u.midi - candidate) % 12
+                            if new_int not in (0, 7):
+                                n2_l.midi = candidate
+                                break
+
+
+def pass_2_schema_fugue(form_ir: FormIR) -> SchemaIR:
+    """
+    PASS 2 (Fugue variant): Assign harmonic schemata to fugue sections.
+
+    Fugue harmony is simpler than sonata form -- mostly I-V-I with
+    sequential passages (Monte/Fonte) in episodes.
+    """
+    schema_ir = SchemaIR(form_ref=form_ir)
+
+    # Schema preferences for fugue section types
+    fugue_schema_map = {
+        SubsectionType.SUBJECT_ENTRY: [
+            SchemaToken.DO_RE_MI, SchemaToken.ROMANESCA, SchemaToken.FENAROLI,
+        ],
+        SubsectionType.ANSWER_ENTRY: [
+            SchemaToken.DO_RE_MI, SchemaToken.PRINNER, SchemaToken.FENAROLI,
+        ],
+        SubsectionType.TR: [
+            SchemaToken.MONTE, SchemaToken.FONTE, SchemaToken.PONTE,
+        ],
+        SubsectionType.PEDAL_POINT: [
+            SchemaToken.QUIESCENZA, SchemaToken.PONTE, SchemaToken.INDUGIO,
+        ],
+    }
+
+    for section in form_ir.sections:
+        for subsection in section.subsections:
+            sub_schema = SubsectionSchemaIR(subsection_ref=subsection)
+            bars_remaining = subsection.bars
+
+            preferred = fugue_schema_map.get(
+                subsection.type,
+                [SchemaToken.DO_RE_MI, SchemaToken.PRINNER],
+            )
+
+            while bars_remaining > 0:
+                schema_token = random.choice(preferred)
+                template = SCHEMA_REALIZATIONS[schema_token]
+                schema_bars = min(template.bars, bars_remaining)
+
+                slot = SchemaSlot(
+                    schema=schema_token,
+                    bars=schema_bars,
+                    local_key=subsection.key,
+                )
+                sub_schema.schema_sequence.append(slot)
+                bars_remaining -= schema_bars
+
+            # Terminal cadence
+            if subsection.cadence_at_end:
+                cad_slot = SchemaSlot(
+                    schema=subsection.cadence_at_end,
+                    bars=0,
+                    local_key=subsection.key,
+                )
+                sub_schema.schema_sequence.append(cad_slot)
+
+            schema_ir.schema_plan.append(sub_schema)
+
+    return schema_ir
+
+
+def pass_6_orchestration_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR
+                                ) -> Dict[str, List[PerformanceNote]]:
+    """
+    PASS 6 (Fugue variant): Assign 3 fugue voices to piano tracks.
+
+    Each voice gets its own track for clear polyphonic texture.
+    """
+    tempo = form_ir.tempo_bpm
+    sec_per_beat = 60.0 / tempo
+
+    tracks: Dict[str, List[PerformanceNote]] = defaultdict(list)
+
+    # Map fugue voices to piano tracks
+    voice_to_track = {
+        "soprano": "piano_s",
+        "alto": "piano_a",
+        "bass": "piano_b",
+    }
+
+    def _add_notes(notes: List[MelodicNote], inst: str):
+        lo, hi = INSTRUMENT_RANGES.get(inst, (21, 108))
+        for mn in notes:
+            start_sec = ((mn.bar - 1) * 4 + (mn.beat - 1)) * sec_per_beat
+            dur_sec = mn.duration_beats * sec_per_beat
+            pitch = max(lo, min(hi, mn.midi))
+            pn = PerformanceNote(
+                midi_pitch=pitch,
+                start_time_sec=start_sec,
+                duration_sec=dur_sec,
+                velocity=75,
+                channel=0,
+                instrument=inst,
+            )
+            tracks[inst].append(pn)
+
+    # Soprano (melody)
+    _add_notes(vl_ir.melody, voice_to_track["soprano"])
+
+    # Alto
+    alto_notes = vl_ir.inner_voices.get("alto", [])
+    _add_notes(alto_notes, voice_to_track["alto"])
+
+    # Bass
+    _add_notes(vl_ir.bass_line, voice_to_track["bass"])
+
+    return dict(tracks)
+
+
 def pass_1_plan(parsed: dict) -> FormIR:
     """
     PASS 1: Convert parsed prompt into a FormIR (Level 1).
@@ -617,7 +1434,11 @@ def pass_1_plan(parsed: dict) -> FormIR:
     total_bars = parsed["total_bars"]
     character = parsed["character"]
 
-    if form == FormType.SONATA:
+    if form == FormType.FUGUE:
+        sections = _build_fugue_plan(
+            home_key, total_bars, character,
+            num_voices=parsed.get("fugue_voices", 3))
+    elif form == FormType.SONATA:
         sections = _build_sonata_exposition_plan(home_key, total_bars, character)
     elif form == FormType.THEME_AND_VARIATIONS:
         sections = _build_theme_and_variations_plan(
@@ -681,6 +1502,18 @@ SCHEMA_AFFINITIES = {
     ],
     SubsectionType.CLOSING_THEME: [
         SchemaToken.PRINNER, SchemaToken.COMMA, SchemaToken.PASSO_INDIETRO,
+    ],
+    SubsectionType.SUBJECT_ENTRY: [
+        SchemaToken.DO_RE_MI, SchemaToken.ROMANESCA, SchemaToken.FENAROLI,
+    ],
+    SubsectionType.ANSWER_ENTRY: [
+        SchemaToken.DO_RE_MI, SchemaToken.PRINNER, SchemaToken.FENAROLI,
+    ],
+    SubsectionType.COUNTERSUBJECT: [
+        SchemaToken.PRINNER, SchemaToken.FENAROLI, SchemaToken.ROMANESCA,
+    ],
+    SubsectionType.PEDAL_POINT: [
+        SchemaToken.QUIESCENZA, SchemaToken.PONTE, SchemaToken.INDUGIO,
     ],
 }
 
@@ -2426,8 +3259,9 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
         print(f"    {sec.type.value}: [{sub_str}]")
 
     # --- Pass 2: Schema ---
-    print(f"\n[Pass 2] Filling sections with galant schemata...")
-    schema_ir = pass_2_schema(form_ir)
+    is_fugue = (form_ir.form == FormType.FUGUE)
+    print(f"\n[Pass 2] Filling sections with {'fugue harmonic plan' if is_fugue else 'galant schemata'}...")
+    schema_ir = pass_2_schema_fugue(form_ir) if is_fugue else pass_2_schema(form_ir)
     total_schemas = sum(len(s.schema_sequence) for s in schema_ir.schema_plan)
     print(f"  Total schema slots: {total_schemas}")
     for sub_schema in schema_ir.schema_plan:
@@ -2452,8 +3286,12 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     print(f"  Cadence positions marked: {cadence_marked}")
 
     # --- Pass 4: Melody ---
-    print(f"\n[Pass 4] Generating melodic lines...")
-    vl_ir = pass_4_melody(vl_ir, form_ir)
+    if is_fugue:
+        print(f"\n[Pass 4] Generating 3-voice fugue texture...")
+        vl_ir = pass_4_melody_fugue(vl_ir, form_ir)
+    else:
+        print(f"\n[Pass 4] Generating melodic lines...")
+        vl_ir = pass_4_melody(vl_ir, form_ir)
     print(f"  Melody notes: {len(vl_ir.melody)}")
     ct = sum(1 for m in vl_ir.melody if m.is_chord_tone)
     nct = len(vl_ir.melody) - ct
@@ -2466,6 +3304,16 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     # --- Fix 3: Leap recovery in melody ---
     vl_ir.melody = fix_leap_recovery(vl_ir.melody)
     print(f"  [Fix] Leap recovery applied to melody")
+
+    # For fugue: also fix augmented intervals and leap recovery in alto and bass lines
+    if is_fugue:
+        alto_notes = vl_ir.inner_voices.get("alto", [])
+        if alto_notes:
+            vl_ir.inner_voices["alto"] = fix_augmented_intervals(alto_notes, form_ir.home_key)
+            vl_ir.inner_voices["alto"] = fix_leap_recovery(vl_ir.inner_voices["alto"])
+        if vl_ir.bass_line:
+            vl_ir.bass_line = fix_augmented_intervals(vl_ir.bass_line, form_ir.home_key)
+            vl_ir.bass_line = fix_leap_recovery(vl_ir.bass_line)
 
     # --- Pass 5: Counterpoint ---
     print(f"\n[Pass 5] Adding inner voices (counterpoint)...")
@@ -2531,7 +3379,10 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
 
     # --- Pass 6: Orchestration ---
     print(f"\n[Pass 6] Assigning to instruments...")
-    tracks = pass_6_orchestration(vl_ir, form_ir)
+    if is_fugue:
+        tracks = pass_6_orchestration_fugue(vl_ir, form_ir)
+    else:
+        tracks = pass_6_orchestration(vl_ir, form_ir)
     total_notes = sum(len(notes) for notes in tracks.values())
     for inst, notes in tracks.items():
         print(f"    {inst}: {len(notes)} notes")
@@ -2619,6 +3470,7 @@ SAMPLE_PROMPTS = [
     "An orchestral ternary piece in D major, noble, 32 bars",
     "A piano ternary piece in F minor, tragic, 24 bars",
     "A string quartet sonata exposition in Bb major, playful, 48 bars",
+    "A Bach-style fugue in C minor, 24 bars, for piano",
 ]
 
 
