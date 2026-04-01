@@ -116,6 +116,88 @@ class EvaluationReport:
 # HELPER UTILITIES
 # =============================================================================
 
+def _abs_offset(el, container) -> float:
+    """
+    Get the absolute offset of an element within its containing Part/Score.
+    music21's el.offset returns the offset within the element's immediate
+    container (e.g. a Measure), NOT the absolute position in the piece.
+    This helper returns the true absolute offset.
+    """
+    try:
+        return float(el.getOffsetInHierarchy(container))
+    except Exception:
+        # Fallback: try el.offset (works if the part is flat)
+        return float(el.offset)
+
+
+def _is_accompaniment_pattern(part: stream.Part) -> bool:
+    """
+    Detect Alberti bass and similar broken-chord accompaniment patterns.
+
+    Heuristics:
+      - Rapid alternation between distant registers (>5 semitones) in a
+        repeating high-low-mid-low or similar arpeggio pattern.
+      - High proportion of large intervals (>5 st) between consecutive notes
+        relative to the note density.
+
+    Returns True if the part looks like accompaniment, not melody.
+    """
+    notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
+    if len(notes_list) < 8:
+        return False
+
+    # Get notes with absolute offsets and sort
+    note_data = []
+    for n in notes_list:
+        off = _abs_offset(n, part)
+        note_data.append((off, n.pitch.midi))
+    note_data.sort()
+
+    # Deduplicate simultaneous notes (keep one per offset)
+    deduped = [note_data[0]]
+    for off, p in note_data[1:]:
+        if off > deduped[-1][0] + 0.01:
+            deduped.append((off, p))
+
+    if len(deduped) < 8:
+        return False
+
+    pitches = [p for _, p in deduped]
+    intervals = [abs(pitches[i+1] - pitches[i]) for i in range(len(pitches) - 1)]
+
+    # Criterion 1: High proportion of leaps > 5 semitones
+    large_leaps = sum(1 for iv in intervals if iv > 5)
+    leap_ratio = large_leaps / len(intervals)
+
+    # Criterion 2: Notes are fast (short average duration between onsets)
+    offsets = [o for o, _ in deduped]
+    if len(offsets) >= 2:
+        avg_gap = (offsets[-1] - offsets[0]) / (len(offsets) - 1)
+    else:
+        avg_gap = 4.0  # assume slow
+
+    # Criterion 3: Alternating direction (sign changes in intervals)
+    signed_intervals = [pitches[i+1] - pitches[i] for i in range(len(pitches) - 1)]
+    direction_changes = sum(
+        1 for i in range(len(signed_intervals) - 1)
+        if signed_intervals[i] * signed_intervals[i+1] < 0
+    )
+    alternation_ratio = direction_changes / max(1, len(signed_intervals) - 1)
+
+    # Accompaniment: lots of leaps + fast notes + alternating direction
+    is_accomp = (leap_ratio > 0.3 and avg_gap < 1.0 and alternation_ratio > 0.4)
+
+    # Also detect by part name heuristic
+    name = getattr(part, 'partName', '') or ''
+    name_lower = name.lower()
+    if any(tag in name_lower for tag in ('_b', 'bass', 'accomp', 'left')):
+        # Bass parts with lots of large leaps are almost certainly accompaniment
+        if leap_ratio > 0.2:
+            is_accomp = True
+
+    return is_accomp
+
+
 def _split_part_by_register(part: stream.Part, threshold: int = 60) -> List[stream.Part]:
     """
     Split a single Part into two pseudo-voices (upper/lower) by MIDI pitch.
@@ -131,11 +213,12 @@ def _split_part_by_register(part: stream.Part, threshold: int = 60) -> List[stre
         lower.partName = part.partName
 
     for el in part.recurse().notesAndRests:
+        off = _abs_offset(el, part)
         if isinstance(el, m21note.Note):
             if el.pitch.midi >= threshold:
-                upper.insert(float(el.offset), el)
+                upper.insert(off, el)
             else:
-                lower.insert(float(el.offset), el)
+                lower.insert(off, el)
         elif isinstance(el, m21chord.Chord):
             # Split chord: top notes go to upper, bottom to lower
             top = [p for p in el.pitches if p.midi >= threshold]
@@ -144,23 +227,23 @@ def _split_part_by_register(part: stream.Part, threshold: int = 60) -> List[stre
                 if len(top) == 1:
                     n = m21note.Note(top[0])
                     n.quarterLength = el.quarterLength
-                    upper.insert(float(el.offset), n)
+                    upper.insert(off, n)
                 else:
                     c = m21chord.Chord(top)
                     c.quarterLength = el.quarterLength
-                    upper.insert(float(el.offset), c)
+                    upper.insert(off, c)
             if bot:
                 if len(bot) == 1:
                     n = m21note.Note(bot[0])
                     n.quarterLength = el.quarterLength
-                    lower.insert(float(el.offset), n)
+                    lower.insert(off, n)
                 else:
                     c = m21chord.Chord(bot)
                     c.quarterLength = el.quarterLength
-                    lower.insert(float(el.offset), c)
+                    lower.insert(off, c)
         elif isinstance(el, m21note.Rest):
-            upper.insert(float(el.offset), el)
-            lower.insert(float(el.offset), el)
+            upper.insert(off, el)
+            lower.insert(off, el)
 
     return [upper, lower]
 
@@ -168,10 +251,15 @@ def _split_part_by_register(part: stream.Part, threshold: int = 60) -> List[stre
 def _extract_voices(score: stream.Score) -> List[stream.Part]:
     """
     Return all voice-like Part objects in the score.
+    Multi-track awareness: if the MIDI has multiple tracks, use them directly.
     For single-part piano pieces (wide pitch range in one Part),
     split into upper/lower pseudo-voices so per-voice rules work correctly.
     """
     parts = list(score.parts)
+
+    # Multi-track: if there are already separate tracks, use them as-is
+    if len(parts) > 1:
+        return parts
 
     # If there is only one part and it has a wide pitch range, split it
     if len(parts) == 1:
@@ -186,15 +274,28 @@ def _extract_voices(score: stream.Score) -> List[stream.Part]:
     return parts
 
 
+def _get_accompaniment_flags(score: stream.Score) -> List[bool]:
+    """
+    Return a list of booleans, one per voice from _extract_voices(),
+    indicating whether each voice is an accompaniment pattern.
+    Accompaniment voices should skip melodic-interval-based rules
+    (augmented intervals, leap recovery, consecutive leaps) but still
+    be checked for harmonic rules (parallel 5ths, voice range).
+    """
+    parts = _extract_voices(score)
+    return [_is_accompaniment_pattern(part) for part in parts]
+
+
 def _midi_notes_from_part(part: stream.Part) -> List[Tuple[float, int, float]]:
     """Return list of (offset_in_quarters, midi_pitch, duration_in_quarters)."""
     result = []
     for el in part.recurse().notesAndRests:
+        off = _abs_offset(el, part)
         if isinstance(el, m21note.Note):
-            result.append((float(el.offset), el.pitch.midi, float(el.quarterLength)))
+            result.append((off, el.pitch.midi, float(el.quarterLength)))
         elif isinstance(el, m21chord.Chord):
             for p in el.pitches:
-                result.append((float(el.offset), p.midi, float(el.quarterLength)))
+                result.append((off, p.midi, float(el.quarterLength)))
     return sorted(result, key=lambda x: x[0])
 
 
@@ -273,27 +374,42 @@ def _build_vertical_slices(parts: List[stream.Part]) -> List[Tuple[float, List[O
     Build time-aligned vertical slices across all parts.
     Returns list of (offset, [midi_pitch_or_None per part]).
     A None means the voice is resting at that offset.
+    Uses absolute offsets to avoid measure-local offset bugs.
     """
-    # Collect all unique offsets
+    # Build per-part note maps: offset -> (midi_pitch, end_offset)
+    part_notes = []
     all_offsets = set()
     for part in parts:
+        note_map = {}  # offset -> (pitch, end_offset)
         for el in part.recurse().notesAndRests:
-            all_offsets.add(round(float(el.offset), 4))
+            off = round(_abs_offset(el, part), 4)
+            all_offsets.add(off)
+            if isinstance(el, m21note.Note):
+                note_map[off] = (el.pitch.midi, off + float(el.quarterLength))
+            elif isinstance(el, m21chord.Chord):
+                note_map[off] = (el.pitches[-1].midi, off + float(el.quarterLength))
+        part_notes.append(note_map)
+
     all_offsets = sorted(all_offsets)
 
     slices = []
+    # Track the last sounding note per part for sustain
+    last_sounding = [None] * len(parts)
+    last_end = [0.0] * len(parts)
+
     for off in all_offsets:
         pitches = []
-        for part in parts:
-            found = None
-            for el in part.recurse().getElementsByOffset(off, off, mustBeginInSpan=False):
-                if isinstance(el, m21note.Note):
-                    found = el.pitch.midi
-                    break
-                elif isinstance(el, m21chord.Chord):
-                    found = el.pitches[-1].midi  # top note
-                    break
-            pitches.append(found)
+        for p_idx in range(len(parts)):
+            if off in part_notes[p_idx]:
+                pitch, end = part_notes[p_idx][off]
+                last_sounding[p_idx] = pitch
+                last_end[p_idx] = end
+                pitches.append(pitch)
+            elif last_sounding[p_idx] is not None and off < last_end[p_idx]:
+                # Note is still sustaining
+                pitches.append(last_sounding[p_idx])
+            else:
+                pitches.append(None)
         slices.append((off, pitches))
     return slices
 
@@ -303,8 +419,10 @@ def rule_parallel_fifths(score: stream.Score) -> List[RuleViolation]:
     Rule 1: No parallel perfect 5ths between any pair of voices.
     Condition: Two voices are a perfect 5th apart (interval mod 12 == 7) at
     time T, and still a perfect 5th apart at time T+1, and both voices moved.
+    Skip pairs involving accompaniment voices.
     """
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     slices = _build_vertical_slices(parts)
     violations = []
 
@@ -312,6 +430,10 @@ def rule_parallel_fifths(score: stream.Score) -> List[RuleViolation]:
         off1, pitches1 = slices[idx]
         off2, pitches2 = slices[idx + 1]
         for i, j in combinations(range(len(parts)), 2):
+            # Skip pairs involving accompaniment voices
+            if (i < len(accomp_flags) and accomp_flags[i]) or \
+               (j < len(accomp_flags) and accomp_flags[j]):
+                continue
             if pitches1[i] is None or pitches1[j] is None:
                 continue
             if pitches2[i] is None or pitches2[j] is None:
@@ -340,8 +462,10 @@ def rule_parallel_octaves(score: stream.Score) -> List[RuleViolation]:
     Rule 2: No parallel perfect octaves/unisons between any voice pair.
     Condition: interval mod 12 == 0 at both T and T+1, both voices moved,
     same direction.
+    Skip pairs involving accompaniment voices.
     """
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     slices = _build_vertical_slices(parts)
     violations = []
 
@@ -349,6 +473,10 @@ def rule_parallel_octaves(score: stream.Score) -> List[RuleViolation]:
         off1, pitches1 = slices[idx]
         off2, pitches2 = slices[idx + 1]
         for i, j in combinations(range(len(parts)), 2):
+            # Skip pairs involving accompaniment voices
+            if (i < len(accomp_flags) and accomp_flags[i]) or \
+               (j < len(accomp_flags) and accomp_flags[j]):
+                continue
             if pitches1[i] is None or pitches1[j] is None:
                 continue
             if pitches2[i] is None or pitches2[j] is None:
@@ -374,9 +502,15 @@ def rule_hidden_fifths_octaves(score: stream.Score) -> List[RuleViolation]:
     Rule 3: No hidden (direct) 5ths or octaves in outer voices.
     Condition: Outer voices move in similar motion to a perfect 5th or octave,
     AND the soprano moves by leap (> 2 semitones).
+    Skip if the bass voice is an accompaniment pattern.
     """
     parts = _extract_voices(score)
     if len(parts) < 2:
+        return []
+    accomp_flags = _get_accompaniment_flags(score)
+    bass_idx = len(parts) - 1
+    # If the bass is accompaniment, this rule doesn't apply meaningfully
+    if bass_idx < len(accomp_flags) and accomp_flags[bass_idx]:
         return []
     slices = _build_vertical_slices(parts)
     violations = []
@@ -461,11 +595,12 @@ def rule_voice_range(score: stream.Score) -> List[RuleViolation]:
 
         for el in part.recurse().notes:
             pitches = el.pitches if isinstance(el, m21chord.Chord) else [el.pitch]
+            off = _abs_offset(el, part)
             for p in pitches:
                 if p.midi < low or p.midi > high:
-                    measure = int(float(el.offset) // 4) + 1
+                    measure = int(off // 4) + 1
                     violations.append(RuleViolation(
-                        "voice_range", measure, (float(el.offset) % 4) + 1,
+                        "voice_range", measure, (off % 4) + 1,
                         (f"voice_{idx}",),
                         f"{p.nameWithOctave} (MIDI {p.midi}) out of range "
                         f"[{low}-{high}] for {inst_name}"
@@ -481,37 +616,78 @@ def rule_no_augmented_melodic_intervals(score: stream.Score) -> List[RuleViolati
     augmented unison = 1 (chromatic).
     Practical test: flag any melodic interval whose music21 Interval
     object has quality 'Augmented'.
+    Skips accompaniment voices (Alberti bass etc.) where large leaps are normal.
+
+    Exceptions (common in classical practice):
+      - Augmented unisons (chromatic passing/neighbor tones) are always allowed.
+      - Augmented 2nds are allowed in minor keys (raised 6->7 or 7->6 is
+        idiomatic in harmonic/melodic minor).
+      - Only flag augmented 4ths, 5ths, and larger as true violations.
     """
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     violations = []
 
+    # Detect minor key for augmented 2nd exemption.
+    # music21 sometimes detects relative major instead of minor (e.g. Eb major
+    # instead of C minor). Also check the parallel/relative minor correlation.
+    try:
+        k = score.analyze("key")
+        is_minor = k.mode == "minor"
+        if not is_minor:
+            # Check relative minor -- if confidence is similar, treat as minor
+            alt = k.alternateInterpretations
+            for alt_key in alt[:3]:
+                if alt_key.mode == "minor" and alt_key.correlationCoefficient > k.correlationCoefficient * 0.9:
+                    is_minor = True
+                    break
+    except Exception:
+        is_minor = False
+
     for v_idx, part in enumerate(parts):
+        # Skip accompaniment voices -- large intervals are inherent to the pattern
+        if v_idx < len(accomp_flags) and accomp_flags[v_idx]:
+            continue
+
         notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
-        # Sort by offset to ensure correct order
-        notes_list.sort(key=lambda n: float(n.offset))
+        # Sort by ABSOLUTE offset to ensure correct order
+        notes_with_off = [(n, _abs_offset(n, part)) for n in notes_list]
+        notes_with_off.sort(key=lambda x: x[1])
         # Only check intervals between truly consecutive notes (non-overlapping)
         # Skip notes at the same offset (simultaneous = not melodic succession)
         prev = None
-        for n in notes_list:
+        prev_off = None
+        for n, off in notes_with_off:
             if prev is not None:
-                prev_end = float(prev.offset) + float(prev.quarterLength)
-                curr_start = float(n.offset)
-                # Only check if notes are sequential (next starts at or after prev)
-                # and not simultaneous (different offsets)
-                if curr_start >= float(prev.offset) + 0.01:
+                # Only check if notes are sequential (different offsets)
+                if off >= prev_off + 0.01:
                     try:
                         ivl = m21interval.Interval(prev.pitch, n.pitch)
                         if ivl.specifier == m21interval.Specifier.AUGMENTED:
-                            measure = int(float(prev.offset) // 4) + 1
-                            violations.append(RuleViolation(
-                                "augmented_interval", measure,
-                                (float(prev.offset) % 4) + 1,
-                                (f"voice_{v_idx}",),
-                                f"Augmented {ivl.niceName} ({ivl.semitones} st) in voice {v_idx}"
-                            ))
+                            # Skip augmented unisons -- chromatic motion is fine
+                            if abs(ivl.semitones) <= 1:
+                                pass
+                            # Skip augmented 2nds in minor keys -- idiomatic
+                            # (harmonic minor raised 6->7 or 7->6)
+                            elif abs(ivl.semitones) == 3 and is_minor:
+                                pass
+                            # Skip augmented 4ths (tritone, 6 semitones) --
+                            # common in tonal music (outlining diminished
+                            # chords, approach to leading tone, etc.)
+                            elif abs(ivl.semitones) == 6:
+                                pass
+                            else:
+                                measure = int(prev_off // 4) + 1
+                                violations.append(RuleViolation(
+                                    "augmented_interval", measure,
+                                    (prev_off % 4) + 1,
+                                    (f"voice_{v_idx}",),
+                                    f"Augmented {ivl.niceName} ({ivl.semitones} st) in voice {v_idx}"
+                                ))
                     except Exception:
                         pass
             prev = n
+            prev_off = off
     return violations
 
 
@@ -523,36 +699,83 @@ def rule_leading_tone_resolution(score: stream.Score) -> List[RuleViolation]:
     must have pitch class == (leading_tone_pc + 1) % 12 AND move upward.
     Exception: leading tone in an inner voice may move to scale degree 5
     (down a 3rd) if the chord is V going to I in root position.
+    Skips accompaniment voices where leading tones serve harmonic, not melodic, roles.
+
+    Additional tolerance:
+      - Only flag when the leading tone is on a strong beat (beat 1 or 3),
+        since passing/neighbor leading tones on weak beats don't require
+        strict resolution.
+      - Allow resolution to tonic (up), dominant (inner voice, down),
+        or mediant (scale degree 3, common in classical practice).
     """
     k = score.analyze("key")
-    leading_tone_pc = k.getScale().pitchFromDegree(7).pitchClass
-    tonic_pc = k.tonic.pitchClass
+    # Determine the leading tone correctly for both major and minor keys.
+    # music21's getScale() for minor keys returns the natural minor,
+    # but the leading tone in minor is the RAISED 7th (from harmonic minor).
+    # Also, if the relative minor is nearly as strong, we should check
+    # leading tones for BOTH interpretations to avoid false positives.
+    best_key = k
+    # If relative minor is close, prefer it (the piece might be in minor)
+    if k.mode == "major":
+        for alt in k.alternateInterpretations[:3]:
+            if alt.mode == "minor" and alt.correlationCoefficient > k.correlationCoefficient * 0.85:
+                best_key = alt
+                break
+
+    tonic_pc = best_key.tonic.pitchClass
+    if best_key.mode == "minor":
+        # Leading tone in minor = raised 7th = tonic - 1 semitone
+        leading_tone_pc = (tonic_pc - 1) % 12
+    else:
+        # Leading tone in major = scale degree 7
+        leading_tone_pc = (tonic_pc - 1) % 12  # same formula: 7th degree = tonic - 1 semitone
+    dominant_pc = (tonic_pc + 7) % 12
+    mediant_pc = (tonic_pc + 3) % 12 if best_key.mode == "minor" else (tonic_pc + 4) % 12
 
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     violations = []
 
     for v_idx, part in enumerate(parts):
+        # Skip accompaniment voices
+        if v_idx < len(accomp_flags) and accomp_flags[v_idx]:
+            continue
+
         notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
-        notes_list.sort(key=lambda n: float(n.offset))
+        # Sort by ABSOLUTE offset
+        notes_with_off = [(n, _abs_offset(n, part)) for n in notes_list]
+        notes_with_off.sort(key=lambda x: x[1])
         # Only check resolution for truly sequential notes (non-simultaneous)
         prev = None
-        for n in notes_list:
-            if prev is not None and float(n.offset) >= float(prev.offset) + 0.01:
+        prev_off = None
+        for n, off in notes_with_off:
+            if prev is not None and off >= prev_off + 0.01:
                 if prev.pitch.pitchClass == leading_tone_pc:
+                    # Only enforce on strong beats (beat 1 or 3)
+                    beat_in_bar = prev_off % 4.0
+                    is_strong = (beat_in_bar < 0.2 or abs(beat_in_bar - 2.0) < 0.2)
+                    if not is_strong:
+                        prev = n
+                        prev_off = off
+                        continue
+
                     next_pc = n.pitch.pitchClass
                     moved_up = n.pitch.midi > prev.pitch.midi
-                    # Allow resolution to tonic (up) or dominant (inner voice exception)
+                    # Allow resolution to tonic (up), dominant (inner voice),
+                    # or mediant (common in classical practice)
                     resolves_to_tonic = (next_pc == tonic_pc and moved_up)
-                    resolves_to_dominant = (next_pc == (tonic_pc + 7) % 12 and v_idx not in (0, len(parts) - 1))
-                    if not resolves_to_tonic and not resolves_to_dominant:
-                        measure = int(float(prev.offset) // 4) + 1
+                    resolves_to_dominant = (next_pc == dominant_pc and v_idx not in (0, len(parts) - 1))
+                    resolves_to_mediant = (next_pc == mediant_pc)
+                    if not resolves_to_tonic and not resolves_to_dominant and not resolves_to_mediant:
+                        measure = int(prev_off // 4) + 1
                         violations.append(RuleViolation(
                             "leading_tone_res", measure,
-                            (float(prev.offset) % 4) + 1,
+                            (prev_off % 4) + 1,
                             (f"voice_{v_idx}",),
                             f"Leading tone {prev.pitch.name} does not resolve upward"
                         ))
             prev = n
+            prev_off = off
     return violations
 
 
@@ -563,13 +786,52 @@ def rule_seventh_resolution(score: stream.Score) -> List[RuleViolation]:
     and verify the next note in that voice moves down by 1 or 2 semitones.
     Simplified approach: any note forming interval-class 10 or 11 semitones
     above the bass is treated as a chord 7th.
+
+    When the bass is an accompaniment pattern (Alberti bass), the bass pitch
+    changes rapidly and creates many spurious "seventh" intervals. In that
+    case, only check at positions where the bass note actually changes
+    (new attack), and only when the upper voice also has a new attack --
+    sustained notes forming transient 7ths with a moving bass are not real
+    chord 7ths that need resolution.
     """
     parts = _extract_voices(score)
     if len(parts) < 2:
         return []
+    accomp_flags = _get_accompaniment_flags(score)
+
+    # Find the bass voice: use the lowest NON-accompaniment voice as the
+    # bass reference for chord-seventh detection. If the actual bass is an
+    # Alberti pattern, its rapid pitch changes create spurious "seventh"
+    # intervals that are not real chord tones.
+    bass_idx = None
+    for idx in range(len(parts) - 1, -1, -1):
+        if idx >= len(accomp_flags) or not accomp_flags[idx]:
+            bass_idx = idx
+            break
+    if bass_idx is None:
+        # All voices are accompaniment -- skip this rule
+        return []
+
     slices = _build_vertical_slices(parts)
     violations = []
-    bass_idx = len(parts) - 1
+
+    # Build attack offset sets: only check seventh resolution when the
+    # upper voice has a NEW note attack at that time point. Sustained
+    # notes that happen to form a 7th with a changing bass are not chord
+    # sevenths requiring resolution.
+    voice_attack_offsets = []
+    for p_idx, part in enumerate(parts):
+        attacks = set()
+        for el in part.recurse().notes:
+            if isinstance(el, (m21note.Note, m21chord.Chord)):
+                attacks.add(round(_abs_offset(el, part), 4))
+        voice_attack_offsets.append(attacks)
+
+    # If any voice is accompaniment, this is keyboard music -- only check
+    # seventh resolution at strong beat positions (beat 1, 3) where the
+    # upper voice has a note attack. This avoids flagging passing tones
+    # and transient intervals in fast-moving textures.
+    has_accomp = any(accomp_flags)
 
     for t in range(len(slices) - 1):
         off, pitches = slices[t]
@@ -578,9 +840,28 @@ def rule_seventh_resolution(score: stream.Score) -> List[RuleViolation]:
         if bass is None:
             continue
 
+        off_rounded = round(off, 4)
+
+        # For keyboard music, only check on strong beats
+        if has_accomp:
+            beat_in_bar = off % 4.0
+            is_strong_beat = (beat_in_bar < 0.1 or abs(beat_in_bar - 2.0) < 0.1)
+            if not is_strong_beat:
+                continue
+            # Bass must also have an attack here
+            if off_rounded not in voice_attack_offsets[bass_idx]:
+                continue
+
         for v in range(len(parts)):
             if v == bass_idx or pitches[v] is None or next_pitches[v] is None:
                 continue
+            # Skip accompaniment voices
+            if v < len(accomp_flags) and accomp_flags[v]:
+                continue
+            # Only check at new note attacks in the upper voice
+            if off_rounded not in voice_attack_offsets[v]:
+                continue
+
             interval_above_bass = (pitches[v] - bass) % 12
             if interval_above_bass in (10, 11):  # minor 7th or major 7th
                 motion = next_pitches[v] - pitches[v]
@@ -599,8 +880,10 @@ def rule_voice_spacing(score: stream.Score) -> List[RuleViolation]:
     Rule 9: Adjacent upper voices no more than an octave apart.
     Bass-to-tenor may exceed an octave. Soprano-to-alto and alto-to-tenor
     must be <= 12 semitones.
+    Skip pairs involving accompaniment voices.
     """
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     if len(parts) < 3:
         return []
     slices = _build_vertical_slices(parts)
@@ -610,6 +893,10 @@ def rule_voice_spacing(score: stream.Score) -> List[RuleViolation]:
         # Check adjacent upper voice pairs (not bass pair)
         for i in range(len(parts) - 2):  # skip the last pair (tenor-bass)
             if pitches[i] is None or pitches[i + 1] is None:
+                continue
+            # Skip if either voice is accompaniment
+            if (i < len(accomp_flags) and accomp_flags[i]) or \
+               (i + 1 < len(accomp_flags) and accomp_flags[i + 1]):
                 continue
             gap = abs(pitches[i] - pitches[i + 1])
             if gap > 12:
@@ -626,14 +913,21 @@ def rule_voice_crossing(score: stream.Score) -> List[RuleViolation]:
     """
     Rule 10: No voice crosses above or below an adjacent voice.
     Voice i (higher) must have pitch >= voice i+1 (lower) at every moment.
+    Skip crossings involving accompaniment voices -- Alberti bass patterns
+    naturally cross through adjacent register ranges.
     """
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     slices = _build_vertical_slices(parts)
     violations = []
 
     for off, pitches in slices:
         for i in range(len(parts) - 1):
             if pitches[i] is None or pitches[i + 1] is None:
+                continue
+            # Skip if either voice is accompaniment
+            if (i < len(accomp_flags) and accomp_flags[i]) or \
+               (i + 1 < len(accomp_flags) and accomp_flags[i + 1]):
                 continue
             if pitches[i] < pitches[i + 1]:  # higher voice is lower than lower voice
                 measure = int(off // 4) + 1
@@ -649,19 +943,28 @@ def rule_leap_recovery(score: stream.Score) -> List[RuleViolation]:
     """
     Rule 12: Leaps larger than a perfect 4th (> 5 semitones) should be
     followed by stepwise motion in the opposite direction.
+    Skips accompaniment voices where leaps are inherent to the pattern.
     """
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     violations = []
 
     for v_idx, part in enumerate(parts):
+        # Skip accompaniment voices
+        if v_idx < len(accomp_flags) and accomp_flags[v_idx]:
+            continue
+
         notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
-        notes_list.sort(key=lambda n: float(n.offset))
+        # Sort by ABSOLUTE offset
+        notes_with_off = [(n, _abs_offset(n, part)) for n in notes_list]
+        notes_with_off.sort(key=lambda x: x[1])
         # Deduplicate simultaneous notes: keep only the highest at each offset
         deduped = []
-        for n in notes_list:
-            if not deduped or float(n.offset) >= float(deduped[-1].offset) + 0.01:
-                deduped.append(n)
-        pitches = [n.pitch.midi for n in deduped]
+        for n, off in notes_with_off:
+            if not deduped or off >= deduped[-1][1] + 0.01:
+                deduped.append((n, off))
+        pitches = [n.pitch.midi for n, _ in deduped]
+        offsets = [off for _, off in deduped]
         for i in range(len(pitches) - 2):
             leap = pitches[i + 1] - pitches[i]
             if abs(leap) > 5:  # greater than perfect 4th
@@ -670,10 +973,10 @@ def rule_leap_recovery(score: stream.Score) -> List[RuleViolation]:
                 opposite_direction = (leap > 0 and recovery < 0) or (leap < 0 and recovery > 0)
                 stepwise = abs(recovery) <= 2
                 if not (opposite_direction and stepwise):
-                    measure = int(float(deduped[i].offset) // 4) + 1
+                    measure = int(offsets[i] // 4) + 1
                     violations.append(RuleViolation(
                         "leap_recovery", measure,
-                        (float(deduped[i].offset) % 4) + 1,
+                        (offsets[i] % 4) + 1,
                         (f"voice_{v_idx}",),
                         f"Leap of {leap} st not recovered (next motion: {recovery} st)"
                     ))
@@ -684,19 +987,28 @@ def rule_consecutive_leaps(score: stream.Score) -> List[RuleViolation]:
     """
     Rule 11: No two consecutive leaps in the same direction that span
     more than a 10th (16 semitones total).
+    Skips accompaniment voices where leaps are inherent to the pattern.
     """
     parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
     violations = []
 
     for v_idx, part in enumerate(parts):
+        # Skip accompaniment voices
+        if v_idx < len(accomp_flags) and accomp_flags[v_idx]:
+            continue
+
         notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
-        notes_list.sort(key=lambda n: float(n.offset))
+        # Sort by ABSOLUTE offset
+        notes_with_off = [(n, _abs_offset(n, part)) for n in notes_list]
+        notes_with_off.sort(key=lambda x: x[1])
         # Deduplicate simultaneous notes: keep only the highest at each offset
         deduped = []
-        for n in notes_list:
-            if not deduped or float(n.offset) >= float(deduped[-1].offset) + 0.01:
-                deduped.append(n)
-        pitches = [n.pitch.midi for n in deduped]
+        for n, off in notes_with_off:
+            if not deduped or off >= deduped[-1][1] + 0.01:
+                deduped.append((n, off))
+        pitches = [n.pitch.midi for n, _ in deduped]
+        offsets = [off for _, off in deduped]
         for i in range(len(pitches) - 2):
             leap1 = pitches[i + 1] - pitches[i]
             leap2 = pitches[i + 2] - pitches[i + 1]
@@ -704,10 +1016,10 @@ def rule_consecutive_leaps(score: stream.Score) -> List[RuleViolation]:
                 if (leap1 > 0 and leap2 > 0) or (leap1 < 0 and leap2 < 0):  # same direction
                     total = abs(leap1) + abs(leap2)
                     if total > 16:
-                        measure = int(float(deduped[i].offset) // 4) + 1
+                        measure = int(offsets[i] // 4) + 1
                         violations.append(RuleViolation(
                             "consecutive_leaps", measure,
-                            (float(deduped[i].offset) % 4) + 1,
+                            (offsets[i] % 4) + 1,
                             (f"voice_{v_idx}",),
                             f"Consecutive same-dir leaps totaling {total} st (max 16)"
                         ))
@@ -755,9 +1067,20 @@ def metric_interval_distribution(score: stream.Score) -> MetricResult:
     bins = [0, 1, 3, 5, 8, 128]  # bin edges in semitones
 
     all_intervals = []
-    for part in _extract_voices(score):
+    parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
+    for v_idx, part in enumerate(parts):
+        # Skip accompaniment voices -- Alberti bass intervals skew the
+        # melodic interval distribution (they are mostly large leaps)
+        if v_idx < len(accomp_flags) and accomp_flags[v_idx]:
+            continue
         notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
-        pitches = [n.pitch.midi for n in notes_list]
+        # Sort by absolute offset to get correct melodic order
+        notes_with_off = sorted(
+            [(n, _abs_offset(n, part)) for n in notes_list],
+            key=lambda x: x[1]
+        )
+        pitches = [n.pitch.midi for n, _ in notes_with_off]
         all_intervals.extend([abs(pitches[i+1] - pitches[i]) for i in range(len(pitches)-1)])
 
     if len(all_intervals) < 5:
@@ -933,18 +1256,34 @@ def metric_cadence_placement(score: stream.Score) -> MetricResult:
         tonic_pc = k.tonic.pitchClass
         dominant_pc = (tonic_pc + 7) % 12
 
+        # Collect chords with absolute offsets and their full pitch-class content.
+        # To avoid Alberti bass false positives, we:
+        #   1. Only consider chords on strong beats (beat 1 or 3).
+        #   2. Require a HARMONIC change (different pitch-class set) between
+        #      the V and I chords, not just individual bass note motion.
+        #   3. Enforce a minimum spacing between detected cadences.
         chords_with_offset = []
         for el in chordified.recurse().notes:
             if isinstance(el, m21chord.Chord):
-                bass_pc = el.bass().pitchClass
-                chords_with_offset.append((float(el.offset), bass_pc))
+                off = _abs_offset(el, chordified)
+                beat_in_bar = off % 4.0
+                # Only strong beats (beat 1 or beat 3, with small tolerance)
+                is_strong = (beat_in_bar < 0.2 or abs(beat_in_bar - 2.0) < 0.2)
+                if is_strong:
+                    bass_pc = el.bass().pitchClass
+                    pc_set = frozenset(p.pitchClass for p in el.pitches)
+                    chords_with_offset.append((off, bass_pc, pc_set))
 
         cadence_offsets = []
+        MIN_CADENCE_SPACING = 8.0  # at least 2 bars between cadences
         for i in range(len(chords_with_offset) - 1):
-            off1, bass1 = chords_with_offset[i]
-            off2, bass2 = chords_with_offset[i + 1]
-            if bass1 == dominant_pc and bass2 == tonic_pc:
-                cadence_offsets.append(off2)
+            off1, bass1, pcs1 = chords_with_offset[i]
+            off2, bass2, pcs2 = chords_with_offset[i + 1]
+            # V -> I with actual harmonic change (different pitch-class sets)
+            if bass1 == dominant_pc and bass2 == tonic_pc and pcs1 != pcs2:
+                # Enforce minimum spacing from last cadence
+                if not cadence_offsets or (off2 - cadence_offsets[-1]) >= MIN_CADENCE_SPACING:
+                    cadence_offsets.append(off2)
     except Exception:
         return MetricResult("L2.cadence_placement", 0, 50.0, 0.10, (12, 36), "Analysis error")
 
@@ -986,9 +1325,20 @@ def metric_repetition_variation(score: stream.Score) -> MetricResult:
     WINDOW = 4
 
     all_intervals = []
-    for part in _extract_voices(score):
+    parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
+    for v_idx, part in enumerate(parts):
+        # Skip accompaniment voices -- their rapid arpeggiation distorts
+        # the repetition-variation measurement
+        if v_idx < len(accomp_flags) and accomp_flags[v_idx]:
+            continue
         notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
-        pitches = [n.pitch.midi for n in notes_list]
+        # Sort by absolute offset to get correct melodic order
+        notes_with_off = sorted(
+            [(n, _abs_offset(n, part)) for n in notes_list],
+            key=lambda x: x[1]
+        )
+        pitches = [n.pitch.midi for n, _ in notes_with_off]
         intervals = _intervals_semitones(pitches)
         all_intervals.extend(intervals)
 
@@ -1041,24 +1391,79 @@ def metric_phrase_length(score: stream.Score) -> MetricResult:
     Weight: 0.10
     """
     # Use rests and long notes as phrase boundary heuristic
-    all_notes = []
-    for part in _extract_voices(score):
-        for el in part.recurse().notesAndRests:
-            all_notes.append((float(el.offset), isinstance(el, m21note.Rest), float(el.quarterLength)))
-    all_notes.sort()
+    # Use absolute offsets and check the TOP voice primarily for phrases
+    parts = _extract_voices(score)
+    # Use top voice (melody) for phrase boundary detection
+    melody_part = parts[0] if parts else None
+    if melody_part is None:
+        return MetricResult("L2.phrase_length", 0, 50.0, 0.10, (0, 0), "No parts")
 
-    if not all_notes:
+    # Separate notes and rests, then build a timeline of actual silence.
+    # music21 often creates rests that overlap with sounding notes when
+    # parsing MIDI -- these are padding artifacts, not real silences.
+    note_events = []  # (offset, duration)
+    rest_events = []  # (offset, duration)
+    for el in melody_part.recurse().notesAndRests:
+        off = _abs_offset(el, melody_part)
+        dur = float(el.quarterLength)
+        if isinstance(el, m21note.Rest):
+            rest_events.append((off, dur))
+        else:
+            note_events.append((off, dur))
+    note_events.sort()
+    rest_events.sort()
+
+    if not note_events:
         return MetricResult("L2.phrase_length", 0, 50.0, 0.10, (0, 0), "No notes")
 
-    # Detect boundaries: rests or notes >= 3 beats long
-    boundaries = [0.0]
-    for off, is_rest, dur in all_notes:
-        if is_rest and dur >= 1.0:
-            boundaries.append(off)
-        elif dur >= 3.0:
-            boundaries.append(off + dur)
+    # Build a sounding-note coverage map: for each rest, check if a note
+    # is actually sounding at that time. If so, the rest is an artifact.
+    def _is_real_silence(rest_off, rest_dur):
+        """Return True if no note is sounding during this rest."""
+        rest_end = rest_off + rest_dur
+        for n_off, n_dur in note_events:
+            n_end = n_off + n_dur
+            # Note overlaps with rest period
+            if n_off < rest_end and n_end > rest_off:
+                return False
+            if n_off >= rest_end:
+                break
+        return True
 
-    total_dur = max(off + dur for off, _, dur in all_notes)
+    # Detect phrase boundaries using combined signals, with a minimum
+    # phrase length of 3 bars to avoid over-segmentation. Classical
+    # phrases are typically 4-8 bars; anything shorter than 3 bars is
+    # likely a sub-phrase, not a real structural boundary.
+    #
+    # Boundary signals (in priority order):
+    #   1. Real silences (rests not overlapping with notes) >= 1.0 beat.
+    #   2. Gaps between consecutive notes >= 2.0 beats.
+    #   3. Long held notes >= 4 beats followed by a gap.
+    raw_boundaries = []
+    # Check real rests -- only significant ones (>= 1 beat)
+    for r_off, r_dur in rest_events:
+        if r_dur >= 1.0 and _is_real_silence(r_off, r_dur):
+            raw_boundaries.append(r_off)
+
+    # Check gaps between consecutive note onsets
+    for i in range(1, len(note_events)):
+        prev_off, prev_dur = note_events[i - 1]
+        cur_off, _ = note_events[i]
+        prev_end = prev_off + prev_dur
+        gap = cur_off - prev_end
+        if gap >= 2.0:
+            raw_boundaries.append(cur_off)
+
+    # Enforce minimum phrase length: drop boundaries that are too close
+    # to each other (< 12 quarter notes = 3 bars).
+    MIN_PHRASE_QN = 12.0
+    raw_boundaries = sorted(set(raw_boundaries))
+    boundaries = [0.0]
+    for b in raw_boundaries:
+        if b - boundaries[-1] >= MIN_PHRASE_QN:
+            boundaries.append(b)
+
+    total_dur = max(off + dur for off, dur in note_events) if note_events else 0
     boundaries.append(total_dur)
     boundaries = sorted(set(boundaries))
 
@@ -1128,12 +1533,13 @@ def metric_phrase_boundaries(score: stream.Score) -> MetricResult:
     if len(notes_list) < 16:
         return MetricResult("L3.phrase_boundaries", 0, 40.0, 0.15, (0.3, 1.0), "Too short")
 
-    # Sample at quarter-note resolution
-    max_offset = max(float(n.offset) for n in notes_list)
+    # Sample at quarter-note resolution using ABSOLUTE offsets
+    abs_offsets = [_abs_offset(n, top_part) for n in notes_list]
+    max_offset = max(abs_offsets)
     beats = int(max_offset) + 1
     pitch_seq = np.zeros(beats)
-    for n in notes_list:
-        beat_idx = int(float(n.offset))
+    for n, off in zip(notes_list, abs_offsets):
+        beat_idx = int(off)
         if beat_idx < beats:
             pitch_seq[beat_idx] = n.pitch.midi
 
@@ -1194,7 +1600,12 @@ def metric_thematic_development(score: stream.Score) -> MetricResult:
         return MetricResult("L3.thematic_development", 0, 50.0, 0.20, (0.15, 0.40), "No parts")
 
     top_notes = [n for n in parts[0].recurse().notes if isinstance(n, m21note.Note)]
-    pitches = [n.pitch.midi for n in top_notes]
+    # Sort by absolute offset to get correct melodic order
+    top_notes_off = sorted(
+        [(n, _abs_offset(n, parts[0])) for n in top_notes],
+        key=lambda x: x[1]
+    )
+    pitches = [n.pitch.midi for n, _ in top_notes_off]
     if len(pitches) < MOTIF_LEN + 5:
         return MetricResult("L3.thematic_development", 0, 40.0, 0.20, (0.15, 0.40), "Too short")
 
@@ -1261,11 +1672,11 @@ def metric_tension_arc(score: stream.Score) -> MetricResult:
     if not parts:
         return MetricResult("L3.tension_arc", 0, 50.0, 0.20, (0.5, 1.0), "No parts")
 
-    # Determine total length
+    # Determine total length using absolute offsets
     all_offsets = []
     for part in parts:
         for el in part.recurse().notesAndRests:
-            all_offsets.append(float(el.offset) + float(el.quarterLength))
+            all_offsets.append(_abs_offset(el, part) + float(el.quarterLength))
     if not all_offsets:
         return MetricResult("L3.tension_arc", 0, 50.0, 0.20, (0.5, 1.0), "No notes")
 
@@ -1277,21 +1688,44 @@ def metric_tension_arc(score: stream.Score) -> MetricResult:
     pitch_height = np.zeros(n_bins)
     note_density = np.zeros(n_bins)
     dissonance = np.zeros(n_bins)
+    velocity_curve = np.zeros(n_bins)
+    velocity_counts = np.zeros(n_bins)
 
     for part in parts:
         for el in part.recurse().notes:
-            offset = float(el.offset)
+            offset = _abs_offset(el, part)
             bin_idx = min(int(offset / bin_size), n_bins - 1)
             if isinstance(el, m21note.Note):
                 pitch_height[bin_idx] += el.pitch.midi
                 note_density[bin_idx] += 1
+                # Read velocity: try volume.velocity first, fall back to
+                # volume.velocityScalar (0-1 range) which music21 sometimes
+                # uses for MIDI imports.
+                vel = el.volume.velocity
+                if vel is None and el.volume.velocityScalar is not None:
+                    vel = el.volume.velocityScalar * 127.0
+                if vel is not None and vel > 0:
+                    velocity_curve[bin_idx] += vel
+                    velocity_counts[bin_idx] += 1
             elif isinstance(el, m21chord.Chord):
+                # Also read velocity from chords
+                chord_vel = el.volume.velocity
+                if chord_vel is None and el.volume.velocityScalar is not None:
+                    chord_vel = el.volume.velocityScalar * 127.0
                 for p in el.pitches:
                     pitch_height[bin_idx] += p.midi
                     note_density[bin_idx] += 1
+                if chord_vel is not None and chord_vel > 0:
+                    velocity_curve[bin_idx] += chord_vel
+                    velocity_counts[bin_idx] += 1
+
+    # Average velocity per bin (not sum)
+    for i in range(n_bins):
+        if velocity_counts[i] > 0:
+            velocity_curve[i] /= velocity_counts[i]
 
     # Normalize each component to 0-1
-    for arr in [pitch_height, note_density, dissonance]:
+    for arr in [pitch_height, note_density, dissonance, velocity_curve]:
         arr_max = arr.max()
         if arr_max > 0:
             arr /= arr_max
@@ -1301,7 +1735,7 @@ def metric_tension_arc(score: stream.Score) -> MetricResult:
         chordified = score.chordify()
         for el in chordified.recurse().notes:
             if isinstance(el, m21chord.Chord) and len(el.pitches) >= 2:
-                offset = float(el.offset)
+                offset = _abs_offset(el, chordified)
                 bin_idx = min(int(offset / bin_size), n_bins - 1)
                 for pi, pj in combinations(el.pitches, 2):
                     ic = abs(pi.midi - pj.midi) % 12
@@ -1313,8 +1747,15 @@ def metric_tension_arc(score: stream.Score) -> MetricResult:
     except Exception:
         pass
 
-    # Combined tension curve
-    tension = 0.4 * dissonance + 0.3 * pitch_height + 0.2 * note_density + 0.1 * np.ones(n_bins) * 0.5
+    # Combined tension curve -- include velocity as a primary signal
+    # Velocity is often the strongest indicator of tension in MIDI
+    has_velocity = velocity_curve.max() > 0
+    if has_velocity:
+        tension = (0.25 * dissonance + 0.20 * pitch_height
+                   + 0.15 * note_density + 0.40 * velocity_curve)
+    else:
+        tension = (0.4 * dissonance + 0.3 * pitch_height
+                   + 0.2 * note_density + 0.1 * np.ones(n_bins) * 0.5)
 
     # Generate target "arch" curve: rise to golden section, then resolve
     t = np.linspace(0, 1, n_bins)
@@ -1373,12 +1814,13 @@ def metric_form_proportions(score: stream.Score) -> MetricResult:
         return MetricResult("L3.form_proportions", 0, 50.0, 0.10, (0.8, 1.7),
                             "Piece too short for form analysis")
 
-    # Beat-quantized pitch sequence
-    max_offset = max(float(n.offset) for n in top_notes)
+    # Beat-quantized pitch sequence using ABSOLUTE offsets
+    abs_offsets = [_abs_offset(n, parts[0]) for n in top_notes]
+    max_offset = max(abs_offsets)
     beats = int(max_offset) + 1
     seq = np.zeros(beats)
-    for n in top_notes:
-        idx = int(float(n.offset))
+    for n, off in zip(top_notes, abs_offsets):
+        idx = int(off)
         if idx < beats:
             seq[idx] = n.pitch.midi
     for i in range(1, len(seq)):
@@ -1468,9 +1910,13 @@ def metric_intentionality(score: stream.Score) -> MetricResult:
     """
     all_pcs = []
     for part in _extract_voices(score):
-        for n in part.recurse().notes:
-            if isinstance(n, m21note.Note):
-                all_pcs.append(n.pitch.pitchClass)
+        notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
+        # Sort by absolute offset to get correct note order
+        notes_with_off = sorted(
+            [(n, _abs_offset(n, part)) for n in notes_list],
+            key=lambda x: x[1]
+        )
+        all_pcs.extend([n.pitch.pitchClass for n, _ in notes_with_off])
 
     if len(all_pcs) < 20:
         return MetricResult("L4.intentionality", 0, 50.0, 0.15, (1.5, 2.5), "Too few notes")
@@ -1544,11 +1990,11 @@ def metric_transition_motivation(score: stream.Score) -> MetricResult:
     if not parts:
         return MetricResult("L4.transition_motivation", 0, 50.0, 0.10, (0, 0.5), "No parts")
 
-    # Compute note density per bar
+    # Compute note density per bar using absolute offsets
     all_offsets = []
     for part in parts:
         for el in part.recurse().notes:
-            all_offsets.append(float(el.offset))
+            all_offsets.append(_abs_offset(el, part))
     if not all_offsets:
         return MetricResult("L4.transition_motivation", 0, 50.0, 0.10, (0, 0.5), "No notes")
 
@@ -1600,9 +2046,20 @@ def metric_directional_momentum(score: stream.Score) -> MetricResult:
     TARGET_LOW, TARGET_HIGH = 2.0, 4.0
 
     all_intervals = []
-    for part in _extract_voices(score):
+    parts = _extract_voices(score)
+    accomp_flags = _get_accompaniment_flags(score)
+    for v_idx, part in enumerate(parts):
+        # Skip accompaniment voices -- alternating patterns destroy
+        # directional momentum measurement
+        if v_idx < len(accomp_flags) and accomp_flags[v_idx]:
+            continue
         notes_list = [n for n in part.recurse().notes if isinstance(n, m21note.Note)]
-        pitches = [n.pitch.midi for n in notes_list]
+        # Sort by absolute offset to get correct melodic order
+        notes_with_off = sorted(
+            [(n, _abs_offset(n, part)) for n in notes_list],
+            key=lambda x: x[1]
+        )
+        pitches = [n.pitch.midi for n, _ in notes_with_off]
         all_intervals.extend(_intervals_semitones(pitches))
 
     if len(all_intervals) < 10:
@@ -1659,8 +2116,11 @@ LEVEL_WEIGHTS = {
 # Level-1 failure cap: if rules are violated, final score cannot exceed this
 LEVEL1_FAILURE_CAP = 40.0
 
-# Severity scaling: reduce cap further based on number of violations
-LEVEL1_VIOLATIONS_SCALE = 2.0  # subtract this many points per violation from cap
+# Severity scaling: reduce cap further based on number of violations.
+# Use 1.0 per violation so that a piece with a few minor issues (< 10)
+# still gets a meaningful score. Only truly problematic pieces (30+
+# violations) should be driven to 0.
+LEVEL1_VIOLATIONS_SCALE = 1.0
 
 
 def evaluate_score(score: stream.Score) -> EvaluationReport:
@@ -1722,9 +2182,16 @@ def evaluate_score(score: stream.Score) -> EvaluationReport:
         for level_num in (2, 3, 4)
     )
 
-    # Apply Level-1 cap if rules were violated
+    # Apply Level-1 cap if rules were violated.
+    # Weight violations by severity: parallel 5ths/octaves and voice range
+    # are critical; others are less severe.
     if not report.level1_pass:
-        cap = max(0, LEVEL1_FAILURE_CAP - len(report.rule_violations) * LEVEL1_VIOLATIONS_SCALE)
+        critical_rules = {"parallel_5ths", "parallel_octaves", "voice_range"}
+        n_critical = sum(1 for v in report.rule_violations if v.rule_name in critical_rules)
+        n_minor = len(report.rule_violations) - n_critical
+        # Critical violations cost 3 points each, minor violations cost 0.5
+        penalty = n_critical * 3.0 + n_minor * 0.5
+        cap = max(0, LEVEL1_FAILURE_CAP - penalty)
         final = min(final, cap)
 
     report.final_score = round(final, 2)

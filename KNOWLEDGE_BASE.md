@@ -4798,3 +4798,734 @@ Given MIDI's limitations (Section 36.4), implement timbral control through a lay
 6. **MIDI is inadequate for timbre but workable with layered strategies.** Accept the limitations. Use orchestration choices (which instruments, which combinations) as the primary timbral control, with MIDI CCs and keyswitches as secondary refinement.
 7. **The timbral arc runs parallel to harmonic, melodic, and rhythmic arcs.** Define it explicitly for each piece. Correlate it with the other arcs for reinforcement, or deliberately contradict for sophisticated effect.
 8. **One timbral "scream" per piece.** The noise-content spike at the melodic climax is the timbral equivalent of the appoggiatura -- the single most powerful timbral gesture. Use it once. Maximum impact through restraint.
+
+---
+
+## Part 37: Advanced Rhythm -- Metric Modulation, Polymetric Structures, and Tempo as Composition
+
+Part 4 covers Euclidean rhythms and basic phrase structure. Part 10 covers entrainment and syncopation rates. This part addresses the dimension both miss: rhythm as an independent compositional parameter with its own syntax, modulations, and counterpoint -- the techniques that separate Stravinsky from a metronome.
+
+### 37.1 Metric Modulation (Elliott Carter's Revolution)
+
+Metric modulation redefines the beat unit mid-passage so that a subdivision of the old tempo becomes the beat of the new tempo. The listener perceives a seamless gear-shift rather than an abrupt tempo change.
+
+**The Mechanism**
+
+Old tempo has a subdivision that equals the new beat:
+```
+Old: quarter = 120 BPM, eighth-note triplet = 360 per minute
+New: quarter = 180 BPM (360 / 2 = 180)
+Pivot: the triplet eighth of the old tempo becomes the new eighth note
+Ratio: new_tempo = old_tempo * (old_subdivision / new_beat_value)
+```
+
+**Common Metric Modulation Ratios**
+
+| Old Beat | Pivot Note | New Beat | Tempo Ratio | Example |
+|----------|-----------|----------|-------------|---------|
+| Quarter | Triplet eighth → new eighth | Quarter | 3:2 (accelerando) | q=120 → q=180 |
+| Quarter | Dotted eighth → new quarter | Quarter | 3:4 (ritardando) | q=120 → q=90 |
+| Quarter | Quintuplet sixteenth → new sixteenth | Quarter | 5:4 (acceleration) | q=120 → q=150 |
+| Dotted quarter | Eighth → new eighth | Quarter | 2:3 (deceleration) | q.=80 → q=120 |
+| Quarter | Triplet quarter → new quarter | Quarter | 2:3 (deceleration) | q=120 → q=80 |
+| Quarter | Septuplet sixteenth → new sixteenth | Quarter | 7:4 (sharp acceleration) | q=120 → q=210 |
+
+**Implementation Algorithm**
+
+```python
+def metric_modulation(old_bpm, old_subdivisions_per_beat, new_subdivisions_per_beat):
+    """
+    Calculate new BPM after metric modulation.
+    old_subdivisions_per_beat: how many of the pivot note fit in one old beat
+    new_subdivisions_per_beat: how many of the pivot note fit in one new beat
+    The pivot note's absolute duration stays constant.
+    """
+    pivot_duration_ms = (60000 / old_bpm) / old_subdivisions_per_beat
+    new_beat_duration_ms = pivot_duration_ms * new_subdivisions_per_beat
+    new_bpm = 60000 / new_beat_duration_ms
+    return round(new_bpm, 2)
+
+# Examples:
+# Triplet eighths become regular eighths: 120 BPM → 180 BPM
+metric_modulation(120, 3, 2)  # → 180.0
+
+# Dotted eighth becomes new quarter: 120 BPM → 90 BPM
+metric_modulation(120, old_subdivisions_per_beat=4/3, new_subdivisions_per_beat=1)  # → 90.0
+
+# Quintuplet sixteenth becomes new sixteenth: 120 BPM → 150 BPM
+metric_modulation(120, 5, 4)  # → 150.0
+```
+
+**Preparation Strategy (Critical for Audibility)**
+
+A metric modulation fails if the listener cannot hear the pivot. The preparation strategy:
+
+1. **Bars -4 to -2**: Introduce the pivot subdivision in one voice (e.g., triplet eighths in a solo clarinet) while other voices maintain the old meter.
+2. **Bar -1**: Make the pivot subdivision prominent -- multiple voices, louder dynamic, on strong beats.
+3. **Bar 0 (the modulation)**: The pivot subdivision becomes the new beat. Other voices align to the new grid.
+4. **Bars +1 to +2**: Reinforce the new meter with clear downbeat accents and regular phrasing.
+
+Without preparation, even trained musicians perceive metric modulation as "the tempo got weird." With preparation, it sounds inevitable.
+
+### 37.2 Carter's Rhythmic Language -- Speed Characters
+
+Elliott Carter's mature style assigns each instrument a characteristic tempo and rhythmic vocabulary that persists throughout a piece. He called these "speed characters." The result is simultaneous independent temporal streams -- rhythmic counterpoint analogous to pitch counterpoint.
+
+**The Four Parameters of a Speed Character**
+
+1. **Base tempo**: Each voice has its own pulse (e.g., Violin = quarter at 140, Cello = quarter at 84).
+2. **Rhythmic vocabulary**: Each voice uses a limited set of durations (e.g., Violin: sixteenths and dotted eighths only; Cello: quarters and half notes only).
+3. **Accentual pattern**: Each voice accents differently (e.g., every 5th sixteenth vs. every 3rd eighth).
+4. **Density trajectory**: Each voice has an independent density curve (one accelerates while another decelerates).
+
+**Implementation for AI Composition**
+
+```python
+speed_character = {
+    "violin": {
+        "base_bpm": 140,
+        "allowed_durations": [0.25, 0.375],  # sixteenths, dotted eighths (in beats)
+        "accent_cycle": 5,                     # accent every 5th onset
+        "density_curve": "accelerando"          # increasing density over section
+    },
+    "cello": {
+        "base_bpm": 84,
+        "allowed_durations": [1.0, 2.0],       # quarters, halves
+        "accent_cycle": 3,
+        "density_curve": "steady"
+    }
+}
+# The two voices will naturally go in and out of alignment,
+# creating points of rhythmic convergence (downbeats together)
+# and divergence (maximum polymetric tension).
+```
+
+**Convergence Points**: Calculate the LCM of the two accent cycles to find where both voices accent simultaneously. These convergence points function as rhythmic "cadences" -- moments of resolution in the temporal domain.
+
+### 37.3 Polymetric and Polymeter Structures
+
+**Polyrhythm vs. Polymeter**
+
+- **Polyrhythm**: Two different groupings within the SAME bar length. 3 against 4 in one bar of 4/4. Both streams share downbeats.
+- **Polymeter**: Two different meters running simultaneously. 3/4 against 4/4. Downbeats diverge and reconverge every LCM beats.
+
+**Common Polyrhythm Implementation**
+
+```
+3:2 (hemiola):
+Voice A: |x . x . x . |     (3 events per 6 pulses)
+Voice B: |x . . x . . |     (2 events per 6 pulses)
+
+4:3:
+Voice A: |x . . x . . x . . x . . |   (4 events per 12 pulses)
+Voice B: |x . . . x . . . x . . . |   (3 events per 12 pulses)
+
+5:4:
+Voice A: |x . . . x . . . x . . . x . . . x . . . |   (5 in 20)
+Voice B: |x . . . . x . . . . x . . . . x . . . . |   (4 in 20)
+```
+
+**Hemiola -- The Most Common Polyrhythm in Classical Music**
+
+Hemiola regroups six beats from 3+3 into 2+2+2 (or vice versa). Ubiquitous in Baroque and Classical cadential passages.
+
+```
+Normal 3/4:    | ONE two three | ONE two three |
+Hemiola:       | ONE two three ONE | two three |
+               (rebarred as 2 bars of 3/2 within 3 bars of 3/4)
+```
+
+**Where composers use it**: The two bars before a cadence in a minuet, sarabande, or waltz. Brahms uses hemiola obsessively -- often 3-4 bars of 2-feel within a 3/4 movement.
+
+**Detection in MIDI**: Accent pattern shifts from every 3 beats to every 2 beats while the bar length stays constant.
+
+### 37.4 Additive and Aksak Rhythms
+
+**Additive Rhythm**: Beat groups of unequal length (2+3, 3+2+2, 2+2+3). The meter is asymmetric.
+
+| Meter | Grouping | Region/Composer |
+|-------|----------|-----------------|
+| 5/8 | 2+3 or 3+2 | Bartok, Chopin (Op. 25/2 variant) |
+| 7/8 | 2+2+3 or 3+2+2 | Bulgarian folk, Bartok (Bulgarian Dances) |
+| 8/8 | 3+3+2 | Turkish aksak, Dave Brubeck |
+| 9/8 | 2+2+2+3 | Bartok String Quartet No. 5 |
+| 11/8 | 2+2+3+2+2 | Stravinsky (Rite of Spring) |
+| 15/16 | 2+2+2+2+2+2+3 | complex aksak patterns |
+
+**Stravinsky's Rite of Spring -- Rhythmic Innovation**
+
+The "Danse sacrale" does not use metric modulation. It uses **constant pulse with changing groupings** -- the eighth note stays constant but bar lengths change every bar:
+
+```
+Bar 1: 3/16
+Bar 2: 2/16
+Bar 3: 3/16
+Bar 4: 3/16
+Bar 5: 2/8
+Bar 6: 2/16
+Bar 7: 3/16
+```
+
+This creates maximum rhythmic unpredictability at the bar level while maintaining a steady underlying pulse. The listener can tap the pulse but cannot predict the accents. This is the rhythmic equivalent of the 75/25 predictability/surprise ratio from Part 10 -- pulse is predictable (75%), accentuation is surprising (25%).
+
+**Implementation**: Define a sequence of beat-group lengths, then distribute accents on the first pulse of each group. The underlying pulse (sixteenth or eighth) remains constant. Vary the grouping sequence to control predictability.
+
+### 37.5 Tempo as a Structural Dimension
+
+**Tempo Proportion Systems**
+
+Just as pitch intervals create relationships between frequencies, tempo ratios create relationships between speeds. A piece built on a single tempo is harmonically analogous to a piece in one key. Tempo modulations expand the "key space" of rhythm.
+
+| Ratio | Musical Relationship | Character |
+|-------|---------------------|-----------|
+| 1:1 | Unison | Stability |
+| 2:1 | Octave (double time) | Energy without disorientation |
+| 3:2 | Perfect fifth | Natural, satisfying gear shift |
+| 4:3 | Perfect fourth | Gentle shift |
+| 5:4 | Major third | Subtle, sophisticated |
+| 5:3 | Major sixth | Warm, expansive |
+| Irrational (e.g., pi:e) | "Atonal tempo" | Carter's late style, maximal independence |
+
+**Tempo Canon**: A single rhythmic line played simultaneously at two or more tempi (Nancarrow, Ligeti). The voices gradually diverge from unison and reconverge at mathematically determined points.
+
+```python
+def tempo_canon_convergence(tempo_a, tempo_b, start_beat=0):
+    """
+    Find the next beat number where two voices realign.
+    tempo_a and tempo_b are in BPM. They converge when
+    both have completed an integer number of beats simultaneously.
+    Returns (beats_a, beats_b, time_seconds).
+    """
+    from math import gcd
+    # Reduce to integer ratio
+    ratio = tempo_a / tempo_b
+    # Find smallest integers n_a, n_b such that n_a/n_b = ratio
+    # (approximate for irrational ratios)
+    from fractions import Fraction
+    frac = Fraction(tempo_a, tempo_b).limit_denominator(100)
+    n_a, n_b = frac.numerator, frac.denominator
+    time_sec = (60 * n_a) / tempo_a
+    return n_a, n_b, round(time_sec, 3)
+
+# 3:2 ratio: voices converge every 3 beats of the fast voice
+tempo_canon_convergence(180, 120)  # → (3, 2, 1.0)
+# 5:4 ratio: converge every 5 beats of the fast voice
+tempo_canon_convergence(150, 120)  # → (5, 4, 2.0)
+```
+
+### 37.6 Rhythmic Counterpoint -- Complementary and Interlocking Patterns
+
+**The Hocket Principle**: Two or more voices interlock so that when one sounds, the others rest. The composite rhythm is denser than any single voice. Medieval technique, revived by minimalists and African-derived music.
+
+```
+Voice A: x . . x . . x . . x . .
+Voice B: . . x . . x . . x . . x
+Voice C: . x . . x . . x . . x .
+Composite: x x x x x x x x x x x x  (continuous stream)
+```
+
+**Rhythmic Complementation**: Design each voice's rhythm as the inverse of another's, ensuring the composite fills the metric grid evenly. Use this when moving from homophonic (all voices same rhythm) to polyphonic (all voices independent): gradually introduce rhythmic offsets between voices over 2-4 bars.
+
+### 37.7 Summary: Rhythm as a First-Class Compositional Parameter
+
+1. **Metric modulation is the rhythmic equivalent of key modulation.** Prepare the pivot, execute cleanly, confirm the new meter.
+2. **Speed characters enable true rhythmic counterpoint.** Assign each voice its own temporal identity.
+3. **Hemiola is the cheapest and most effective rhythmic surprise.** Use it at cadences.
+4. **Additive rhythms create asymmetric energy.** Constant pulse + variable grouping = predictable at one level, surprising at another.
+5. **Tempo ratios mirror interval ratios.** Simple ratios (2:1, 3:2) feel natural; complex ratios (5:4, 7:4) feel exotic; irrational ratios feel disorienting.
+6. **Convergence points are rhythmic cadences.** Calculate them from the LCM and place structural events there.
+7. **Hocket and complementary rhythm are tools for texture transition.** They move smoothly from unison to polyphony.
+
+---
+
+## Part 38: Texture Transitions and Modulation Techniques -- Getting from A to B
+
+Two of the most common failures in AI-generated music: (1) textures change abruptly without preparation, creating a "cut-and-paste" feeling, and (2) key changes sound arbitrary because the modulation technique is wrong for the context. This part provides systematic recipes for both.
+
+### 38.1 The Five Basic Textures (Reference)
+
+| Texture | Definition | Example |
+|---------|-----------|---------|
+| **Monophonic** | Single melodic line, no accompaniment | Gregorian chant, solo Bach cello suite |
+| **Homophonic** | Melody + block chord accompaniment | Hymn, most pop, Classical slow movements |
+| **Melody + accompaniment** | Melody over patterned figuration (Alberti bass, arpeggios) | Mozart sonatas, nocturnes |
+| **Polyphonic (contrapuntal)** | 2+ independent melodic lines | Fugue, invention, Renaissance motet |
+| **Heterophonic** | Multiple voices playing the same melody with slight variations | Gamelan, some folk music, Ives |
+
+### 38.2 Texture Transition Recipes
+
+**Monophonic to Homophonic (Adding Harmony)**
+
+The most natural transition in classical music. Steps:
+1. Begin with solo melody (4-8 bars to establish it).
+2. Add a bass note on downbeats only (drone or pedal point) -- 2 bars.
+3. Add inner voices on strong beats, matching the melody's rhythm -- 2 bars.
+4. Fill in the full chordal texture on all beats.
+
+**Time required**: 4-6 bars for a natural transition. Rushing it (solo to full chords in 1 bar) sounds like a production error.
+
+**Homophonic to Polyphonic (The Critical Transition)**
+
+This is where most AI compositions fail. The voices must acquire independence gradually.
+
+**Method 1: Rhythmic staggering** (easiest, most reliable)
+```
+Bar 1: All voices move in quarter notes (homophonic)
+Bar 2: Bass shifts to half notes, soprano adds eighth-note passing tones
+Bar 3: Alto introduces a syncopated rhythm independent of soprano
+Bar 4: Each voice has its own rhythmic profile (polyphonic)
+```
+
+**Method 2: Imitative entry** (fugal technique)
+```
+Bar 1-2: Soprano states a 2-bar motive, other voices hold chords
+Bar 3-4: Alto enters with the motive (transposed), soprano continues freely
+Bar 5-6: Tenor enters with the motive, alto and soprano now independent
+Bar 7-8: Bass enters. Full polyphony achieved.
+```
+
+**Method 3: Melodic individuation** (Romantic technique)
+```
+Bar 1: All voices move by step in parallel (homophonic)
+Bar 2: Inner voices begin to move in contrary motion to the soprano
+Bar 3: One inner voice introduces a chromatic note foreign to the chord
+Bar 4: That chromatic note spawns a new melodic line (polyphony emerges from harmonic decoration)
+```
+
+**Polyphonic to Homophonic (Regrouping)**
+
+Easier than the reverse. Three methods:
+1. **Rhythmic convergence**: All voices gradually synchronize to the same rhythmic pattern over 2-4 bars. The melody voice takes prominence through register and dynamics.
+2. **Unison arrival**: All voices converge on a single pitch (or octaves) at a cadence, then re-enter in homophonic texture. The unison is the "reset button."
+3. **Thinning**: Voices drop out one by one (bass holds, then inner voices sustain, then only melody + bass remain), then re-enter in block chords.
+
+**Any Texture to Monophonic (The Solo Breakout)**
+
+Always effective at climaxes. The full texture falls silent and a single voice continues alone. The silence should coincide with a structurally important moment (dominant arrival, deceptive cadence). The solo voice carries maximum expressive weight because all context has been stripped away.
+
+**Heterophonic from Unison**
+
+Begin with all voices on the same melody in unison/octaves. Gradually allow each voice to deviate:
+1. One voice adds ornamental turns.
+2. Another voice simplifies, holding long notes where the melody moves.
+3. Another voice anticipates melodic arrivals by a beat.
+4. Result: same melody heard through multiple "lenses" simultaneously.
+
+### 38.3 The Texture-Change Pacing Rule
+
+**Never change more than one parameter simultaneously without preparation.**
+
+A texture change involves multiple parameter shifts (rhythm, independence, density, register, dynamics). Changing all at once sounds like a splice. Instead:
+
+- Bar N: Change dynamics (e.g., diminuendo to pp)
+- Bar N+1: Change density (reduce to 2 voices)
+- Bar N+2: Change rhythmic profile (introduce the new pattern)
+- Bar N+3: Change register (move to new octave)
+- Bar N+4: New texture is fully established
+
+**Exception**: At a double barline, general pause, or formal boundary (end of exposition, start of development), abrupt texture change is expected and effective. The silence acts as a "reset" that permits discontinuity.
+
+### 38.4 Modulation Techniques -- Complete Catalog with Voice Leading
+
+Part 17 covers advanced chromatic techniques. This section covers the practical mechanics of getting from Key A to Key B -- the everyday modulation toolkit.
+
+**1. Pivot Chord Modulation (Diatonic Common Chord)**
+
+The most common modulation in classical music. A chord belongs to both the old and new key. The ear reinterprets it.
+
+```
+C major → G major:
+C: I    IV   ii    V    I    |  vi     V/V    V     I
+G:                          |  ii     V      V     I
+         ↑ pivot chord: C's vi (Am) = G's ii (Am)
+
+Voice leading at the pivot (SATB):
+S: E → D → D → B    (vi → V/V → V → I in G)
+A: C → C → B → G
+T: A → A → G → G
+B: A → F# → G → G
+```
+
+**Best pivot chords by modulation distance:**
+
+| From → To | Pivot (in old key → in new key) | Smoothness |
+|-----------|-------------------------------|------------|
+| I → V (up 5th) | vi = ii, IV = bVII, I = IV | Very smooth |
+| I → IV (up 4th) | I = V, ii = vi, vi = iii | Very smooth |
+| I → vi (relative minor) | I = III, IV = VI, V = VII | Smooth |
+| I → ii (up whole step) | IV = III, vi = v | Moderate |
+| I → iii (up major 3rd) | vi = iv, I = VI | Moderate |
+| I → bIII (up minor 3rd) | No diatonic pivot | Use chromatic methods |
+| I → bVI (up minor 6th) | No diatonic pivot | Use chromatic methods |
+
+**2. Common-Tone Modulation**
+
+One pitch is sustained (or repeated) across the key change. The common tone is typically held in a prominent voice (soprano or bass). Everything else changes around it.
+
+```
+C major → Ab major via common tone C:
+C: I (C-E-G) → held C → Ab: iii (C-Eb-Ab) or I6 (C in bass of Ab chord)
+
+Voice leading:
+S: C ——————→ C  (held)
+A: E → Eb        (half step down)
+T: G → Ab        (half step up)
+B: C → Ab        (major third down)
+```
+
+**When to use**: Modulation to remote keys (chromatic mediants, tritone-related keys) where no diatonic pivot exists. The held pitch provides perceptual continuity despite harmonic distance.
+
+**Schubert's specialty**: The common tone is in the melody. The tune continues unperturbed while the harmony shifts underneath -- the listener feels the ground shift beneath their feet.
+
+**3. Chromatic (Linear) Modulation**
+
+One or more voices move by half step into the new key. No pivot chord, no common tone -- pure voice-leading force.
+
+```
+C major → Db major via chromatic bass:
+C: V7 (G-B-D-F) → Db: I (Db-F-Ab-Db)
+
+Voice leading:
+S: F → F         (common tone, but incidental)
+A: D → Db        (chromatic descent)
+T: B → Bb → Ab   (chromatic descent through passing tone)
+B: G → Ab → Db   (step up, then 4th down to establish Db bass)
+```
+
+**When to use**: Half-step modulations (up or down). Also effective for whole-step modulations when combined with secondary dominants. Sounds purposeful and dramatic.
+
+**4. Enharmonic Modulation (Expanded from Part 17)**
+
+**Via German Augmented Sixth / Dominant 7th:**
+```
+In C minor: Ger+6 = Ab-C-Eb-F#
+Respell F# as Gb: Ab-C-Eb-Gb = Ab dominant 7th = V7 of Db
+Resolution: Db major
+
+SATB voice leading:
+S: F#(Gb) → F     (resolves down in Db context)
+A: Eb → Db        (7th resolves down)
+T: C → C          (held, becomes 7th of Db? No -- becomes root region)
+B: Ab → Db        (V → I in Db)
+```
+
+**Via Diminished 7th:**
+```
+B-D-F-Ab = vii°7 of C minor
+Respell Ab as G#: B-D-F-G# = vii°7 of A minor
+Respell F as E#: B-D-E#-G# = vii°7 of F# minor
+Respell B as Cb: Cb-D-F-Ab = vii°7 of Eb minor
+
+One chord, four destinations. Choose by which note resolves up by half step (= leading tone of the target).
+```
+
+**5. Direct (Phrase) Modulation**
+
+No pivot, no preparation. The old key cadences, a breath or rest occurs, and the new key simply begins. Most effective at formal boundaries.
+
+```
+C major: .... V → I  (PAC in C)  ||  Eb major: I → IV → V → I ...
+
+No voice-leading connection between the C cadence and the Eb opening.
+The silence does the work. The ear accepts the reset.
+```
+
+**When to use**: Between sections (exposition → development, verse → chorus). Not within a phrase -- it sounds like a wrong note.
+
+**6. Sequential Modulation**
+
+A melodic/harmonic pattern is repeated at successive pitch levels. The pattern itself is the modulation vehicle.
+
+```
+C major: I-IV-V7-I  (C)
+         I-IV-V7-I  (transposed up a step: D minor context)
+         I-IV-V7-I  (transposed up again: E minor context)
+         ... arrive at target key via the sequence's momentum
+```
+
+**The rule**: After 2-3 sequential repetitions, the listener expects continuation. Break the sequence at the target key with a strong cadence. The sequence provides momentum; the cadence provides arrival. Vivaldi, Handel, and Bach use this constantly.
+
+### 38.5 Choosing the Right Modulation for the Context
+
+| Context | Best Technique | Why |
+|---------|---------------|-----|
+| Moving to closely related key (V, IV, vi) | Pivot chord | Smooth, elegant, the ear barely notices |
+| Moving to remote key (bVI, bIII, tritone) | Common tone or enharmonic | Need perceptual anchor across the harmonic gap |
+| Dramatic surprise / narrative shock | Direct modulation | Abruptness IS the effect |
+| Gradual intensification / development section | Sequential | Momentum carries the listener forward |
+| Half-step key change (e.g., for a "truck driver" lift) | Chromatic voice leading or V/V | Direct and purposeful |
+| Returning to tonic after extended development | Pivot chord + dominant pedal | Re-establish tonic authority gradually |
+| Scherzo/trio boundary | Direct modulation | Formal boundary permits discontinuity |
+
+### 38.6 Modulation Smoothness Score
+
+For an AI system, quantify modulation smoothness:
+
+```python
+def modulation_smoothness(old_key, new_key, technique, n_common_tones, max_voice_movement_semitones):
+    """
+    Score 0.0 (jarring) to 1.0 (seamless).
+    """
+    key_distance = min(abs(old_key - new_key), 12 - abs(old_key - new_key))  # semitones on circle of fifths
+    
+    # Base score from technique
+    technique_scores = {
+        "pivot_chord": 0.9,
+        "common_tone": 0.75,
+        "sequential": 0.7,
+        "chromatic": 0.6,
+        "enharmonic": 0.5,
+        "direct": 0.3
+    }
+    base = technique_scores.get(technique, 0.5)
+    
+    # Bonus for common tones, penalty for large voice movement
+    common_tone_bonus = n_common_tones * 0.1  # max ~0.3 for 3 common tones
+    movement_penalty = max(0, (max_voice_movement_semitones - 2) * 0.05)
+    
+    # Remote keys are inherently less smooth
+    distance_penalty = key_distance * 0.03
+    
+    return max(0.0, min(1.0, base + common_tone_bonus - movement_penalty - distance_penalty))
+```
+
+### 38.7 Summary
+
+1. **Texture transitions need 4-6 bars to sound natural.** One parameter change per bar.
+2. **Rhythmic staggering is the most reliable homophonic-to-polyphonic method.** Give each voice an independent rhythm before giving it an independent melody.
+3. **The unison "reset" solves any texture transition problem.** Converge all voices, then diverge into the new texture.
+4. **Pivot chord modulation is the default.** Use it for closely related keys unless there's a specific reason not to.
+5. **Common-tone modulation is the workhorse for remote keys.** Hold one note, move everything else.
+6. **Direct modulation requires a formal boundary.** Without a pause, it sounds like a mistake.
+7. **Modulations need confirmation.** After arriving in the new key, spend 2-4 bars establishing it (V-I cadence, diatonic melody) before moving on.
+
+---
+
+## Part 39: Composition Debugging -- Diagnosing Why It Sounds Wrong
+
+The 50 Essential Rules (Part 34) tell you what to check. This part tells you what to do when a passage has been checked against the rules, passes most of them, and still sounds bad. This is the diagnostic manual -- a systematic framework for identifying which parameter is the actual problem.
+
+### 39.1 The Triage Framework
+
+When a passage sounds wrong, the problem lives in one of seven layers. Check them in this order (most common problems first):
+
+| Priority | Layer | Symptoms | Quick Test |
+|----------|-------|----------|------------|
+| 1 | **Voice leading** | "Clunky," "mechanical," "lumpy" | Sing each voice alone. Does it make melodic sense? |
+| 2 | **Rhythm/pacing** | "Boring," "monotonous," "restless" | Tap the rhythm without pitch. Is there variety? Shape? |
+| 3 | **Harmonic rhythm** | "Static," "rushed," "aimless" | How often do chords change? Is the rate appropriate to the tempo? |
+| 4 | **Register/spacing** | "Muddy," "thin," "harsh," "hollow" | Check the lowest interval. Check the total pitch range. |
+| 5 | **Phrase structure** | "Rambling," "choppy," "no direction" | Can you identify phrase boundaries? Do phrases have arcs? |
+| 6 | **Dynamics/expression** | "Flat," "dead," "MIDI-sounding" | Is velocity constant? Is there any rubato? Any phrasing? |
+| 7 | **Orchestration** | "Bland," "cluttered," "wrong instrument" | Reduce to piano. If it sounds good on piano, the problem is orchestration. If not, the problem is deeper. |
+
+### 39.2 Layer 1: Voice Leading Problems
+
+**Symptom: "It sounds clunky"**
+
+The most common cause of bad-sounding "correct" music is hidden voice-leading problems that don't violate hard rules but violate good practice.
+
+Checklist:
+- **Static inner voices**: If alto and tenor hold the same notes for 3+ chords, the texture sounds dead. Inner voices need to move. Fix: add passing tones, neighbor tones, or suspensions to inner voices.
+- **All voices in similar motion**: Everything moves in the same direction at the same time. Not technically parallel fifths, but perceptually similar. Fix: ensure at least one voice moves in contrary motion at each chord change.
+- **Leaps without recovery**: The melody jumps but doesn't step back. Technically allowed if under an octave, but sounds awkward in sequence. Fix: apply the gap-fill rule more aggressively -- step back within 2 beats of any leap > 4 semitones.
+- **Root-position everything**: All chords in root position creates a stomping, heavy texture. Fix: use first inversion for passing chords (especially IV6 and ii6) and second inversion only at cadential 6/4.
+- **Bass leaps of a tritone**: Legal but harsh. Fix: approach tritone intervals in bass by contrary motion from the melody, or interpose a passing tone.
+
+**Diagnostic test**: Extract each voice as a solo MIDI track. Play each alone. If any voice sounds like random notes, that voice needs rewriting. Every voice should be a plausible melody in its own right.
+
+### 39.3 Layer 2: Rhythm and Pacing Problems
+
+**Symptom: "It sounds boring" (even with correct harmony and melody)**
+
+Almost always a rhythm problem. Specific issues:
+
+- **Isorhythmic trap**: Every note has the same duration (all quarters, all eighths). Sounds mechanical. Fix: vary durations within a 3:1 range minimum (e.g., eighths to dotted quarters). See Part 37.3 for additive rhythm techniques.
+- **No rhythmic hierarchy**: Strong beats and weak beats sound identical. No downbeat emphasis, no upbeat momentum. Fix: place longer notes and chord changes on strong beats, shorter notes and passing tones on weak beats.
+- **Rhythmic alignment of all voices**: In homophonic texture this is correct, but it becomes a problem when attempted polyphony has all voices changing pitch at the same moment. Fix: offset by an eighth note or use suspensions to create rhythmic stagger (see Part 38.2).
+- **Phrase lengths all identical**: Every phrase is exactly 4 bars. Sounds like a hymn. Fix: vary phrase lengths (3, 4, 5, 6 bars). Extend one phrase by repeating its cadential approach. Shorten another by elision (the end of one phrase is the beginning of the next).
+- **No silence**: Every beat has a note. No rests, no breathing. Fix: insert rests at phrase boundaries (minimum an eighth rest). Add a general pause before a climax.
+
+**Diagnostic test**: Replace all pitches with a single pitch (e.g., middle C). Tap or play the pure rhythm. If it sounds interesting, the rhythm is fine and the problem is elsewhere. If the rhythm itself is boring, no amount of harmonic sophistication will save the passage.
+
+### 39.4 Layer 3: Harmonic Rhythm Problems
+
+**Symptom: "It sounds static" or "It sounds rushed"**
+
+Harmonic rhythm (the rate of chord change) is one of the most impactful parameters and one of the least consciously noticed.
+
+| Tempo | Too Slow (static) | Good Range | Too Fast (rushed) |
+|-------|-------------------|-----------|-------------------|
+| Adagio (60 BPM) | < 0.5 chords/bar | 0.5-1.5 chords/bar | > 2 chords/bar |
+| Andante (90 BPM) | < 1 chord/bar | 1-2 chords/bar | > 3 chords/bar |
+| Allegro (130 BPM) | < 1 chord/bar | 1.5-2.5 chords/bar | > 4 chords/bar |
+
+- **Harmonic rhythm too slow**: The chord doesn't change for 2+ bars in a moderate tempo. The harmony stagnates. Fix: add a passing chord on beat 3, or use a pedal point with upper-voice motion to create the illusion of harmonic movement.
+- **Harmonic rhythm too fast**: Chords change every beat or half-beat. The ear can't process the harmonic information. Fix: hold structural chords for a full bar, use faster changes only at cadential approaches (the "accelerating harmonic rhythm" at cadences is a defining feature of classical style).
+- **Constant harmonic rhythm**: Chords change at exactly the same rate throughout. Sounds mechanical. Fix: vary the rate -- slower at phrase beginnings (stability), accelerating toward phrase ends (momentum toward cadence).
+
+**Diagnostic test**: Label every chord change by beat position. Plot the inter-chord interval across the passage. It should NOT be a flat line. It should look like a series of waves, each cresting at a cadence.
+
+### 39.5 Layer 4: Register and Spacing Problems
+
+**Symptom: "It sounds muddy" or "It sounds thin"**
+
+- **Mud**: Two or more voices below C3 (MIDI 48) closer than a fifth. The critical bandwidth is wider at low frequencies -- close intervals produce destructive beating. Fix: keep bass voices at least a fifth (7 semitones) apart below C3. Move the second-lowest voice up an octave.
+- **Gap**: More than an octave between adjacent voices in the middle register. Creates a "hole" in the texture. Fix: add a note in the gap or redistribute voices more evenly.
+- **Top-heavy**: All voices in the upper register. Sounds shrill and ungrounded. Fix: ensure the bass voice is below C3.
+- **Bottom-heavy**: All voices in the lower register. Sounds dark and unclear. Fix: add a voice above C4 to provide clarity.
+- **Crossed voices**: An inner voice rises above the soprano or drops below the bass. Unless deliberately intended (Bach does this occasionally), it confuses the voice identity. Fix: swap the notes between voices so the expected registral order is maintained.
+
+**The spacing rule of thumb**: Wider intervals at the bottom, closer at the top. This mirrors the harmonic series and sounds "natural." Root and fifth in the bass (wide), third and fifth in the tenor/alto (moderate), any interval in the soprano (close).
+
+**Diagnostic test**: Plot all sounding pitches at a representative moment as a vertical stack. Check:
+1. Is the lowest interval >= 7 semitones (if below C3)?
+2. Are there gaps > 12 semitones between adjacent voices?
+3. Is the highest note at least 12 semitones above the lowest?
+
+### 39.6 Layer 5: Phrase Structure Problems
+
+**Symptom: "It rambles" or "It goes nowhere"**
+
+- **No cadences**: The harmony never arrives at a clear V-I (or similar). The listener has no sense of punctuation. Fix: every 4-8 bars must end with a recognizable cadential pattern (PAC, IAC, HC, or DC).
+- **All cadences the same strength**: Every phrase ends with a PAC. There's no hierarchy of closure. Fix: use half cadences and imperfect cadences for interior phrases, reserving the PAC for the end of a period or section.
+- **No tension arc within phrases**: Each bar has the same tension level. Fix: ensure the harmonic tension peaks at 60-75% of each phrase, then resolves (see Part 34, SP-2).
+- **Elision failure**: Phrases overlap but the overlap is confusing rather than elegant. Fix: the end of one phrase and the beginning of the next must share a chord that functions as both resolution AND new beginning (typically I = I in the same key).
+- **Sequence that won't stop**: A pattern repeats 5+ times without variation or escape. Fix: maximum 3 sequential repetitions, then break the pattern with a cadence.
+
+**Diagnostic test**: Mark every cadence in the passage. If you can't find clear cadences, that's the problem. If cadences exist but all sound the same, variety is the problem.
+
+### 39.7 Layer 6: Expression and Dynamics Problems
+
+**Symptom: "It sounds like MIDI" (even with correct notes)**
+
+This is the difference between Part 18 (MIDI humanization) being applied and not. Specific checks:
+
+- **Constant velocity**: All notes at velocity 80. Fix: apply phrase-arc dynamics (crescendo to 65% of phrase, diminuendo to end). See Part 31 and Part 34 EP-1.
+- **Metronomic timing**: All onsets exactly on grid. Fix: add Gaussian timing deviation (SD 10-30ms) with positive autocorrelation (see Part 18). Melody leads by 5-20ms.
+- **No rubato at cadences**: The tempo doesn't slow at phrase ends. Fix: apply cadential ritardando -- penultimate note +15-30%, final note +30-60% (Part 34 EP-5).
+- **No articulation variation**: All notes the same length. Fix: stressed notes should be 90-100% of their notated duration (legato), unstressed notes 60-80% (natural separation).
+- **Melody buried**: The melody voice has the same velocity as accompaniment. Fix: melody +8-15 velocity above accompaniment, and lead by 10-20ms.
+
+**Diagnostic test**: Render the passage with a simple piano sound. If it sounds expressive on piano, the notes are fine and the orchestration layer needs work. If it sounds dead on piano, the expression layer is the problem.
+
+### 39.8 Layer 7: Orchestration Problems
+
+**Symptom: "Wrong instrument" or "Cluttered"**
+
+- **Register mismatch**: An instrument is playing outside its comfortable range. Every instrument has a sweet spot, and notes outside it sound strained or weak. Fix: check Part 23's range tables and keep each instrument in its middle-to-upper range unless strain is the intended effect.
+- **Doubling confusion**: Two instruments of similar timbre play the same line at the same dynamic, but not in perfect unison. They interfere destructively. Fix: either unison (same notes, same rhythm) or independence (different material). The middle ground sounds like a mistake.
+- **Tutti without function**: All instruments play all the time. No contrast, no solo moments, no breathing. Fix: reduce to the minimum instrumentation needed for each passage. Save tutti for climaxes.
+- **Timbre mismatch to character**: A dark, tragic melody on piccolo. A playful scherzo on bass trombone. Unless irony is intended, the timbre should match the emotional character. Fix: see Part 23's character descriptions and Part 36's timbral arc.
+
+**Diagnostic test**: Remove one instrument at a time. If removing an instrument makes the passage sound better (or no different), that instrument shouldn't be there.
+
+### 39.9 The Debugging Flowchart
+
+```
+START: Passage sounds wrong
+  │
+  ├─ Can you sing each voice as a melody? 
+  │   NO → Fix voice leading (Layer 1)
+  │   YES ↓
+  │
+  ├─ Does the rhythm alone (single pitch) sound interesting?
+  │   NO → Fix rhythm (Layer 2)
+  │   YES ↓
+  │
+  ├─ Do chords change at a varied, appropriate rate?
+  │   NO → Fix harmonic rhythm (Layer 3)
+  │   YES ↓
+  │
+  ├─ Play all notes at once: is it muddy, thin, or gapped?
+  │   YES → Fix register/spacing (Layer 4)
+  │   NO ↓
+  │
+  ├─ Can you mark clear phrases with clear cadences?
+  │   NO → Fix phrase structure (Layer 5)
+  │   YES ↓
+  │
+  ├─ Render on piano with expression. Does it sound alive?
+  │   NO → Fix dynamics/expression (Layer 6)
+  │   YES ↓
+  │
+  └─ Remove instruments one by one. Does it improve?
+      YES → Fix orchestration (Layer 7)
+      NO → The passage is probably fine. The problem may be
+           in its relationship to surrounding passages
+           (proportion, contrast, pacing). Check Part 30 (form)
+           and Part 20 (narrative arc).
+```
+
+### 39.10 Common Multi-Layer Problems and Their Fixes
+
+| What You Hear | Likely Layers | Root Cause | Fix |
+|---------------|--------------|------------|-----|
+| "Sounds like a hymn" | 2 + 3 | Uniform rhythm + constant harmonic rhythm | Vary note durations, vary chord-change rate |
+| "Sounds like a student exercise" | 1 + 5 | Root-position chords + no phrase hierarchy | Use inversions, vary cadence strengths |
+| "Sounds like elevator music" | 2 + 6 | No rhythmic interest + no dynamics | Add syncopation, add velocity arcs |
+| "Sounds impressive but empty" | 5 + 7 | No thematic development + too much orchestration | Strip to piano, check motivic connections |
+| "Sounds avant-garde accidentally" | 1 + 4 | Bad voice leading + bad spacing | Check for hidden parallels, check register |
+| "Beautiful melody, terrible accompaniment" | 3 + 4 | Harmonic rhythm wrong + spacing muddy | Slow down chord changes, open up voicing |
+| "Good start, falls apart at bar 16" | 5 | Phrase structure fails after the opening period | Second phrase needs a new cadential goal |
+| "Everything sounds the same" | 2 + 7 | No rhythmic variety + no textural variety | Alternate textures every 8-16 bars |
+
+### 39.11 Automated Diagnostic Checklist (Implementable)
+
+```python
+def diagnose_passage(midi_data):
+    """
+    Returns a prioritized list of likely problems.
+    midi_data: a pretty_midi.PrettyMIDI object or similar.
+    """
+    issues = []
+    
+    # Layer 1: Voice leading
+    for voice in extract_voices(midi_data):
+        intervals = [abs(voice[i+1].pitch - voice[i].pitch) for i in range(len(voice)-1)]
+        leaps_without_recovery = count_unresolved_leaps(voice, threshold=5)
+        if leaps_without_recovery > len(voice) * 0.15:
+            issues.append(("voice_leading", "Too many unresolved leaps", 1))
+    
+    # Layer 2: Rhythm
+    durations = extract_durations(midi_data)
+    duration_variety = len(set(quantize_durations(durations))) 
+    if duration_variety < 3:
+        issues.append(("rhythm", "Fewer than 3 distinct note durations", 2))
+    
+    # Layer 3: Harmonic rhythm
+    chord_changes_per_bar = count_chord_changes(midi_data) / count_bars(midi_data)
+    hr_variance = variance_of_chord_change_rate(midi_data)
+    if hr_variance < 0.1:
+        issues.append(("harmonic_rhythm", "Chord change rate is too constant", 3))
+    
+    # Layer 4: Spacing
+    for beat in extract_beats(midi_data):
+        pitches = sorted(beat.pitches)
+        if len(pitches) >= 2 and pitches[0] < 48:  # below C3
+            if pitches[1] - pitches[0] < 7:
+                issues.append(("spacing", f"Close voicing below C3 at beat {beat.time}", 4))
+                break
+    
+    # Layer 5: Phrase structure
+    cadences = detect_cadences(midi_data)
+    if len(cadences) < count_bars(midi_data) / 8:
+        issues.append(("phrase_structure", "Too few cadences (expect 1 per 4-8 bars)", 5))
+    
+    # Layer 6: Expression
+    velocities = [note.velocity for note in midi_data.instruments[0].notes]
+    if max(velocities) - min(velocities) < 20:
+        issues.append(("expression", "Velocity range too narrow (< 20)", 6))
+    
+    # Sort by priority
+    issues.sort(key=lambda x: x[2])
+    return issues
+```
+
+### 39.12 Summary: The Five Debugging Principles
+
+1. **Check in order.** Voice leading before rhythm before harmony before spacing before phrase structure before expression before orchestration. Fixing a deeper layer often fixes the surface symptoms.
+2. **Reduce to piano first.** If it sounds bad on piano, the problem is not orchestration. Do not add instruments to hide bad writing.
+3. **The single-pitch rhythm test is the fastest diagnostic.** If the rhythm alone is boring, nothing else matters.
+4. **Most "sounds bad" problems are actually Layer 3 (harmonic rhythm) or Layer 4 (spacing).** These are the most common and least obvious culprits.
+5. **If all seven layers check out, the problem is proportion.** The passage is fine in isolation but wrong in context -- too long, too short, too early, too late. This is a form problem (Part 30), not a local problem.

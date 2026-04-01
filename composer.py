@@ -779,29 +779,94 @@ def pass_3_harmony(schema_ir: SchemaIR) -> VoiceLeadingIR:
 # =============================================================================
 
 def _build_subsection_bar_ranges(form_ir: FormIR
-                                  ) -> List[Tuple[SubsectionType, int, int]]:
+                                  ) -> List[Tuple[SubsectionType, SectionType, int, int, int]]:
     """
-    Build a list of (subsection_type, start_bar, end_bar) from the form plan.
-    Used to map chord events to their formal function so we can pick the
-    right motivic transformation for each section.
+    Build a list of (subsection_type, section_type, section_index, start_bar,
+    end_bar) from the form plan.  The section_index is the ordinal position of
+    the parent section in the form, used to detect return / recap sections.
     """
-    ranges: List[Tuple[SubsectionType, int, int]] = []
+    ranges: List[Tuple[SubsectionType, SectionType, int, int, int]] = []
     bar_cursor = 1
-    for section in form_ir.sections:
+    for sec_idx, section in enumerate(form_ir.sections):
         for sub in section.subsections:
-            ranges.append((sub.type, bar_cursor, bar_cursor + sub.bars - 1))
+            ranges.append((sub.type, section.type, sec_idx,
+                           bar_cursor, bar_cursor + sub.bars - 1))
             bar_cursor += sub.bars
     return ranges
 
 
 def _subsection_for_bar(bar: int,
-                        ranges: List[Tuple[SubsectionType, int, int]]
+                        ranges: List[Tuple[SubsectionType, SectionType, int, int, int]]
                         ) -> SubsectionType:
     """Return the subsection type that contains the given bar number."""
-    for stype, start, end in ranges:
+    for stype, _sec_type, _sec_idx, start, end in ranges:
         if start <= bar <= end:
             return stype
     return SubsectionType.P_THEME  # fallback
+
+
+def _section_info_for_bar(bar: int,
+                          ranges: List[Tuple[SubsectionType, SectionType, int, int, int]]
+                          ) -> Tuple[SubsectionType, SectionType, int]:
+    """Return (subsection_type, section_type, section_index) for a bar."""
+    for stype, sec_type, sec_idx, start, end in ranges:
+        if start <= bar <= end:
+            return stype, sec_type, sec_idx
+    return SubsectionType.P_THEME, SectionType.A_SECTION, 0
+
+
+def _is_return_section(sec_type: SectionType, sec_idx: int,
+                       form_ir: FormIR) -> bool:
+    """
+    Detect whether this section is a 'return' (A' in ABA, recapitulation,
+    or a later A_SECTION that repeats the opening).
+    """
+    if sec_type == SectionType.RECAPITULATION:
+        return True
+    # For ternary / rondo: an A_SECTION that is NOT the first section
+    if sec_type == SectionType.A_SECTION and sec_idx > 0:
+        return True
+    return False
+
+
+def _motif_edit_distance(original: SeedMotif, transformed: SeedMotif) -> float:
+    """
+    Compute a normalized edit distance (0.0 = identical, 1.0 = totally different)
+    between two motifs based on their interval sequences.
+    """
+    a = original.intervals
+    b = transformed.intervals
+    if not a and not b:
+        return 0.0
+    max_len = max(len(a), len(b))
+    if max_len == 0:
+        return 0.0
+    # Simple Levenshtein-style comparison on interval values
+    # (we compare element-wise + length penalty)
+    min_len = min(len(a), len(b))
+    diff = 0
+    for i in range(min_len):
+        if a[i] != b[i]:
+            diff += 1
+    diff += abs(len(a) - len(b))  # length mismatch
+    return diff / max_len
+
+
+def _make_consequent_from_antecedent(antecedent: SeedMotif,
+                                      cadence_shift: int = -1) -> SeedMotif:
+    """
+    Build a consequent phrase that echoes the antecedent: identical notes
+    except the last 2-3 intervals diverge to reach a different cadence.
+    This is standard period structure (Mozart, Haydn).
+    """
+    ivls = list(antecedent.intervals)
+    rhy = list(antecedent.rhythm)
+    # Keep all but the last 2 intervals identical; change the tail
+    diverge_at = max(0, len(ivls) - 2)
+    for j in range(diverge_at, len(ivls)):
+        # Slight variation: shift by cadence_shift direction
+        ivls[j] = ivls[j] + cadence_shift if ivls[j] != 0 else cadence_shift
+    return SeedMotif(intervals=ivls, rhythm=rhy)
 
 
 def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
@@ -810,27 +875,36 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
 
     Strategy:
       1. For each subsection, pick a transformation suited to its formal role.
-      2. Lay down transformed motif instances anchored to chord soprano pitches.
-      3. Between motif instances, fill gaps with passing/neighbor tones.
-      4. Apply an arch contour to the full melody.
-
-    This ensures the seed motif (or a recognizable transformation) appears
-    in at least 60% of phrases, giving the piece thematic unity.
+         - Theme / A-section: LITERAL or TRANSPOSITION only (conservative).
+         - Development / transition: allow dramatic transforms.
+         - Return / recap sections: LITERAL back to tonic.
+      2. Variation budget: first 2-3 appearances keep edit distance < 0.15;
+         later appearances allow up to 0.30.
+      3. Consequent phrases echo antecedent (same start, diverge at cadence).
+      4. Lay down transformed motif instances anchored to chord soprano pitches.
+      5. Between motif instances, fill gaps with passing/neighbor tones.
+      6. Apply an arch contour to the full melody.
     """
     global _current_seed_motif
     m21_key_str = _KEY_TO_M21.get(form_ir.home_key, "C")
 
-    # Build bar-to-subsection mapping
+    # Build bar-to-subsection mapping (now includes SectionType + index)
     sub_ranges = _build_subsection_bar_ranges(form_ir)
 
     # Track which subsection we're in so we pick one transform per subsection
     current_sub_type: Optional[SubsectionType] = None
+    current_sec_idx: Optional[int] = None
     current_transform: Optional[str] = None
     transformed_motif: Optional[SeedMotif] = None
 
     melody_notes: List[MelodicNote] = []
     motif_note_count = 0
     total_note_count = 0
+    motif_appearance_count = 0  # how many times we've stated the motif
+
+    # Track the antecedent phrase for consequent echoing
+    antecedent_motif: Optional[SeedMotif] = None
+    is_antecedent_next = True  # alternates: antecedent, then consequent
 
     # Pre-compute scale pool for gap-filling
     key_obj = m21key.Key(m21_key_str)
@@ -844,16 +918,52 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
         soprano = chord_evt.soprano if chord_evt.soprano != 0 else 72
 
         # Detect subsection boundaries and pick a new transform
-        sub_type = _subsection_for_bar(chord_evt.bar, sub_ranges)
-        if sub_type != current_sub_type:
+        sub_type, sec_type, sec_idx = _section_info_for_bar(
+            chord_evt.bar, sub_ranges)
+
+        if sub_type != current_sub_type or sec_idx != current_sec_idx:
             current_sub_type = sub_type
+            current_sec_idx = sec_idx
+            # Reset antecedent/consequent at subsection boundary
+            is_antecedent_next = True
+            antecedent_motif = None
+
             if _current_seed_motif is not None:
-                current_transform = MotivicEngine.pick_transform(sub_type)
-                # For sequence transform, transpose by 2-5 semitones
+                # --- Choose transformation based on formal context ---
+                is_return = _is_return_section(sec_type, sec_idx, form_ir)
+
+                if is_return:
+                    # Recapitulation / A' return: use LITERAL (nearly identical)
+                    current_transform = MotivicEngine.LITERAL
+                elif sub_type in (SubsectionType.P_THEME,):
+                    # Primary theme: LITERAL or TRANSPOSITION only
+                    current_transform = random.choice(
+                        [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
+                elif sub_type in (SubsectionType.S_THEME,):
+                    # Secondary theme: allow transposition, keep recognizable
+                    current_transform = MotivicEngine.TRANSPOSITION
+                else:
+                    # Development / transition / closing: allow dramatic transforms
+                    current_transform = MotivicEngine.pick_transform(sub_type)
+
                 seq_offset = random.choice([2, 3, 4, 5])
                 transformed_motif = MotivicEngine.transform(
                     _current_seed_motif, current_transform,
                     transpose_semitones=seq_offset)
+
+                # --- Variation budget enforcement ---
+                motif_appearance_count += 1
+                if _current_seed_motif is not None and transformed_motif is not None:
+                    dist = _motif_edit_distance(_current_seed_motif, transformed_motif)
+                    max_allowed = 0.15 if motif_appearance_count <= 3 else 0.30
+                    if dist > max_allowed:
+                        # Too different -- fall back to literal or transposition
+                        fallback = random.choice(
+                            [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
+                        transformed_motif = MotivicEngine.transform(
+                            _current_seed_motif, fallback,
+                            transpose_semitones=seq_offset)
+                        current_transform = fallback
             else:
                 transformed_motif = None
 
@@ -867,8 +977,24 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
         )
 
         if use_motif:
+            # --- Consequent echoing logic ---
+            # In theme sections, alternate antecedent/consequent pairs.
+            # Consequent starts identical, diverges at the cadence.
+            active_motif = transformed_motif
+            if sub_type in (SubsectionType.P_THEME, SubsectionType.S_THEME):
+                if is_antecedent_next:
+                    antecedent_motif = transformed_motif
+                    is_antecedent_next = False
+                else:
+                    # Consequent: echo the antecedent, change last 2 notes
+                    if antecedent_motif is not None:
+                        active_motif = _make_consequent_from_antecedent(
+                            antecedent_motif,
+                            cadence_shift=random.choice([-1, -2, 1]))
+                    is_antecedent_next = True
+
             motif_notes = MotivicEngine.realize_motif(
-                transformed_motif, soprano,
+                active_motif, soprano,
                 chord_evt.bar, chord_evt.beat)
 
             # Trim motif to fit within this chord's duration window
@@ -947,6 +1073,9 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
         coverage = motif_note_count / total_note_count
         print(f"  [Motif] Coverage: {motif_note_count}/{total_note_count} "
               f"notes ({coverage:.0%}) derived from seed motif")
+    if motif_appearance_count > 0:
+        print(f"  [Motif] Theme appearances: {motif_appearance_count}, "
+              f"transform used: {current_transform}")
 
     vl_ir.melody = melody_notes
     return vl_ir
