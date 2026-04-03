@@ -2,3 +2,4 @@ midiutil
 numpy
 fastapi
 uvicorn[standard]
+streamlit

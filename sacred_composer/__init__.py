@@ -75,6 +75,9 @@ from sacred_composer.adaptive import (
     GameState, ENVIRONMENT_SCALES, AdaptiveComposer,
     state_to_params, generate_soundtrack,
 )
+from sacred_composer.osc_bridge import (
+    OSCServer, OSCSender, MIDIOutput, LivePerformer,
+)
 from sacred_composer.psychoacoustics import (
     information_content, surprise_ratio, expectation_score,
     FrissonEvent, plan_frisson_events, appoggiatura_pitches,
@@ -153,4 +156,6 @@ __all__ = [
     # Adaptive
     "GameState", "ENVIRONMENT_SCALES", "AdaptiveComposer",
     "state_to_params", "generate_soundtrack",
+    # OSC Bridge
+    "OSCServer", "OSCSender", "MIDIOutput", "LivePerformer",
 ]
