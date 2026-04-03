@@ -48,7 +48,7 @@ def manual(title, tempo, key, voices, bars_hint=None):
 def n_for(tempo, minutes, base_dur):
     """Estimate note count for a target duration."""
     beats = tempo * minutes
-    return int(beats / (base_dur * 0.7)) + 16
+    return int(beats / base_dur) + 8
 
 print("=" * 64)
 print("  SACRED PATTERNS — Album Generation")
@@ -57,7 +57,7 @@ print("=" * 64, "\n")
 # ── 1. Fibonacci Garden ── gentle, F major, 66 BPM, flute + cello
 n1 = n_for(66, 3.0, 0.75)
 piece1 = (
-    CompositionBuilder(key="F_major", tempo=66, bars=160, title="Fibonacci Garden")
+    CompositionBuilder(key="F_major", tempo=66, bars=36, title="Fibonacci Garden")
     .form(pattern="fibonacci", n_sections=5)
     .melody(pattern="fibonacci", instrument="flute", octave_range=(4, 5),
             rhythm_pattern="euclidean_5_8", base_duration=0.75, seed=1)
@@ -70,7 +70,7 @@ piece1 = (
 render_track(1, piece1)
 
 # ── 2. Lorenz Butterfly ── dramatic, D minor, 96 BPM, violin + piano
-n2 = n_for(96, 3.0, 0.5)
+n2 = n_for(96, 2.5, 0.5)
 lorenz = LorenzAttractor(dt=0.01).generate(n2)
 p2m = to_pitch(lorenz, scale="D_minor", octave_range=(4, 5), strategy="normalize")
 d2m = to_rhythm(EuclideanRhythm(7, 8).generate(n2), base_duration=0.5, strategy="binary")
@@ -102,7 +102,7 @@ render_track(3, piece3)
 
 # ── 4. Golden Dawn ── uplifting, golden spiral, G major, 72 BPM, harp + flute
 piece4 = (
-    CompositionBuilder(key="G_major", tempo=72, bars=160, title="Golden Dawn")
+    CompositionBuilder(key="G_major", tempo=72, bars=38, title="Golden Dawn")
     .form(pattern="golden", n_sections=2)
     .melody(pattern="golden_spiral", instrument="flute", octave_range=(4, 5),
             rhythm_pattern="euclidean_5_8", base_duration=0.75, seed=7)
@@ -116,8 +116,7 @@ render_track(4, piece4)
 
 # ── 5. Infinity Mirror ── hypnotic, A minor, 60 BPM, vibraphone + cello
 piece5 = (
-    CompositionBuilder(key="A_minor", tempo=60, bars=180, title="Infinity Mirror")
-    .consciousness("meditation")  # sets meditative foundation
+    CompositionBuilder(key="A_minor", tempo=60, bars=32, title="Infinity Mirror")
     .melody(pattern="infinity_series", instrument="vibraphone", octave_range=(4, 5),
             rhythm_pattern="euclidean_5_8", base_duration=0.75, seed=42)
     .bass(pattern="harmonic_series", instrument="cello", octave_range=(2, 3),
@@ -127,17 +126,17 @@ piece5 = (
 render_track(5, piece5)
 
 # ── 6. Cantor's Silence ── sparse/meditative, Eb major, 48 BPM, piano solo
-n6 = n_for(48, 3.5, 1.5)
-cantor = CantorSet(depth=5).generate(n6)
+n6 = n_for(48, 3.0, 2.0)
+cantor = CantorSet(depth=4).generate(n6)
 p6 = to_pitch(cantor, scale="Eb_major", octave_range=(3, 5), strategy="modular")
-d6 = to_rhythm(cantor, base_duration=1.5, strategy="binary")
+d6 = to_rhythm(EuclideanRhythm(3, 8).generate(n6), base_duration=2.0, strategy="binary")
 v6 = to_dynamics(PinkNoise(sigma=0.8, seed=60).generate(n6), velocity_range=(25, 65))
 piece6 = Composition(tempo=48, title="Cantor's Silence")
 piece6.add_voice("cantor_piano", p6, d6, v6, instrument="piano")
 render_track(6, piece6)
 
 # ── 7. Planetary Waltz ── playful, Bb major, 132 BPM 3/4, strings
-n7 = n_for(132, 2.5, 0.5)
+n7 = n_for(132, 2.0, 0.5)
 pr = PlanetaryRhythm(planets=["mercury", "venus", "earth", "mars"]).generate(n7)
 p7m = to_pitch(pr, scale="Bb_major", octave_range=(4, 5), strategy="normalize")
 waltz = [d for _ in range(n7 // 3 + 1) for d in (1.0, 0.5, 0.5)][:n7]
@@ -151,7 +150,7 @@ render_track(7, piece7)
 
 # ── 8. Sacred Text ── mysterious, Genesis 1:1, D dorian, 80 BPM, choir + organ
 genesis = "In the beginning God created the heaven and the earth"
-n8 = n_for(80, 3.0, 0.75)
+n8 = n_for(80, 2.5, 0.75)
 txt = TextToMelody(genesis).generate(n8)
 p8m = to_pitch(txt, scale="D_dorian", octave_range=(4, 5), strategy="modular")
 d8m = to_rhythm(EuclideanRhythm(5, 8).generate(n8), base_duration=0.75, strategy="binary")
@@ -166,7 +165,7 @@ piece8.add_drone("root_drone", pitch=50, total_beats=float(sum(abs(d) for d in d
 render_track(8, piece8)
 
 # ── 9. Mandelbrot Depths ── complex, F# minor, 76 BPM, piano + strings
-n9 = n_for(76, 3.0, 0.5)
+n9 = n_for(76, 2.5, 0.5)
 mb = MandelbrotBoundary(max_iter=200, perturbation=0.012).generate(n9)
 p9m = to_pitch(mb, scale="F#_minor", octave_range=(4, 5), strategy="normalize")
 d9m = to_rhythm(EuclideanRhythm(7, 12).generate(n9), base_duration=0.5, strategy="binary")
@@ -180,23 +179,21 @@ render_track(9, piece9)
 
 # ── 10. The Everything Piece ── climactic, all patterns, C minor, 88 BPM
 piece10 = (
-    CompositionBuilder(key="C_minor", tempo=88, bars=200,
+    CompositionBuilder(key="C_minor", tempo=88, bars=24,
                        title="The Everything Piece")
-    .harmony(n_chords=50, seed=42)
-    .form(pattern="fibonacci", n_sections=7,
-          labels=["Genesis", "Growth", "Chaos", "Order",
-                  "Transcendence", "Reflection", "Coda"])
+    .harmony(n_chords=16, seed=42)
+    .form(pattern="fibonacci", n_sections=5,
+          labels=["Genesis", "Growth", "Chaos", "Reflection", "Coda"])
     .melody(pattern="infinity_series", instrument="violin", octave_range=(4, 5),
-            rhythm_pattern="euclidean_7_8", base_duration=0.5, seed=0)
+            rhythm_pattern="euclidean_5_8", base_duration=1.0, seed=0)
     .bass(pattern="harmonic_series", instrument="contrabass", octave_range=(2, 3),
-          base_duration=2.0, seed=10)
+          base_duration=3.0, seed=10)
     .inner_voice(pattern="mandelbrot", instrument="piano", octave_range=(3, 4),
-                 base_duration=0.75, seed=20)
+                 base_duration=1.5, seed=20)
     .inner_voice(pattern="golden_spiral", instrument="strings", octave_range=(3, 5),
-                 base_duration=1.0, seed=30)
+                 base_duration=2.0, seed=30)
     .inner_voice(pattern="fibonacci", instrument="flute", octave_range=(4, 6),
-                 rhythm_pattern="euclidean_5_8", base_duration=0.5, seed=40)
-    .drone(instrument="organ", velocity=50)
+                 rhythm_pattern="euclidean_3_8", base_duration=1.5, seed=40)
     .build()
 )
 render_track(10, piece10)
