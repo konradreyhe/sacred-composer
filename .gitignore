@@ -9,6 +9,9 @@ __pycache__/
 *.mp3
 output/
 
+# Exception: gallery WAV files are committed for Streamlit Cloud demo
+!gallery/*.wav
+
 # Test artifacts
 _test*.mid
 _diag*.mid

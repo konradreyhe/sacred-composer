@@ -49,17 +49,6 @@ PIECES = [
         "key": "G minor",
         "tempo": 80,
     },
-    {
-        "title": "Consciousness: Deep Sleep",
-        "file": "consciousness_deep_sleep.wav",
-        "description": (
-            "Very slow, narrow pitch range, quiet dynamics. "
-            "Designed for deep sleep induction using the consciousness preset."
-        ),
-        "pattern": "consciousness",
-        "key": "preset",
-        "tempo": 50,
-    },
 ]
 
 
@@ -78,21 +67,19 @@ if not os.path.isdir(GALLERY_DIR) or not any(f.endswith(".wav") for f in os.list
         with st.spinner("Generating gallery compositions (this may take a minute)..."):
             from sacred_composer.builder import CompositionBuilder
             from sacred_composer.wav_renderer import render_wav
-            from sacred_composer.optimizer import evaluate_fast
 
             os.makedirs(GALLERY_DIR, exist_ok=True)
 
             # Piece 1: Fibonacci Nocturne
-            b = CompositionBuilder(key="C_natural_minor", tempo=66, bars=48)
+            b = CompositionBuilder(key="C_minor", tempo=66, bars=8)
             b.melody(pattern="fibonacci", seed=0, rhythm_pattern="euclidean_5_8")
             b.bass(pattern="harmonic_series", rhythm_pattern="steady")
-            b.harmony()
             p = b.build()
             p.render(os.path.join(GALLERY_DIR, "fibonacci_nocturne_c_minor.mid"))
             render_wav(p.score, os.path.join(GALLERY_DIR, "fibonacci_nocturne_c_minor.wav"), reverb=True)
 
             # Piece 2: Golden Spiral
-            b = CompositionBuilder(key="A_natural_minor", tempo=72, bars=48)
+            b = CompositionBuilder(key="A_minor", tempo=72, bars=8)
             b.melody(pattern="golden_spiral", seed=1, rhythm_pattern="euclidean_5_8")
             b.bass(pattern="harmonic_series", rhythm_pattern="steady")
             p = b.build()
@@ -100,19 +87,12 @@ if not os.path.isdir(GALLERY_DIR) or not any(f.endswith(".wav") for f in os.list
             render_wav(p.score, os.path.join(GALLERY_DIR, "golden_spiral_a_minor.wav"), reverb=True)
 
             # Piece 3: Logistic Dreams
-            b = CompositionBuilder(key="G_natural_minor", tempo=80, bars=48)
+            b = CompositionBuilder(key="G_minor", tempo=80, bars=8)
             b.melody(pattern="logistic", seed=0, rhythm_pattern="euclidean_7_12")
             b.bass(pattern="fibonacci", rhythm_pattern="euclidean_3_8")
             p = b.build()
             p.render(os.path.join(GALLERY_DIR, "logistic_dreams_g_minor.mid"))
             render_wav(p.score, os.path.join(GALLERY_DIR, "logistic_dreams_g_minor.wav"), reverb=True)
-
-            # Piece 4: Consciousness deep sleep
-            b = CompositionBuilder(title="Consciousness: Deep Sleep")
-            b.consciousness("deep_sleep")
-            p = b.build()
-            p.render(os.path.join(GALLERY_DIR, "consciousness_deep_sleep.mid"))
-            render_wav(p.score, os.path.join(GALLERY_DIR, "consciousness_deep_sleep.wav"), reverb=True)
 
         st.success("Gallery generated! Refresh the page to listen.")
         st.rerun()
