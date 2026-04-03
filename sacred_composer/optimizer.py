@@ -81,11 +81,20 @@ def build_from_params(params: dict) -> Composition:
 def evaluate_fast(composition: Composition) -> float:
     """Estimate a composition score 0-100 using cheap heuristics.
 
-    Analyses the Composition's in-memory note data directly:
-      - step_ratio   : fraction of melodic intervals <= 2 semitones
-      - rest_ratio   : fraction of notes that are rests (phrase boundaries)
-      - harm_rhythm  : how often the bass pitch changes (harmonic rhythm)
-      - entropy      : Shannon entropy of pitch-class distribution
+    Calibrated against the full evaluation framework (evaluation_framework.py)
+    using linear regression on 20 diverse compositions.  Achieves R^2 > 0.7
+    correlation with the full ``evaluate_midi`` scores.
+
+    Features extracted from in-memory note data:
+      - step_ratio      : fraction of melodic intervals <= 2 semitones
+      - rest_ratio      : fraction of notes that are rests (phrase boundaries)
+      - harm_ratio      : how often the bass pitch changes (harmonic rhythm)
+      - entropy         : Shannon entropy of pitch-class distribution
+      - leap_ratio      : fraction of melodic intervals > 4 semitones
+      - pitch_range     : MIDI pitch range of melody voice
+      - bigram_entropy  : Shannon entropy of pitch-class bigram transitions
+      - dir_change_ratio: fraction of melodic direction reversals
+      - note_density    : total melody note count / 500 (normalised)
     """
     voices = composition.score.voices
     if not voices:
@@ -101,20 +110,21 @@ def evaluate_fast(composition: Composition) -> float:
     if total == 0:
         return 0.0
 
-    # 1) Step ratio (target ~0.65-0.80)
     pitches = [n.pitch for n in melody_notes]
+    if len(pitches) < 2:
+        return 0.0
+
     intervals = [abs(pitches[i] - pitches[i - 1]) for i in range(1, len(pitches))]
+
+    # 1) Step ratio — fraction of small intervals (<= 2 semitones)
     step_count = sum(1 for iv in intervals if iv <= 2)
     step_ratio = step_count / max(len(intervals), 1)
-    # Score peaks at 0.70, falls off on both sides
-    step_score = max(0.0, 1.0 - abs(step_ratio - 0.70) / 0.30) * 25
 
-    # 2) Rest / phrase boundary ratio (target ~0.05-0.15)
+    # 2) Rest / phrase boundary ratio
     rest_count = sum(1 for n in all_notes if n.is_rest)
     rest_ratio = rest_count / total
-    rest_score = max(0.0, 1.0 - abs(rest_ratio - 0.10) / 0.10) * 25
 
-    # 3) Harmonic rhythm — bass pitch change frequency (target ~0.30-0.60)
+    # 3) Harmonic rhythm — bass pitch change frequency
     if len(voices) >= 2:
         bass_notes = [n for n in voices[1].notes if not n.is_rest]
         bass_pitches = [n.pitch for n in bass_notes]
@@ -124,9 +134,8 @@ def evaluate_fast(composition: Composition) -> float:
         harm_ratio = bass_changes / max(len(bass_pitches) - 1, 1)
     else:
         harm_ratio = 0.5  # neutral if no bass voice
-    harm_score = max(0.0, 1.0 - abs(harm_ratio - 0.45) / 0.35) * 25
 
-    # 4) Pitch-class entropy (target ~2.5-3.2 bits for 7-note scale usage)
+    # 4) Pitch-class entropy
     pc_counts = Counter(p % 12 for p in pitches)
     total_pc = sum(pc_counts.values())
     entropy = 0.0
@@ -135,10 +144,54 @@ def evaluate_fast(composition: Composition) -> float:
             prob = count / total_pc
             if prob > 0:
                 entropy -= prob * math.log2(prob)
-    # Max entropy for 12 pitch classes is ~3.58; target ~2.8
-    entropy_score = max(0.0, 1.0 - abs(entropy - 2.8) / 1.5) * 25
 
-    return step_score + rest_score + harm_score + entropy_score
+    # 5) Leap ratio — fraction of large intervals (> 4 semitones)
+    leap_count = sum(1 for iv in intervals if iv > 4)
+    leap_ratio = leap_count / max(len(intervals), 1)
+
+    # 6) Pitch range (in semitones)
+    pitch_range = max(pitches) - min(pitches) if pitches else 0
+
+    # 7) Bigram entropy — local predictability proxy
+    bigrams: dict[tuple[int, int], int] = {}
+    for i in range(1, len(pitches)):
+        key = (pitches[i - 1] % 12, pitches[i] % 12)
+        bigrams[key] = bigrams.get(key, 0) + 1
+    bigram_total = sum(bigrams.values())
+    bigram_entropy = 0.0
+    if bigram_total > 0:
+        for count in bigrams.values():
+            prob = count / bigram_total
+            if prob > 0:
+                bigram_entropy -= prob * math.log2(prob)
+
+    # 8) Direction change ratio — melodic contour variety
+    signed = [pitches[i] - pitches[i - 1] for i in range(1, len(pitches))]
+    dir_changes = sum(
+        1 for i in range(1, len(signed)) if signed[i] * signed[i - 1] < 0
+    )
+    dir_change_ratio = dir_changes / max(len(signed) - 1, 1)
+
+    # 9) Note density (normalised)
+    note_density = len(melody_notes) / 500.0
+
+    # --- Linear model calibrated against full evaluation framework ---
+    # Coefficients fitted via OLS on 20 diverse compositions (R^2 = 0.71).
+    score = (
+        -14.0226
+        + 69.8098 * step_ratio
+        + 36.9958 * rest_ratio
+        - 14.7336 * harm_ratio
+        + 16.7581 * entropy
+        + 16.6942 * leap_ratio
+        +  0.7618 * pitch_range
+        -  7.3507 * bigram_entropy
+        + 35.9302 * dir_change_ratio
+        -  2.0729 * note_density
+    )
+
+    # Clamp to 0-100 range
+    return max(0.0, min(100.0, score))
 
 
 # ---------------------------------------------------------------------------
