@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-88.5/100 (best with L1 PASS, seed=13). Strongest: thematic_development (100), phrase_boundaries (100), directional_momentum (93.0), tension_arc (85.1). Weakest: repetition_variation (58.9).
+90.4/100 (best with L1 PASS: D_minor logistic seed=26). Strongest: thematic_development (100), form_proportions (100), phrase_boundaries (99.6), tension_arc (94.5). Weakest: repetition_variation (56.3).
 
 ## Key Files
 

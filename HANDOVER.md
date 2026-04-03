@@ -2,7 +2,7 @@
 
 ## Summary
 
-Massive session pushing Sacred Composer from a functional engine to a full platform. **Eval score: 74.0 → 88.6/100** (new record, L1 PASS). Integrated FluidSynth + MuseScore SoundFont for real orchestral audio (was chiptune sine waves). Built a Remotion visualization with 8 reactive components (sacred geometry, Fibonacci spiral, constellation map, particles, pulse rings, piano roll, golden ratio wave, form timeline). Created a web app at localhost:8000 with "Compose Your Name" and "Seed Music" viral features + real-time audio waveform. Built a 24/7 stream generator for YouTube livestreaming. All 320 tests passing. **Single most important thing**: the `.wav` rendering now auto-detects FluidSynth at `C:/tools/fluidsynth/bin/` and SoundFont at `C:/SoundFonts/MuseScore_General.sf2` — if these aren't present, it falls back to the old sine-wave renderer.
+Massive session pushing Sacred Composer from a functional engine to a full platform. **Eval score: 74.0 → 90.4/100** (new record, L1 PASS, D_minor logistic seed=26). Integrated FluidSynth + MuseScore SoundFont for real orchestral audio (was chiptune sine waves). Built a Remotion visualization with 8 reactive components (sacred geometry, Fibonacci spiral, constellation map, particles, pulse rings, piano roll, golden ratio wave, form timeline). Created a web app at localhost:8000 with "Compose Your Name" and "Seed Music" viral features + real-time audio waveform. Built a 24/7 stream generator for YouTube livestreaming. All 320 tests passing. **Single most important thing**: the `.wav` rendering now auto-detects FluidSynth at `C:/tools/fluidsynth/bin/` and SoundFont at `C:/SoundFonts/MuseScore_General.sf2` — if these aren't present, it falls back to the old sine-wave renderer.
 
 ## Completed
 
