@@ -1,128 +1,118 @@
-# MUSIK! -- AI Classical Music Composition System
+# MUSIK! -- Sacred Composer
 
-A compiler-architecture system that generates classical music as MIDI from natural-language text prompts. No neural networks, no training data -- just music theory encoded as algorithms: counterpoint rules, galant schemata, voice leading, form templates, and orchestration heuristics.
+AI-assisted classical music composition using sacred geometry and nature-inspired algorithms. No neural networks, no training data -- music theory and mathematical patterns encoded as Python.
+
+## What It Does
+
+- **12 pattern generators**: Fibonacci, golden spiral, harmonic series, infinity series, Euclidean rhythm, pink noise, logistic map, Lorenz attractor, phyllotaxis, L-systems, flocking, 1/f rubato
+- **Harmony engine**: constraint-aware voice leading, counterpoint rules, cadence placement, tension arcs
+- **Output formats**: MIDI, LilyPond scores, WAV audio (Karplus-Strong synthesis, FM synthesis, Freeverb reverb), orchestral WAV
+- **Evaluation**: automated scoring framework (current best: 86.5/100)
+- **155 tests passing**
+
+## Package Structure
+
+The `sacred_composer/` package contains 16 modules:
+
+| Module | Purpose |
+|--------|---------|
+| `core.py` | Composition, Voice, Note data structures, MIDI rendering |
+| `patterns.py` | 12 mathematical pattern generators |
+| `mappers.py` | Map raw pattern values to pitch, rhythm, dynamics, form |
+| `constraints.py` | Voice leading rules, range enforcement, leap recovery |
+| `harmony.py` | Chord progressions, harmonic rhythm, cadences |
+| `builder.py` | High-level `CompositionBuilder` API |
+| `constants.py` | Golden ratio, scales, intervals |
+| `evaluate.py` | Multi-level scoring (rule compliance, statistical, structural, perceptual) |
+| `lilypond.py` | LilyPond score export |
+| `wav_renderer.py` | Audio synthesis (Karplus-Strong, FM, Freeverb) |
+| `orchestration.py` | Instrument assignment and register mapping |
+| `combiners.py` | Merge and layer multiple pattern streams |
+| `psychoacoustics.py` | Perceptual models (roughness, brightness, masking) |
+| `bridge.py` | Integration with the legacy 9-pass compiler pipeline |
+| `world_music.py` | Non-Western scales and tuning systems |
+| `__init__.py` | Package exports |
 
 ## Quick Start
 
 ```bash
-pip install music21 midiutil numpy scipy
-python composer.py
-python composer.py "A piano sonata exposition in C minor, heroic character, 40 bars"
+pip install midiutil numpy scipy
 ```
 
-## Architecture: The 9-Pass Compiler Pipeline
+```python
+from sacred_composer.builder import CompositionBuilder
 
-A text prompt flows through nine sequential compiler passes, each refining an intermediate representation (IR):
+piece = (
+    CompositionBuilder(key="C_minor", tempo=72, bars=48, title="Sacred Offering")
+    .melody(pattern="infinity_series", instrument="violin")
+    .bass(pattern="harmonic_series")
+    .inner_voice(pattern="golden_spiral", instrument="viola")
+    .build()
+)
+piece.render("output.mid")
+```
 
-| Pass | Name | What It Does |
-|------|------|-------------|
-| 1 | **Plan** | Parses prompt into a `FormIR` (form type, key, sections, bar counts) |
-| 2 | **Schema** | Fills sections with galant schemata (Do-Re-Mi, Prinner, Romanesca, etc.) |
-| 3 | **Harmony** | Realizes schemata into concrete chord progressions via context-free grammar |
-| 4 | **Melody** | Generates melodic lines over the harmony using motif-based development |
-| 5 | **Counterpoint** | Adds inner voices with voice-leading rules (parallel fifths, resolution, etc.) |
-| 6 | **Orchestration** | Assigns voices to instrument tracks based on ensemble and register |
-| 7 | **Expression** | Adds dynamics, articulations, phrasing arcs |
-| 8 | **Humanization** | Applies timing jitter, velocity curves, rubato to avoid mechanical playback |
-| 9 | **Validation** | Checks rule compliance and produces a quality report |
+## Examples
 
-## Files
+Example scripts live in `examples/`:
 
-| File | Description |
-|------|-------------|
-| `composer.py` | Main pipeline -- the `compose()` function that runs all 9 passes end-to-end |
-| `classical_music_gen.py` | Core music theory toolkit: ChordGrammar, VoiceLeader, MelodyGenerator, CounterpointSolver, AlbertiBass, OrchestrationMapper, FormEngine |
-| `SYSTEM_ARCHITECTURE.py` | IR data structures, token enums (FormType, SectionType, CadenceType, etc.), and schema realizations |
-| `prompt_template_library.py` | Prompt templates for using Claude as a composition planner (two-pass: Claude generates JSON plan, Python realizes it as MIDI) |
-| `evaluation_framework.py` | Multi-level scoring system (rule compliance, statistical quality, structural quality, perceptual quality) producing a 0-100 score |
-| `test_compositions.py` | Stress tests: D minor string quartet sonata, F major piano variations, Bb minor orchestral ternary form |
-| `KNOWLEDGE_BASE.md` | 36-part reference covering music theory, neuroscience, orchestration, history, and AI composition techniques |
-| `LISTENING_GUIDE.md` | What to listen for in the stress-test compositions |
-| `PRINCIPLES.md` | Engineering principles governing the codebase |
+```bash
+python examples/sacred_showcase.py      # Showcase compositions with WAV + LilyPond
+python examples/sacred_examples.py      # Phase 1 pattern demos
+python examples/sacred_examples_phase2.py  # Phase 2 harmony + constraints
+python examples/sacred_examples_phase3.py  # Phase 3 full pipeline
+python examples/demo.py                 # Legacy compiler pipeline demo
+```
 
-## The Knowledge Base
+## How to Run Tests
 
-`KNOWLEDGE_BASE.md` is a 36-part reference document (~325 KB) that serves as the theoretical foundation. Topics include:
+```bash
+python -m pytest tests/ -v
+```
 
-- Why classical music is code (Part 1), mathematical foundations including golden ratio and fractal self-similarity (Part 2)
-- Counterpoint and harmony rules engine (Part 3), melody/rhythm/form (Part 4), orchestration (Part 5)
-- The emotion engine (Part 6), toolchain (Part 7), neuroscience of musical perception (Parts 10, 16)
-- Composer technique reverse-engineering (Part 13), galant schemata (Part 24), masterwork analysis (Part 33)
-- AI music generation state of the art (Part 15), end-to-end composition systems (Part 26)
-- The 50 essential rules (Part 34), the philosophy of taste (Part 35), timbral composition (Part 36)
+All 155 tests should pass. No external services required.
 
-## Usage
+## Evaluation
+
+Score any generated MIDI on a 0-100 scale:
+
+```python
+from sacred_composer.evaluate import evaluate_composition
+from sacred_composer.core import Composition
+
+comp = Composition.from_midi("output.mid")
+report = evaluate_composition(comp)
+print(f"Score: {report['total']}/100")
+```
+
+Four evaluation levels:
+1. **Rule Compliance** (gate) -- parallel fifths/octaves, voice crossing, range violations
+2. **Statistical Quality** -- pitch/rhythm distributions vs. corpus norms
+3. **Structural Quality** -- harmonic rhythm, phrase structure, cadence placement
+4. **Perceptual Quality** -- tension curve shape, dynamic range, textural variety
+
+## Legacy Pipeline
+
+The original 9-pass compiler pipeline (`composer.py`) is still available:
 
 ```python
 from composer import compose
 
-# Sonata exposition
 perf, form, report = compose(
     "A dramatic sonata exposition in C minor, heroic, 40 bars, for piano",
     "output.mid"
 )
-
-# Theme and variations
-perf, form, report = compose(
-    "A lyrical theme and 3 variations in G major, 32 bars, for string quartet",
-    "output.mid"
-)
 ```
 
-Supported forms: sonata, ternary (ABA), binary (AB), theme and variations, rondo, minuet and trio, fugue.
+## Documentation
 
-Supported ensembles: piano, string quartet, orchestra.
-
-## Evaluation
-
-Score any generated MIDI file on a 0-100 scale:
-
-```python
-from evaluation_framework import evaluate_midi
-
-report = evaluate_midi("output.mid")
-```
-
-The evaluation has four levels:
-
-1. **Rule Compliance** (gate) -- parallel fifths/octaves, voice crossing, range violations. If this fails, score is capped at 40.
-2. **Statistical Quality** (0-100) -- pitch/rhythm distributions, interval patterns compared to corpus norms.
-3. **Structural Quality** (0-100) -- harmonic rhythm, phrase structure, cadence placement, motivic coherence.
-4. **Perceptual Quality** (0-100) -- tension curve shape, dynamic range, textural variety.
-
-Additional dependency for evaluation: `pip install scipy`
-
-## Current Status
-
-**What works:**
-- Full 9-pass pipeline from text prompt to MIDI file
-- Sonata exposition, ternary form, theme and variations
-- Piano, string quartet, and orchestral ensembles
-- Galant schemata realization, motivic development, SATB voice leading
-- Automated evaluation framework with detailed scoring breakdown
-
-**Known limitations:**
-- No real-time Claude API integration yet (prompt templates are defined but the pipeline uses deterministic algorithms)
-- Fugue generation is rudimentary
-- Development sections (sonata form) lack true motivic fragmentation
-- No audio rendering -- output is MIDI only
-
-## The 12 Principles
-
-From `PRINCIPLES.md`, the engineering principles guiding this codebase:
-
-1. **KISS** -- The simplest solution that works is the best solution
-2. **DRY** -- Every piece of knowledge should have a single, unambiguous representation
-3. **YAGNI** -- Only implement features you actually need right now
-4. **SRP** -- Each function/class should have one, and only one, reason to change
-5. **High Cohesion / Low Coupling** -- Related functionality grouped together; modules minimize dependencies
-6. **Composition over Inheritance** -- Favor composition for code reuse; no deep inheritance hierarchies
-7. **Law of Demeter** -- Objects should only talk to their direct friends
-8. **Clean/Hexagonal Architecture** -- Business logic independent of frameworks and infrastructure
-9. **Explicit over Implicit** -- No magic behavior; clear function signatures with types
-10. **Fail Fast** -- Detect errors early and explicitly; no swallowed exceptions
-11. **Documentation as Code** -- Documentation lives next to the code it describes
-12. **Consistency over Preference** -- Follow established patterns even when you prefer something different
+- `KNOWLEDGE_BASE.md` -- 42-part reference (~350 KB) covering music theory, neuroscience, orchestration, AI composition
+- `SACRED_COMPOSER_SPEC.md` -- Full specification for the sacred_composer package
+- `SACRED_GEOMETRY_AND_MUSIC.md` -- The mathematical foundations
+- `PATTERNS_OF_CREATION.md` -- Pattern generator design and philosophy
+- `PRINCIPLES.md` -- 12 engineering principles governing the codebase
+- `LISTENING_GUIDE.md` -- What to listen for in generated compositions
+- `GAMEPLAN.md` / `ROADMAP.md` -- Development plans
 
 ## License
 

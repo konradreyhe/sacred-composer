@@ -2,6 +2,51 @@
 
 > How code and AI can compose classical music — the patterns, the math, the tools, and the magic sauce.
 
+## Table of Contents
+
+- [Part 1: Why Classical Music IS Code](#part-1-why-classical-music-is-code)
+- [Part 2: The Mathematical Foundations](#part-2-the-mathematical-foundations)
+- [Part 3: The Rules Engine — Counterpoint & Harmony](#part-3-the-rules-engine--counterpoint--harmony)
+- [Part 4: Melody, Rhythm & Form](#part-4-melody-rhythm--form)
+- [Part 5: Orchestration](#part-5-orchestration)
+- [Part 6: The Emotion Engine](#part-6-the-emotion-engine)
+- [Part 7: The Toolchain — What We Can Actually Build](#part-7-the-toolchain--what-we-can-actually-build)
+- [Part 8: The Magic Sauce — What Claude Code Can Do](#part-8-the-magic-sauce--what-claude-code-can-do)
+- [Part 9: The Unsolved Problem — Taste](#part-9-the-unsolved-problem--taste)
+- [Part 10: The Neuroscience of "Why Does It Sound Good?"](#part-10-the-neuroscience-of-why-does-it-sound-good)
+- [Part 11: Music Programming Languages & DSLs](#part-11-music-programming-languages--dsls)
+- [Part 12: Unconventional & Creative Composition Approaches](#part-12-unconventional--creative-composition-approaches)
+- [Part 13: Composer Technique Reverse-Engineering](#part-13-composer-technique-reverse-engineering)
+- [Part 14: The Complete Tech Stack (Windows 11)](#part-14-the-complete-tech-stack-windows-11)
+- [Part 15: State of AI Music Generation (2025-2026)](#part-15-state-of-ai-music-generation-2025-2026)
+- [Part 16: Auditory Perception — The Listener's Brain](#part-16-auditory-perception--the-listeners-brain)
+- [Part 17: Advanced Harmonic Techniques](#part-17-advanced-harmonic-techniques)
+- [Part 18: MIDI Humanization — From Notes to Music](#part-18-midi-humanization--from-notes-to-music)
+- [Part 19: Tuning Systems & Temperament](#part-19-tuning-systems--temperament)
+- [Part 20: Musical Narrative & Dramaturgy](#part-20-musical-narrative--dramaturgy)
+- [Part 21: Music Information Retrieval & Corpus Analysis](#part-21-music-information-retrieval--corpus-analysis)
+- [Part 22: Pitch-Class Set Theory & Mathematical Music Theory](#part-22-pitch-class-set-theory--mathematical-music-theory)
+- [Part 23: The Art of Orchestration — Principles, Recipes, and Practical Reference](#part-23-the-art-of-orchestration--principles-recipes-and-practical-reference)
+- [Part 24: Galant Schemata — The Building Blocks of Classical Composition](#part-24-galant-schemata--the-building-blocks-of-classical-composition)
+- [Part 25: The Changelog of Western Harmony (1600-1913)](#part-25-the-changelog-of-western-harmony-1600-1913)
+- [Part 26: End-to-End Composition Systems — What Actually Worked](#part-26-end-to-end-composition-systems--what-actually-worked)
+- [Part 27: Novel Approaches — What to Build Next](#part-27-novel-approaches--what-to-build-next)
+- [Part 28: Non-Western Musical Systems — What They Teach AI Composition](#part-28-non-western-musical-systems--what-they-teach-ai-composition)
+- [Part 29: Micro-Level Musical Devices and Their Specific Emotional Mechanisms](#part-29-micro-level-musical-devices-and-their-specific-emotional-mechanisms)
+- [Part 30: Musical Form — Complete Algorithm Specifications](#part-30-musical-form--complete-algorithm-specifications)
+- [Part 31: Expressive Performance Modeling](#part-31-expressive-performance-modeling)
+- [Part 32: Legal, Ethical & Philosophical Dimensions](#part-32-legal-ethical--philosophical-dimensions)
+- [Part 33: Masterwork Analysis — What Makes Specific Pieces Work](#part-33-masterwork-analysis--what-makes-specific-pieces-work)
+- [Part 34: The 50 Essential Rules](#part-34-the-50-essential-rules)
+- [Part 35: The Philosophy of Taste — What Separates Correct from Beautiful](#part-35-the-philosophy-of-taste--what-separates-correct-from-beautiful)
+- [Part 36: Timbral and Spectral Composition](#part-36-timbral-and-spectral-composition)
+- [Part 37: Advanced Rhythm -- Metric Modulation, Polymetric Structures, and Tempo as Composition](#part-37-advanced-rhythm----metric-modulation-polymetric-structures-and-tempo-as-composition)
+- [Part 38: Texture Transitions and Modulation Techniques -- Getting from A to B](#part-38-texture-transitions-and-modulation-techniques----getting-from-a-to-b)
+- [Part 39: Composition Debugging -- Diagnosing Why It Sounds Wrong](#part-39-composition-debugging----diagnosing-why-it-sounds-wrong)
+- [Part 40: Nature's Patterns — The Deepest Layer](#part-40-natures-patterns--the-deepest-layer)
+- [Part 41: What Real Listeners Actually Hear — Empirical Evidence](#part-41-what-real-listeners-actually-hear--empirical-evidence)
+- [Part 42: Data Sonification and Acoustic Ecology](#part-42-data-sonification-and-acoustic-ecology)
+
 ---
 
 ## Part 1: Why Classical Music IS Code
@@ -5769,6 +5814,182 @@ LEAST PERCEPTIBLE (diminishing returns)
 ```
 
 **The brutal truth**: most AI music research optimizes for items 8-11 (theoretical correctness) when items 1-7 (perceptual salience) determine whether a listener presses skip. Get the top 7 right and the bottom 4 barely matter. Get the bottom 4 perfect and the top 7 wrong, and no one will listen past 30 seconds.
+
+---
+
+## Part 42: Data Sonification and Acoustic Ecology
+
+### The Three Paradigms (Grond & Berger Taxonomy)
+
+Data sonification is not "make data beep." It is a discipline with rigorous mapping principles:
+
+1. **Audification**: Raw data IS the waveform. Seismograph data played at audio rate becomes audible rumble. LIGO gravitational wave signals are already near audio frequency — the famous "chirp" is literal audification. Works when data has waveform-like structure (time-series, oscillating signals).
+
+2. **Parameter Mapping Sonification (PMSon)**: Data dimensions map to perceptual sound dimensions. This is the most common and the most relevant to Sacred Composer. Key mappings that listeners parse intuitively:
+   - Data value → pitch (higher = higher, the strongest perceptual correlation)
+   - Data rate-of-change → tempo (acceleration = faster notes)
+   - Data variance/volatility → dissonance (unstable = rough intervals)
+   - Data magnitude → loudness/dynamics (more = louder)
+   - Data category → timbre/instrument (qualitative = qualitative)
+
+3. **Model-Based Sonification**: Data defines a physical model (a virtual instrument) that the user "plays" by interacting with the data. Less relevant here but conceptually powerful — the dataset becomes a resonating body.
+
+**Critical principle**: Mappings must be *polarity-consistent* (up means up) and *perceptually scaled* (equal data steps = equal perceived sound steps). Pitch perception is logarithmic, so linear data must map through log scaling.
+
+### Climate Data Sonification
+
+**Datasets (all free, CSV-downloadable)**:
+- NASA GISS Surface Temperature: `https://data.giss.nasa.gov/gistemp/` — global temperature anomaly 1880-present, monthly resolution
+- Keeling Curve CO2: `https://scrippsco2.ucsd.edu/data/atmospheric_co2/` — Mauna Loa CO2 ppm, 1958-present, weekly
+- NSIDC Sea Ice Index: `https://nsidc.org/data/seaice_index/` — Arctic/Antarctic extent, 1979-present, daily
+- HadCRUT5: `https://www.metoffice.gov.uk/hadobs/hadcrut5/data/current/download.html` — global temp, independent of NASA GISS
+
+**Mapping strategy for climate as music**:
+- Each year = one measure. Temperature anomaly = melody pitch (normalize -0.5C to +1.5C across two octaves). The melody literally rises as the planet warms.
+- CO2 concentration = a sustained drone that rises in pitch over time (280ppm in 1880 → 425ppm now = roughly a perfect fifth of ascent).
+- Sea ice extent = rhythm density. Maximum ice (March) = dense 16th-note texture. Summer minimum = sparse whole notes. As ice declines decade by decade, the texture thins — silence encroaching.
+- Emotional impact: listeners report climate sonifications as "viscerally alarming" in ways graphs are not. The rising pitch is felt as urgency.
+
+### Financial Data Sonification
+
+**Datasets**:
+- Yahoo Finance API (via `yfinance` Python package): any ticker, any timeframe
+- FRED (Federal Reserve Economic Data): `https://fred.stlouisfed.org/` — VIX, interest rates, GDP
+- Alpha Vantage API: `https://www.alphavantage.co/` — free tier, real-time quotes
+
+**Mapping strategy**:
+- Close price → pitch (normalize to scale). Rising market = ascending melody.
+- Volume → dynamics (high volume = forte, low = piano).
+- VIX (volatility index) → consonance/dissonance. VIX < 15 = consonant intervals (3rds, 5ths). VIX > 30 = tritones, minor 2nds, clusters.
+- Daily returns → rhythm. Positive days = notes, negative days = rests. Crash days (>3% drop) = dramatic silence followed by low staccato.
+- Real-time trading sonification: traders can monitor multiple streams by ear, detecting anomalies as "wrong notes" faster than scanning screens.
+
+### Astronomical Sonification
+
+**Existing projects and datasets**:
+- NASA Chandra X-ray sonification: `https://chandra.si.edu/sound/` — images scanned left-to-right, brightness = volume, color/frequency = pitch. Already proven effective for accessibility.
+- Hubble image sonification: vertical position = pitch, horizontal = time, brightness = volume.
+- LIGO Open Science Center: `https://gwosc.org/` — actual gravitational wave strain data. The binary black hole merger GW150914 is a chirp from ~35Hz to ~250Hz in 0.2 seconds — audification with frequency shift puts it directly in human hearing range.
+- NASA Exoplanet Archive: `https://exoplanetarchive.ipac.caltech.edu/` — transit light curves show periodic brightness dips. Period = musical pulse. Depth = accent strength. Multiple planets = polyrhythm.
+
+### Biosignal Sonification
+
+**Data sources**:
+- PhysioNet: `https://physionet.org/` — free ECG, EEG, EMG datasets (MIT-BIH Arrhythmia Database, CHB-MIT Scalp EEG)
+- OpenBCI: `https://openbci.com/` — consumer EEG hardware + open data
+
+**Mapping strategy**:
+- ECG R-R intervals → rhythm (each heartbeat = one note). Healthy heart = regular pulse with slight 1/f variation (matches PinkNoise pattern). Arrhythmia = rhythmic disturbance immediately audible.
+- EEG frequency bands → polyphonic layers. Delta (0.5-4Hz) = bass drone. Theta (4-8Hz) = slow melody. Alpha (8-13Hz) = middle voice. Beta (13-30Hz) = fast upper figuration. Gamma (30-100Hz) = trill/tremolo.
+- Clinical application: nurses monitoring sonified vitals detect bradycardia and desaturation 15-25% faster than with visual-only displays (studies by Sanderson et al., 2009).
+
+### Urban Soundscape / Acoustic Ecology
+
+R. Murray Schafer's concept: every environment has a "soundscape" — a sonic identity. The World Soundscape Project (1970s, Simon Fraser University) pioneered recording and analyzing environmental sound.
+
+**Data sources for city sonification**:
+- OpenSense: `https://opensense.network/` — distributed environmental sensor data
+- City open data portals (noise complaints, decibel monitoring): NYC `https://data.cityofnewyork.us/`, London `https://data.london.gov.uk/`
+- Purple Air / OpenAQ for air quality: `https://www.purpleair.com/`, `https://openaq.org/`
+- OpenWeatherMap: `https://openweathermap.org/api` — temperature, humidity, wind speed, weather conditions
+
+**Mapping strategy**:
+- Noise level (dB) → texture density. Loud intersection = dense cluster chords. Quiet park = single sustained tones.
+- Air quality index → consonance. Clean air = open fifths. Polluted = minor seconds.
+- Wind speed → tempo fluctuation (rubato). Calm = steady. Gusty = accelerando/ritardando.
+- Time of day → key/mode. Dawn = D major. Noon = C major. Dusk = Bb major. Night = Eb minor.
+- GPS coordinates as seed values for pattern generators — each location produces unique but reproducible music.
+
+### Sacred Composer as Sonification Framework
+
+The architecture is already a sonification engine. The Pattern protocol (`generate(n) -> list[float]`) accepts ANY numeric source. The mappers (`to_pitch`, `to_rhythm`, `to_dynamics`) handle perceptual scaling. The gap is only data ingestion.
+
+**DataPattern — the universal adapter**:
+
+```python
+class DataPattern:
+    """Wrap any numeric dataset as a Sacred Composer pattern source."""
+
+    def __init__(self, values: list[float], name: str = "data") -> None:
+        self._values = values
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def generate(self, n: int) -> list[float]:
+        """Return n values, cycling if dataset is shorter than n."""
+        return [self._values[i % len(self._values)] for i in range(n)]
+
+    def __iter__(self):
+        i = 0
+        while True:
+            yield self._values[i % len(self._values)]
+            i += 1
+
+    @classmethod
+    def from_csv(cls, path: str, column: int | str = 0,
+                 skip_header: bool = True, name: str = "csv_data"):
+        """Load a single numeric column from a CSV file."""
+        import csv
+        values = []
+        with open(path, "r") as f:
+            reader = csv.reader(f)
+            if skip_header:
+                header = next(reader)
+                if isinstance(column, str):
+                    column = header.index(column)
+            for row in reader:
+                try:
+                    values.append(float(row[column]))
+                except (ValueError, IndexError):
+                    continue
+        return cls(values, name=name)
+
+    @classmethod
+    def from_json_url(cls, url: str, key_path: str, name: str = "api_data"):
+        """Fetch JSON from URL and extract a list of numbers.
+
+        key_path uses dot notation: 'data.values' -> json['data']['values']
+        """
+        import urllib.request, json
+        with urllib.request.urlopen(url) as resp:
+            data = json.loads(resp.read())
+        for key in key_path.split("."):
+            data = data[key] if isinstance(data, dict) else data[int(key)]
+        return cls([float(v) for v in data], name=name)
+```
+
+**Complete climate sonification example**:
+
+```python
+from sacred_composer import (
+    Composition, to_pitch, to_rhythm, to_dynamics, EuclideanRhythm
+)
+
+# --- Data ingestion ---
+temp = DataPattern.from_csv("gistemp.csv", column="J-D", name="temperature")
+# co2 = DataPattern.from_csv("co2_weekly.csv", column="average", name="co2")
+
+# --- Generate & Map ---
+n_years = 144  # 1880-2024
+temp_vals = temp.generate(n_years)
+
+pitches  = to_pitch(temp_vals, scale="C_minor", strategy="normalize",
+                    octave_range=(3, 6))
+durations = to_rhythm(EuclideanRhythm(5, 8).generate(n_years),
+                      base_duration=0.5, strategy="proportional")
+dynamics  = to_dynamics(temp_vals, velocity_range=(40, 120))
+
+# --- Compose ---
+piece = Composition(tempo=90, title="Warming (1880-2024)")
+piece.add_voice("temperature", pitches, durations, dynamics,
+                instrument="violin")
+piece.render("warming.mid")
+```
+
+The pipeline is identical to sacred-pattern composition: generate, map, combine, render. The only difference is the data source. Any `list[float]` becomes music.
 
 ---
 

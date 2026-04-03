@@ -1,31 +1,19 @@
-"""
-COMPOSER.PY -- Compatibility shim
-===================================
-This file re-exports everything from the composer/ package so that
-existing imports continue to work unchanged:
+"""CLI entry point: python -m composer [prompt]"""
 
-    from composer import compose, compose_suite
-    from composer import compose, parse_prompt, pass_1_plan
-
-The actual implementation lives in the composer/ package directory.
-"""
-
-# Re-export the full public API from the package
-from composer import *  # noqa: F401, F403
-
-# Explicit re-exports for anything that other files import by name
-from composer import compose, compose_suite, parse_prompt, pass_1_plan
-from composer import ValidationReport, SAMPLE_PROMPTS
+from __future__ import annotations
 
 import sys
 
-if __name__ == "__main__":
-    from composer.parser import SAMPLE_PROMPTS as _PROMPTS
+from composer.pipeline import compose, compose_suite
+from composer.parser import SAMPLE_PROMPTS
 
+
+if __name__ == "__main__":
+    # Accept prompt from command line or use default
     if len(sys.argv) > 1:
         prompt = " ".join(sys.argv[1:])
     else:
-        prompt = _PROMPTS[0]
+        prompt = SAMPLE_PROMPTS[0]
         print(f"No prompt given; using default: \"{prompt}\"\n")
 
     perf_ir, form_ir, report = compose(
@@ -34,6 +22,7 @@ if __name__ == "__main__":
         seed=42,
     )
 
+    # Also generate a second example to demonstrate versatility
     print("\n\n" + "#" * 60)
     print("# SECOND EXAMPLE")
     print("#" * 60 + "\n")
@@ -44,6 +33,7 @@ if __name__ == "__main__":
         seed=123,
     )
 
+    # Rondo test
     print("\n\n" + "#" * 60)
     print("# RONDO TEST")
     print("#" * 60 + "\n")
@@ -54,6 +44,7 @@ if __name__ == "__main__":
         seed=42,
     )
 
+    # Improved fugue test
     print("\n\n" + "#" * 60)
     print("# IMPROVED FUGUE TEST")
     print("#" * 60 + "\n")
@@ -64,6 +55,7 @@ if __name__ == "__main__":
         seed=42,
     )
 
+    # Suite test
     print("\n\n" + "#" * 60)
     print("# MULTI-MOVEMENT SUITE TEST")
     print("#" * 60 + "\n")

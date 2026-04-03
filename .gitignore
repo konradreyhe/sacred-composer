@@ -1,6 +1,34 @@
 __pycache__/
 *.pyc
 .claude/
+
+# Generated audio/MIDI files
+*.mid
+*.midi
 *.wav
 *.mp3
-output/*.mid
+output/
+
+# Test artifacts
+_test*.mid
+_diag*.mid
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Generated notation/audio
+*.ly
+*.xml
+*.musicxml
+
+# Environment
+.env
+*.egg-info/
+dist/
+build/

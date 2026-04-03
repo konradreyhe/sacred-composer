@@ -1,0 +1,4 @@
+midiutil
+numpy
+fastapi
+uvicorn[standard]

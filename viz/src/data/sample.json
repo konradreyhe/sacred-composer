@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "title": "Fibonacci Prelude in C",
+    "tempo": 72,
+    "durationBeats": 32,
+    "durationSec": 26.67,
+    "fps": 60
+  },
+  "voices": [
+    {
+      "name": "Soprano",
+      "instrument": "violin",
+      "channel": 0,
+      "notes": [
+        { "pitch": 72, "velocity": 80, "startBeat": 0, "durationBeat": 2, "startSec": 0.0, "durationSec": 1.667, "pitchBend": null },
+        { "pitch": 74, "velocity": 85, "startBeat": 2, "durationBeat": 1, "startSec": 1.667, "durationSec": 0.833, "pitchBend": null },
+        { "pitch": 76, "velocity": 90, "startBeat": 3, "durationBeat": 3, "startSec": 2.5, "durationSec": 2.5, "pitchBend": null },
+        { "pitch": 77, "velocity": 75, "startBeat": 8, "durationBeat": 2, "startSec": 6.667, "durationSec": 1.667, "pitchBend": null },
+        { "pitch": 79, "velocity": 95, "startBeat": 10, "durationBeat": 5, "startSec": 8.333, "durationSec": 4.167, "pitchBend": null },
+        { "pitch": 76, "velocity": 70, "startBeat": 16, "durationBeat": 3, "startSec": 13.333, "durationSec": 2.5, "pitchBend": null },
+        { "pitch": 74, "velocity": 85, "startBeat": 21, "durationBeat": 2, "startSec": 17.5, "durationSec": 1.667, "pitchBend": null },
+        { "pitch": 72, "velocity": 80, "startBeat": 24, "durationBeat": 8, "startSec": 20.0, "durationSec": 6.667, "pitchBend": null }
+      ]
+    },
+    {
+      "name": "Bass",
+      "instrument": "cello",
+      "channel": 1,
+      "notes": [
+        { "pitch": 48, "velocity": 70, "startBeat": 0, "durationBeat": 4, "startSec": 0.0, "durationSec": 3.333, "pitchBend": null },
+        { "pitch": 52, "velocity": 75, "startBeat": 4, "durationBeat": 4, "startSec": 3.333, "durationSec": 3.333, "pitchBend": null },
+        { "pitch": 55, "velocity": 80, "startBeat": 8, "durationBeat": 4, "startSec": 6.667, "durationSec": 3.333, "pitchBend": null },
+        { "pitch": 53, "velocity": 72, "startBeat": 12, "durationBeat": 4, "startSec": 10.0, "durationSec": 3.333, "pitchBend": null },
+        { "pitch": 48, "velocity": 68, "startBeat": 16, "durationBeat": 8, "startSec": 13.333, "durationSec": 6.667, "pitchBend": null },
+        { "pitch": 55, "velocity": 78, "startBeat": 24, "durationBeat": 4, "startSec": 20.0, "durationSec": 3.333, "pitchBend": null },
+        { "pitch": 48, "velocity": 65, "startBeat": 28, "durationBeat": 4, "startSec": 23.333, "durationSec": 3.333, "pitchBend": null }
+      ]
+    }
+  ],
+  "formSections": [
+    { "label": "Exposition", "startBar": 0, "endBar": 4, "bars": 4 },
+    { "label": "Development", "startBar": 4, "endBar": 6, "bars": 2 },
+    { "label": "Recapitulation", "startBar": 6, "endBar": 8, "bars": 2 }
+  ]
+}
