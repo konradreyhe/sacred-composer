@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=JetBrains+Mono:wght@300&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: transparent;
+    overflow: hidden;
+    width: 1920px; height: 1080px;
+  }
+
+  .overlay {
+    position: absolute;
+    bottom: 40px; left: 48px;
+    font-family: 'Cormorant Garamond', serif;
+    animation: fadeIn 2s ease;
+  }
+
+  .title {
+    font-size: 32px; font-weight: 300;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 2px;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  }
+
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: rgba(232,168,56,0.4);
+    letter-spacing: 3px;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  .pattern {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  .branding {
+    position: absolute;
+    bottom: 40px; right: 48px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    color: rgba(232,168,56,0.25);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  .seed-display {
+    position: absolute;
+    top: 40px; right: 48px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: rgba(255,255,255,0.15);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="title" id="title">Sacred Patterns — D minor</div>
+    <div class="meta" id="meta">Sacred Composer</div>
+    <div class="pattern" id="pattern">Infinity Series | 72 BPM | Fibonacci Form</div>
+  </div>
+  <div class="branding">Sacred Composer</div>
+  <div class="seed-display" id="seed">Seed #0</div>
+
+  <script>
+    // Poll for metadata updates from the stream generator
+    async function update() {
+      try {
+        const res = await fetch('/stream/current');
+        const data = await res.json();
+        document.getElementById('title').textContent = data.title || '';
+        document.getElementById('pattern').textContent =
+          `${data.pattern || ''} | ${data.tempo || 72} BPM | ${data.mood || ''}`;
+        document.getElementById('seed').textContent = `Seed #${data.seed || 0}`;
+      } catch(e) {}
+    }
+    setInterval(update, 5000);
+    update();
+  </script>
+</body>
+</html>

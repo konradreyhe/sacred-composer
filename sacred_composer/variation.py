@@ -242,11 +242,22 @@ def apply_developing_variation(
     durations: list[float],
     phrase_length: int = 8,
     seed: int = 42,
+    target_distance: float = 0.4,
+    pitch_floor: int | None = None,
+    pitch_ceiling: int | None = None,
 ) -> tuple[list[int], list[float]]:
     """Extract the first phrase as motif, then replace subsequent phrases with developed variations.
 
     Drop-in replacement for the existing ``add_motivic_variation`` in
     ``constraints.py``. Works on raw pitch/duration lists.
+
+    Parameters
+    ----------
+    target_distance : How different each variation should be from the
+        previous (0 = identical, 1 = maximally different).  Lower values
+        keep variations closer to the original motif.
+    pitch_floor, pitch_ceiling : MIDI range to clamp variation pitches to.
+        Defaults to the range found in the first phrase ±4 semitones.
     """
     if len(pitches) < phrase_length * 2:
         return list(pitches), list(durations)
@@ -255,8 +266,14 @@ def apply_developing_variation(
     first_pitches = pitches[:phrase_length]
     first_durations = durations[:phrase_length]
 
+    # Infer range from input if not specified
+    if pitch_floor is None:
+        pitch_floor = min(pitches) - 4
+    if pitch_ceiling is None:
+        pitch_ceiling = max(pitches) + 4
+
     motif = Motif.from_pitches(first_pitches, first_durations)
-    variations = develop_phrase(motif, n_phrases, target_distance=0.4, seed=seed)
+    variations = develop_phrase(motif, n_phrases, target_distance=target_distance, seed=seed)
 
     out_pitches = list(pitches)
     out_durations = list(durations)
@@ -274,10 +291,25 @@ def apply_developing_variation(
             if idx >= len(out_pitches):
                 break
             if j < len(var_pitches):
-                # Clamp to valid MIDI range
-                out_pitches[idx] = max(0, min(127, var_pitches[j]))
+                p = var_pitches[j]
+                # Fold into valid range via octave transposition
+                while p > pitch_ceiling:
+                    p -= 12
+                while p < pitch_floor:
+                    p += 12
+                out_pitches[idx] = max(pitch_floor, min(pitch_ceiling, p))
             if j < len(var_durations):
                 out_durations[idx] = var_durations[j]
 
-    # Handle any trailing notes beyond the last full phrase
+    # Smooth inter-phrase boundaries: ensure no large leap at phrase starts
+    for p_idx in range(1, n_phrases):
+        start = p_idx * phrase_length
+        if start > 0 and start < len(out_pitches):
+            prev = out_pitches[start - 1]
+            curr = out_pitches[start]
+            if abs(curr - prev) > 5:
+                # Move the first note of the new phrase closer
+                direction = 1 if prev > curr else -1
+                out_pitches[start] = prev - direction * 2
+
     return out_pitches, out_durations

@@ -232,10 +232,52 @@ class Composition:
             from sacred_composer.musicxml import render_musicxml
             return render_musicxml(self.score, filename, title=self.title)
         elif filename.endswith(".wav"):
-            from sacred_composer.wav_renderer import render_wav
-            return render_wav(self.score, filename)
+            # Try FluidSynth + SoundFont first for real instrument sounds.
+            # Falls back to pure-Python synthesis if unavailable.
+            try:
+                return self._render_fluidsynth_wav(filename)
+            except Exception:
+                from sacred_composer.wav_renderer import render_wav
+                return render_wav(self.score, filename)
         else:
             raise ValueError(f"Unsupported format: {filename}. Use .mid, .ly, .musicxml, .xml, .wav, or .orch.wav")
+
+    def _render_fluidsynth_wav(self, filename: str) -> str:
+        """Render via MIDI → FluidSynth + SoundFont → WAV.
+
+        Produces real instrument sounds instead of synthetic sine waves.
+        Raises an exception if FluidSynth or a SoundFont isn't available.
+        """
+        import tempfile
+        import os
+
+        # First render MIDI to a temp file
+        tmp_mid = tempfile.mktemp(suffix=".mid")
+        self._render_midi(tmp_mid)
+
+        try:
+            # Use the render_audio module's FluidSynth backend
+            import sys
+            # Ensure project root is importable
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+
+            from render_audio import find_soundfonts, render_fluidsynth
+
+            soundfonts = find_soundfonts()
+            if not soundfonts:
+                raise RuntimeError("No SoundFont (.sf2) files found")
+
+            sf = soundfonts[0]
+            success = render_fluidsynth(tmp_mid, filename, sf)
+            if not success:
+                raise RuntimeError("FluidSynth rendering failed")
+
+            return filename
+        finally:
+            if os.path.exists(tmp_mid):
+                os.unlink(tmp_mid)
 
     def _render_midi(self, filename: str) -> str:
         from midiutil import MIDIFile

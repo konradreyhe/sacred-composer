@@ -76,9 +76,26 @@ def pick_best_soundfont(soundfonts):
 # Backend detection
 # ---------------------------------------------------------------------------
 
+def _find_fluidsynth_exe():
+    """Return path to fluidsynth executable, or None."""
+    # Check PATH first
+    exe = shutil.which("fluidsynth")
+    if exe:
+        return exe
+    # Check common Windows install locations
+    for candidate in [
+        "C:/tools/fluidsynth/bin/fluidsynth.exe",
+        "C:/Program Files/FluidSynth/bin/fluidsynth.exe",
+        "C:/Program Files (x86)/FluidSynth/bin/fluidsynth.exe",
+    ]:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def check_fluidsynth():
     """Return True if fluidsynth CLI is available."""
-    return shutil.which("fluidsynth") is not None
+    return _find_fluidsynth_exe() is not None
 
 
 def check_midi2audio():
@@ -193,10 +210,12 @@ def render_fluidsynth(midi_path, wav_path, soundfont_path):
         print(f"  midi2audio failed: {e}, trying CLI...")
 
     # Fall back to fluidsynth CLI
-    if check_fluidsynth():
+    fs_exe = _find_fluidsynth_exe()
+    if fs_exe:
         cmd = [
-            "fluidsynth", "-ni", soundfont_path, midi_path,
+            fs_exe, "-a", "file", "-ni",
             "-F", wav_path, "-r", "44100",
+            soundfont_path, midi_path,
         ]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)

@@ -30,8 +30,14 @@ Thumbs.db
 *.xml
 *.musicxml
 
+# Node
+node_modules/
+
 # Environment
 .env
 *.egg-info/
 dist/
 build/
+
+# Exception: keep viz public audio for Remotion
+!viz/public/*.wav

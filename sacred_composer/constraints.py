@@ -152,7 +152,8 @@ def add_tension_arc(
     """Shape dynamics to follow a strong tension arc.
 
     Arc: pp start -> gradual build -> ff climax at golden section -> gradual release -> p ending.
-    The range is wider to create a more dramatic arc the evaluator can detect.
+    Uses a blend of the original dynamics (30%) and a pure arc (70%) so that
+    the arch shape dominates the velocity curve even over pink-noise variation.
     """
     n = len(dynamics)
     if n == 0:
@@ -165,14 +166,16 @@ def add_tension_arc(
         position = i / max(1, n - 1)
 
         if position < climax_point:
-            # Build from 0.55 -> 1.15 (pp to ff)
-            tension = 0.55 + 0.60 * (position / climax_point)
+            # Build from 0.35 -> 1.20 (pp to ff)
+            arc_mult = 0.35 + 0.85 * (position / climax_point)
         else:
-            # Release from 1.15 -> 0.6 (ff to mp)
+            # Release from 1.20 -> 0.40 (ff to p)
             release_progress = (position - climax_point) / (1 - climax_point)
-            tension = 1.15 - 0.55 * release_progress
+            arc_mult = 1.20 - 0.80 * release_progress
 
-        result[i] = max(1, min(127, int(result[i] * tension)))
+        # Blend: 70% arc shape, 30% original dynamics
+        arc_vel = result[i] * arc_mult
+        result[i] = max(1, min(127, int(0.70 * arc_vel + 0.30 * result[i] * 0.7)))
 
     return result
 
