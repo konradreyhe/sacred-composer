@@ -58,6 +58,7 @@ export const NoteConstellation: React.FC<Props> = ({
         for (let j = i + 1; j < points.length; j++) {
           const a = points[i];
           const b = points[j];
+          if (!a || !b) continue;
           const dist = Math.hypot(a.x - b.x, a.y - b.y);
           if (dist > width * 0.5) continue;
 

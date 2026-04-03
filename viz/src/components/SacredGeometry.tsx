@@ -84,8 +84,10 @@ export const SacredGeometry: React.FC<Props> = ({
 
     // Light up circles based on active notes
     for (const note of activeNotes) {
+      if (circles.length === 0) break;
       const idx = note.pitch % circles.length;
       const c = circles[idx];
+      if (!c) continue;
       const color = getNoteColor(note.voiceIndex ?? 0);
       const intensity = note.velocity / 127;
 

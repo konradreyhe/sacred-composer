@@ -1,0 +1,16 @@
+*.wav
+*.mid
+*.orch.wav
+output*/
+viz/
+tests/
+examples/
+docs/
+__pycache__/
+*.pyc
+.git/
+node_modules/
+HANDOVER.md
+ROADMAP.md
+GAMEPLAN.md
+*.egg-info/

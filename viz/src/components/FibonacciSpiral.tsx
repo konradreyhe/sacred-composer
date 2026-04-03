@@ -73,6 +73,7 @@ export const FibonacciSpiral: React.FC<Props> = ({
     // Draw base dots with breathing
     for (let i = 0; i < revealedCount; i++) {
       const p = points[i];
+      if (!p) continue;
       const breathe = 1 + Math.sin(progress * TAU * 2 + i * 0.3) * 0.3 * tension;
       const dotSize = (1.5 + (i / totalPoints) * 1.5) * breathe;
 
@@ -90,6 +91,7 @@ export const FibonacciSpiral: React.FC<Props> = ({
       activeIndices.add(idx);
 
       const p = points[idx];
+      if (!p) continue;
       const color = getNoteColor(note.voiceIndex ?? 0);
       const vel = note.velocity / 127;
 
@@ -131,6 +133,7 @@ export const FibonacciSpiral: React.FC<Props> = ({
       for (let i = 0; i < activeList.length - 1; i++) {
         const a = points[activeList[i]];
         const b = points[activeList[i + 1]];
+        if (!a || !b) continue;
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         // Curved connection through center

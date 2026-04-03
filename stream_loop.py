@@ -2,17 +2,19 @@
 """24/7 Sacred Geometry music stream generator.
 
 Continuously generates compositions and renders WAV + metadata.
-Designed to feed into OBS/ffmpeg for YouTube livestreaming.
+Supports direct ffmpeg RTMP streaming to YouTube.
 
 Usage:
     python stream_loop.py                    # Generate to output/stream/
     python stream_loop.py --output ./live    # Custom output dir
     python stream_loop.py --once             # Generate one and exit
+    python stream_loop.py --rtmp "rtmp://a.rtmp.youtube.com/live2/YOUR-KEY"
 """
 
 import argparse
 import json
 import random
+import subprocess
 import time
 from pathlib import Path
 
@@ -41,6 +43,32 @@ PATTERN_DISPLAY = {
     "rossler": "Rossler Attractor",
     "cantor": "Cantor Set",
 }
+
+
+def start_ffmpeg_stream(playlist_path: str, rtmp_url: str) -> subprocess.Popen:
+    """Start ffmpeg concat-to-RTMP stream."""
+    cmd = [
+        "ffmpeg", "-re",
+        "-f", "concat", "-safe", "0", "-i", playlist_path,
+        "-stream_loop", "-1",
+        "-c:a", "aac", "-b:a", "192k",
+        "-f", "flv", rtmp_url,
+    ]
+    return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
+
+def notify_api(metadata: dict, api_url: str = "http://localhost:8000"):
+    """POST composition metadata to the API's /stream/update endpoint."""
+    try:
+        import urllib.request
+        data = json.dumps(metadata).encode()
+        req = urllib.request.Request(
+            f"{api_url}/stream/update", data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=2)
+    except Exception:
+        pass  # API might not be running
 
 
 def generate_one(seed: int, output_dir: Path) -> dict:
@@ -150,16 +178,22 @@ def generate_one(seed: int, output_dir: Path) -> dict:
     return meta
 
 
-def stream_loop(output_dir: Path, start_seed: int = 0):
-    """Infinite generation loop."""
+def stream_loop(output_dir: Path, start_seed: int = 0,
+                rtmp_url: str | None = None, api_url: str = "http://localhost:8000"):
+    """Infinite generation loop with optional RTMP streaming and API notifications."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Playlist file for ffmpeg concat
     playlist_path = output_dir / "playlist.txt"
 
+    ffmpeg_proc = None
+
     seed = start_seed
     print(f"\n  Sacred Composer — 24/7 Stream Generator")
     print(f"  Output: {output_dir}")
+    if rtmp_url:
+        print(f"  RTMP: {rtmp_url}")
+    print(f"  API:  {api_url}")
     print(f"  Starting from seed {seed}")
     print(f"  Press Ctrl+C to stop\n")
 
@@ -171,6 +205,21 @@ def stream_loop(output_dir: Path, start_seed: int = 0):
             with open(playlist_path, "a") as f:
                 f.write(f"file '{meta['wavFile']}'\n")
 
+            # Notify API with composition metadata
+            notify_api(meta, api_url)
+
+            # Start ffmpeg RTMP stream after first composition is ready
+            if rtmp_url and ffmpeg_proc is None:
+                print(f"  Starting ffmpeg RTMP stream...")
+                ffmpeg_proc = start_ffmpeg_stream(str(playlist_path), rtmp_url)
+                print(f"  ffmpeg started (PID {ffmpeg_proc.pid})")
+
+            # Check if ffmpeg is still running
+            if ffmpeg_proc is not None and ffmpeg_proc.poll() is not None:
+                print(f"  WARNING: ffmpeg exited with code {ffmpeg_proc.returncode}, restarting...")
+                ffmpeg_proc = start_ffmpeg_stream(str(playlist_path), rtmp_url)
+                print(f"  ffmpeg restarted (PID {ffmpeg_proc.pid})")
+
             print(f"  Added to playlist. Total: {seed - start_seed + 1} compositions.")
             seed += 1
             time.sleep(1)  # Brief pause between generations
@@ -178,9 +227,15 @@ def stream_loop(output_dir: Path, start_seed: int = 0):
         except KeyboardInterrupt:
             print(f"\n\nStopped. Generated {seed - start_seed} compositions.")
             print(f"Playlist: {playlist_path}")
-            print(f"\nTo stream with ffmpeg:")
-            print(f"  ffmpeg -f concat -safe 0 -i {playlist_path} -f wav - | "
-                  f"ffmpeg -re -i - -c:a aac -b:a 192k -f flv rtmp://YOUR_YOUTUBE_KEY")
+            if ffmpeg_proc is not None:
+                print(f"  Stopping ffmpeg (PID {ffmpeg_proc.pid})...")
+                ffmpeg_proc.terminate()
+                ffmpeg_proc.wait(timeout=5)
+                print(f"  ffmpeg stopped.")
+            else:
+                print(f"\nTo stream with ffmpeg:")
+                print(f"  ffmpeg -f concat -safe 0 -i {playlist_path} -f wav - | "
+                      f"ffmpeg -re -i - -c:a aac -b:a 192k -f flv rtmp://YOUR_YOUTUBE_KEY")
             break
 
         except Exception as e:
@@ -193,15 +248,20 @@ def main():
     parser.add_argument("--output", default="output/stream", help="Output directory")
     parser.add_argument("--seed", type=int, default=0, help="Starting seed")
     parser.add_argument("--once", action="store_true", help="Generate one and exit")
+    parser.add_argument("--rtmp", type=str, default=None,
+                        help="RTMP URL for YouTube livestreaming (e.g. rtmp://a.rtmp.youtube.com/live2/YOUR-KEY)")
+    parser.add_argument("--api-url", type=str, default="http://localhost:8000",
+                        help="API base URL for metadata notifications (default: http://localhost:8000)")
     args = parser.parse_args()
 
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.once:
-        generate_one(args.seed, output_dir)
+        meta = generate_one(args.seed, output_dir)
+        notify_api(meta, args.api_url)
     else:
-        stream_loop(output_dir, args.seed)
+        stream_loop(output_dir, args.seed, rtmp_url=args.rtmp, api_url=args.api_url)
 
 
 if __name__ == "__main__":

@@ -341,6 +341,36 @@ async def compose_from_seed(seed: int):
 
 
 # ---------------------------------------------------------------------------
+# Livestream overlay — current composition tracking
+# ---------------------------------------------------------------------------
+
+_stream_current: dict = {}
+
+
+class StreamUpdateRequest(BaseModel):
+    title: str = ""
+    pattern: str = ""
+    tempo: int = 0
+    mood: str = ""
+    seed: int = 0
+
+
+@app.post("/stream/update")
+async def stream_update(request: StreamUpdateRequest):
+    """Update the current livestream composition info."""
+    _stream_current.update(request.model_dump())
+    return _stream_current
+
+
+@app.get("/stream/current")
+async def stream_current():
+    """Get the current livestream composition info (for overlay)."""
+    if not _stream_current:
+        return {"title": "", "pattern": "", "tempo": 0, "mood": "", "seed": 0}
+    return _stream_current
+
+
+# ---------------------------------------------------------------------------
 # Web frontend (single-page app served directly)
 # ---------------------------------------------------------------------------
 
@@ -907,4 +937,5 @@ function copyShareUrl() {
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("api:app", host="0.0.0.0", port=port)

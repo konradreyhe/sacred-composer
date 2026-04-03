@@ -5,7 +5,7 @@
 **Conference:** BRIDGES 2026 -- Mathematics, Art, Music, Architecture, Culture
 **Location:** Galway, Ireland, August 5--8, 2026
 **Category:** Regular Paper (6--8 pages)
-**Submission Deadline:** February 1, 2026
+**Submission Deadline:** February 1, 2026 *(deadline passed -- retarget for BRIDGES 2027)*
 
 ---
 
@@ -15,7 +15,7 @@ Algorithmic composition has long promised to make the deep relationship between 
 
 We present *Sacred Composer*, an open-source Python library in which mathematical and natural patterns are first-class compositional objects. The system implements 23 pattern generators -- including Fibonacci sequences, harmonic series, Lorenz attractors, cellular automata, golden spirals, L-systems, Euclidean rhythms, and 1/f noise -- each conforming to a common `Pattern` protocol that yields raw numeric values with no inherent musical meaning. Explicit mapper functions (`to_pitch`, `to_rhythm`, `to_dynamics`) project these values into musical parameter spaces, while combiners (`canon`, `phase`, `fractal_form`) assemble multi-voice textures. A constraint-aware voice-leading engine enforces counterpoint rules, and a four-level evaluation framework scores output on rule compliance, statistical quality, structural coherence, and perceptual characteristics. The system is entirely deterministic and GPU-free: every note in the output is traceable to its generating pattern and parameter mapping.
 
-Sacred Composer currently achieves 86.5/100 on its evaluation framework, passes 241 automated tests, and renders to six output formats (MIDI, LilyPond, WAV, orchestral WAV, MusicXML, and performance IR). Beyond Western classical idioms, the system includes seven world-music subsystems spanning Indian raga, Arabic maqam, gamelan (slendro/pelog), Japanese scales, West African polyrhythm, and Balinese kotekan, demonstrating that mathematical pattern-to-music mapping generalizes across tonal traditions.
+Sacred Composer currently achieves 91.4/100 on its evaluation framework, passes 320 automated tests, and renders to six output formats (MIDI, LilyPond, WAV, orchestral WAV, MusicXML, and performance IR). Beyond Western classical idioms, the system includes seven world-music subsystems spanning Indian raga, Arabic maqam, gamelan (slendro/pelog), Japanese scales, West African polyrhythm, and Balinese kotekan, demonstrating that mathematical pattern-to-music mapping generalizes across tonal traditions.
 
 We argue that this architecture makes Sacred Composer a *mathematical microscope for music*: students can hear Fibonacci as melody, watch a Lorenz attractor become a contour, and feel how 1/f noise produces natural rubato. Every parameter mapping is transparent and adjustable, making the system a powerful tool for teaching the mathematics of music at the intersection where BRIDGES has long operated.
 
@@ -62,8 +62,8 @@ Algorithmic composition, mathematical patterns, music education, deterministic g
 
 ### 5. Results and Composition Examples (1.5 pages)
 
-- Evaluation scores: 86.5/100 overall; breakdown by category
-- 241 automated tests covering generators, mappers, constraints, rendering, and world music
+- Evaluation scores: 91.4/100 overall; breakdown by category
+- 320 automated tests covering generators, mappers, constraints, rendering, and world music
 - Composition examples with annotated score excerpts (LilyPond output):
   - Fibonacci canon in C minor (Western classical)
   - Lorenz attractor melody over golden-spiral harmonic rhythm
@@ -102,4 +102,4 @@ Algorithmic composition, mathematical patterns, music education, deterministic g
 - **Category:** Regular Paper (6--8 pages) -- the system's breadth and educational angle warrant a full paper rather than a short paper or workshop proposal
 - **BRIDGES fit:** Sacred Composer sits exactly at the mathematics-music-education intersection that defines BRIDGES; the pattern-traceability angle is novel in this community
 - **Supplementary material:** Consider submitting audio examples and a link to the open-source repository as supplementary material; BRIDGES encourages multimedia
-- **Deadline:** February 1, 2026 (paper), camera-ready after acceptance notification
+- **Deadline:** February 1, 2026 (paper) -- *passed; retarget for BRIDGES 2027*, camera-ready after acceptance notification
