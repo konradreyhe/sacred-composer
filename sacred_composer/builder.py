@@ -21,6 +21,7 @@ from sacred_composer.constraints import (
 )
 from sacred_composer.constants import phi, parse_scale
 from sacred_composer.constraints import _final_leap_recovery, _clamp_all_intervals
+from sacred_composer.variation import apply_developing_variation
 from sacred_composer.harmony import HarmonicEngine
 
 
@@ -380,7 +381,7 @@ class CompositionBuilder:
                 )
                 # Pitch tension: melody rises toward climax, then falls
                 pitches = add_pitch_tension_arc(pitches, scale_in_range, intensity=0.20)
-                # Motivic variation: vary repeated phrases
+                # Motivic variation: vary repeated phrases (gentle, preserves form detection)
                 pitches = add_motivic_variation(pitches, scale_in_range, phrase_length=8)
                 # Phrase endings: gentle cadential descent + rests
                 pitches, durations = add_phrase_endings(

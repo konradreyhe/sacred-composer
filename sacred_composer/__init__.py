@@ -52,6 +52,11 @@ from sacred_composer.constraints import (
     add_tension_arc, improve_interval_distribution,
     add_phrase_endings, add_pitch_tension_arc, add_motivic_variation,
 )
+from sacred_composer.variation import (
+    Motif, augment, diminish, invert, retrograde,
+    expand_intervals, contract_intervals, fragment, liquidate,
+    variation_distance, develop_phrase, apply_developing_variation,
+)
 from sacred_composer.builder import CompositionBuilder
 from sacred_composer.optimizer import (
     SEARCH_SPACE, build_from_params, evaluate_fast,
@@ -77,6 +82,12 @@ from sacred_composer.adaptive import (
 )
 from sacred_composer.osc_bridge import (
     OSCServer, OSCSender, MIDIOutput, LivePerformer,
+)
+from sacred_composer.tension import (
+    fifth_distance, surface_dissonance, tonal_distance, register_tension,
+    compute_tension, tension_curve,
+    target_curve_sonata, target_curve_arch, target_curve_ramp,
+    shape_to_tension,
 )
 from sacred_composer.psychoacoustics import (
     information_content, surprise_ratio, expectation_score,
@@ -127,6 +138,10 @@ __all__ = [
     # Constraints
     "constrained_melody", "enforce_range", "smooth_leaps",
     "add_tension_arc", "improve_interval_distribution",
+    # Variation (developing variation)
+    "Motif", "augment", "diminish", "invert", "retrograde",
+    "expand_intervals", "contract_intervals", "fragment", "liquidate",
+    "variation_distance", "develop_phrase", "apply_developing_variation",
     # Builder
     "CompositionBuilder",
     # Optimizer
@@ -144,6 +159,11 @@ __all__ = [
     "cross_rhythm", "polyrhythmic_texture",
     "JAPANESE_SCALES", "jo_ha_kyu_curve", "apply_ma",
     "kotekan_split", "overtone_melody", "KHOOMEI_PATTERNS",
+    # Tension
+    "fifth_distance", "surface_dissonance", "tonal_distance", "register_tension",
+    "compute_tension", "tension_curve",
+    "target_curve_sonata", "target_curve_arch", "target_curve_ramp",
+    "shape_to_tension",
     # Psychoacoustics
     "information_content", "surprise_ratio", "expectation_score",
     "FrissonEvent", "plan_frisson_events", "appoggiatura_pitches",

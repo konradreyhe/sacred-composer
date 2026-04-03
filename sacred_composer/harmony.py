@@ -522,3 +522,375 @@ class HarmonicEngine:
     def __repr__(self) -> str:
         symbols = " ".join(c.roman for c in self.progression)
         return f"HarmonicEngine(key={self.key!r}, [{symbols}])"
+
+
+# ---------------------------------------------------------------------------
+# Neo-Riemannian Theory — PLR operations on the Tonnetz
+# ---------------------------------------------------------------------------
+
+def _make_triad(root: int, quality: str) -> Chord:
+    """Helper: build a Chord from root pitch class and quality."""
+    intervals = _QUALITY_INTERVALS[quality]
+    pcs = tuple((root + iv) % 12 for iv in intervals)
+    return Chord(root=root % 12, quality=quality, pitch_classes=pcs)
+
+
+def _triad_key(chord: Chord) -> tuple[int, str]:
+    """Return a hashable identifier (root, quality) for a major/minor triad."""
+    return (chord.root % 12, chord.quality)
+
+
+def parallel(chord: Chord) -> Chord:
+    """P operation: flip major/minor by moving the third by one semitone.
+
+    C major (0,4,7) -> C minor (0,3,7)
+    C minor (0,3,7) -> C major (0,4,7)
+
+    For diminished chords, returns the chord unchanged.
+    """
+    if chord.quality == "major":
+        return _make_triad(chord.root, "minor")
+    elif chord.quality == "minor":
+        return _make_triad(chord.root, "major")
+    return chord  # diminished — no P transform defined
+
+
+def leading_tone(chord: Chord) -> Chord:
+    """L operation: move the root down a semitone for major, fifth up for minor.
+
+    C major (0,4,7) -> E minor (4,7,11)
+    E minor (4,7,11) -> C major (0,4,7)
+
+    For a major triad, the root drops by one semitone and becomes the new
+    fifth of a minor triad.  For a minor triad, the fifth rises by one
+    semitone and becomes the new root of a major triad.
+    """
+    if chord.quality == "major":
+        # Root descends a semitone -> becomes fifth of new minor triad.
+        # New triad: root = major third, quality = minor.
+        new_root = (chord.root + 4) % 12  # the major third
+        return _make_triad(new_root, "minor")
+    elif chord.quality == "minor":
+        # Fifth ascends a semitone -> becomes root of new major triad.
+        # Minor fifth is root+7; ascending gives root+8, but the new major
+        # triad has that as... let's derive: minor (r, r+3, r+7).
+        # L sends it to major with root = (r+7+1) - 7 = r+1?  No.
+        # Standard L: C major <-> E minor.  E minor = (4,7,11).
+        # From E minor: fifth = 11, raise to 0.  New triad has notes {4,7,0}.
+        # That's C major (0,4,7).  Root of the new major = 0 = (11+1)%12.
+        # So new_root = (minor_fifth + 1) % 12, where minor_fifth = (root+7).
+        new_root = (chord.root + 7 + 1) % 12
+        return _make_triad(new_root, "major")
+    return chord
+
+
+def relative(chord: Chord) -> Chord:
+    """R operation: relative major/minor transformation.
+
+    C major (0,4,7) -> A minor (9,0,4)
+    A minor (9,0,4) -> C major (0,4,7)
+
+    For major, the fifth rises a whole step to become root of the relative
+    minor. For minor, the root drops a whole step to become the fifth of
+    the relative major.
+    """
+    if chord.quality == "major":
+        # Major -> relative minor: new root is a minor third below the root,
+        # i.e. root - 3 (= root + 9).  C major -> A minor.
+        new_root = (chord.root + 9) % 12
+        return _make_triad(new_root, "minor")
+    elif chord.quality == "minor":
+        # Minor -> relative major: new root is a minor third above,
+        # i.e. root + 3.  A minor -> C major.
+        new_root = (chord.root + 3) % 12
+        return _make_triad(new_root, "major")
+    return chord
+
+
+# ---------------------------------------------------------------------------
+# Tonnetz graph — BFS navigation
+# ---------------------------------------------------------------------------
+
+# The 24 PLR operations for all major/minor triads.
+_PLR_OPS: list[tuple[str, callable]] = [
+    ("P", parallel),
+    ("L", leading_tone),
+    ("R", relative),
+]
+
+
+def _build_tonnetz_graph() -> dict[tuple[int, str], list[tuple[str, tuple[int, str]]]]:
+    """Build adjacency list for the 24-node Tonnetz graph.
+
+    Each node is (root_pc, quality).  Each edge is labelled with the
+    operation name ('P', 'L', or 'R').
+    """
+    graph: dict[tuple[int, str], list[tuple[str, tuple[int, str]]]] = {}
+    for root in range(12):
+        for quality in ("major", "minor"):
+            node = (root, quality)
+            chord = _make_triad(root, quality)
+            neighbors = []
+            for name, op in _PLR_OPS:
+                result = op(chord)
+                neighbors.append((name, _triad_key(result)))
+            graph[node] = neighbors
+    return graph
+
+
+# Pre-compute the graph at module load time (24 nodes, 72 edges — tiny).
+_TONNETZ_GRAPH = _build_tonnetz_graph()
+
+
+def tonnetz_distance(chord_a: Chord, chord_b: Chord) -> int:
+    """Minimum number of PLR operations to transform chord_a into chord_b.
+
+    Uses BFS on the 24-node Tonnetz graph.  Returns -1 if either chord is
+    not a major or minor triad (e.g. diminished).
+
+    Parameters
+    ----------
+    chord_a, chord_b : Source and target triads.
+
+    Returns
+    -------
+    int : Minimum PLR distance (0 if identical, max 4 for any pair).
+    """
+    start = _triad_key(chord_a)
+    goal = _triad_key(chord_b)
+
+    if start not in _TONNETZ_GRAPH or goal not in _TONNETZ_GRAPH:
+        return -1
+    if start == goal:
+        return 0
+
+    from collections import deque
+    visited: set[tuple[int, str]] = {start}
+    queue: deque[tuple[tuple[int, str], int]] = deque([(start, 0)])
+
+    while queue:
+        node, dist = queue.popleft()
+        for _, neighbor in _TONNETZ_GRAPH[node]:
+            if neighbor == goal:
+                return dist + 1
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append((neighbor, dist + 1))
+    return -1  # unreachable in a connected graph, but safety
+
+
+def tonnetz_path(chord_a: Chord, chord_b: Chord) -> list[tuple[str, Chord]]:
+    """Return the shortest PLR path from chord_a to chord_b.
+
+    Each element is (operation_name, resulting_chord) after applying that
+    operation.  Returns an empty list if chords are identical or not
+    major/minor triads.
+
+    Parameters
+    ----------
+    chord_a, chord_b : Source and target triads.
+
+    Returns
+    -------
+    list of (str, Chord) : The sequence of operations and intermediate chords.
+    """
+    start = _triad_key(chord_a)
+    goal = _triad_key(chord_b)
+
+    if start not in _TONNETZ_GRAPH or goal not in _TONNETZ_GRAPH:
+        return []
+    if start == goal:
+        return []
+
+    from collections import deque
+    visited: dict[tuple[int, str], tuple[tuple[int, str], str]] = {start: (start, "")}
+    queue: deque[tuple[int, str]] = deque([start])
+
+    found = False
+    while queue:
+        node = queue.popleft()
+        for op_name, neighbor in _TONNETZ_GRAPH[node]:
+            if neighbor not in visited:
+                visited[neighbor] = (node, op_name)
+                if neighbor == goal:
+                    found = True
+                    break
+                queue.append(neighbor)
+        if found:
+            break
+
+    if not found:
+        return []
+
+    # Reconstruct path.
+    path_keys: list[tuple[str, tuple[int, str]]] = []
+    current = goal
+    while current != start:
+        parent, op_name = visited[current]
+        path_keys.append((op_name, current))
+        current = parent
+    path_keys.reverse()
+
+    return [(op, _make_triad(root, qual)) for op, (root, qual) in path_keys]
+
+
+# ---------------------------------------------------------------------------
+# Neo-Riemannian progression generation
+# ---------------------------------------------------------------------------
+
+def neo_riemannian_progression(
+    start_chord: Chord,
+    end_chord: Chord,
+    n_steps: int,
+    seed: int = 42,
+) -> list[Chord]:
+    """Generate a smooth chord progression from start to end using PLR operations.
+
+    Uses the shortest Tonnetz path as the backbone.  When more steps are
+    requested than the shortest path length, inserts musically interesting
+    detours (random PLR side-steps that return to the path).
+
+    Parameters
+    ----------
+    start_chord : Starting triad.
+    end_chord : Target triad.
+    n_steps : Desired number of chords in the output (including start and end).
+    seed : Random seed for detour selection.
+
+    Returns
+    -------
+    list of Chord : The progression from start_chord to end_chord.
+    """
+    if n_steps < 2:
+        n_steps = 2
+
+    shortest = tonnetz_path(start_chord, end_chord)
+    # Build the backbone: start -> ...path chords... -> end
+    backbone = [start_chord] + [ch for _, ch in shortest]
+
+    # If we already have enough or more chords than requested, trim.
+    if len(backbone) >= n_steps:
+        # Keep start, evenly spaced intermediates, and end.
+        if n_steps == 2:
+            return [backbone[0], backbone[-1]]
+        step = (len(backbone) - 1) / (n_steps - 1)
+        indices = [round(i * step) for i in range(n_steps)]
+        return [backbone[i] for i in indices]
+
+    # We need more chords — insert detours.
+    rng = random.Random(seed)
+    result = list(backbone)
+    ops = [parallel, leading_tone, relative]
+
+    while len(result) < n_steps:
+        # Pick a random insertion point (not the last chord).
+        if len(result) <= 2:
+            insert_idx = 1
+        else:
+            insert_idx = rng.randint(1, len(result) - 1)
+
+        anchor = result[insert_idx - 1]
+        # Apply a random PLR op as a side-step, then return.
+        op = rng.choice(ops)
+        detour = op(anchor)
+
+        # Only insert if it's different from its neighbors to avoid stasis.
+        prev_key = _triad_key(result[insert_idx - 1])
+        next_key = _triad_key(result[insert_idx]) if insert_idx < len(result) else None
+        detour_key = _triad_key(detour)
+
+        if detour_key != prev_key and detour_key != next_key:
+            result.insert(insert_idx, detour)
+        else:
+            # Try another op.
+            for alt_op in ops:
+                detour = alt_op(anchor)
+                detour_key = _triad_key(detour)
+                if detour_key != prev_key and detour_key != next_key:
+                    result.insert(insert_idx, detour)
+                    break
+            else:
+                # All ops produce duplicates; just insert anyway to reach n_steps.
+                result.insert(insert_idx, detour)
+
+    return result
+
+
+def generate_progression_neo(
+    n_chords: int,
+    key: str,
+    seed: int = 42,
+    modulation_target: str | None = None,
+) -> list[Chord]:
+    """Generate a chord progression using neo-Riemannian transitions for modulation.
+
+    Behaves like ``generate_progression`` for diatonic motion within a key.
+    When *modulation_target* is specified, the progression smoothly modulates
+    from *key* to the target key using PLR operations on the Tonnetz, then
+    cadences in the target key.
+
+    Parameters
+    ----------
+    n_chords : Total number of chords (minimum 4 when modulating).
+    key : Starting key, e.g. ``'C_major'``.
+    seed : Random seed for reproducibility.
+    modulation_target : Target key for modulation, e.g. ``'F#_minor'``.
+        If ``None``, falls back to ``generate_progression``.
+
+    Returns
+    -------
+    list of Chord : The full progression.
+    """
+    if modulation_target is None:
+        return generate_progression(n_chords=n_chords, key=key, seed=seed)
+
+    if n_chords < 4:
+        n_chords = 4
+
+    # Allocate: opening in home key, neo-Riemannian bridge, cadence in target.
+    opening_len = max(2, n_chords // 3)
+    cadence_len = 2  # V-I in target key
+    bridge_len = n_chords - opening_len - cadence_len
+    if bridge_len < 1:
+        bridge_len = 1
+        opening_len = n_chords - bridge_len - cadence_len
+
+    # 1. Opening: diatonic in home key.
+    opening = generate_progression(n_chords=opening_len, key=key, seed=seed)
+
+    # 2. Bridge: neo-Riemannian path from last chord of opening to I of target.
+    tonic_home = opening[-1]
+    tonic_target = roman_to_chord("I", modulation_target)
+    bridge = neo_riemannian_progression(
+        start_chord=tonic_home,
+        end_chord=tonic_target,
+        n_steps=bridge_len + 2,  # +2 because start/end overlap with neighbors
+        seed=seed,
+    )
+    # Remove the first (duplicate of opening's last) and last (duplicate of
+    # target tonic which appears in the cadence).
+    bridge = bridge[1:-1] if len(bridge) > 2 else bridge[:bridge_len]
+
+    # 3. Cadence: V-I in target key.
+    cadence = [
+        roman_to_chord("V", modulation_target),
+        roman_to_chord("I", modulation_target),
+    ]
+
+    progression = opening + bridge + cadence
+
+    # Trim or pad to exactly n_chords.
+    if len(progression) > n_chords:
+        # Keep opening and cadence, trim bridge.
+        progression = opening + bridge[:n_chords - opening_len - cadence_len] + cadence
+    elif len(progression) < n_chords:
+        # Extend bridge with detours.
+        extra = n_chords - len(progression)
+        rng = random.Random(seed + 99)
+        for _ in range(extra):
+            insert_pos = opening_len + rng.randint(0, len(bridge))
+            anchor = progression[max(0, insert_pos - 1)]
+            op = rng.choice([parallel, leading_tone, relative])
+            progression.insert(insert_pos, op(anchor))
+
+    return progression[:n_chords]
