@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sacred Composer — Generative Player</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Fibonacci spiral background decoration -->
+<svg class="bg-spiral" width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <style>
+            .spiral-line { fill: none; stroke: #c4a035; stroke-width: 1.2; }
+            .spiral-rect { fill: none; stroke: #c4a035; stroke-width: 0.5; opacity: 0.5; }
+        </style>
+    </defs>
+    <!-- Golden rectangle subdivisions -->
+    <rect class="spiral-rect" x="50" y="50" width="500" height="500"/>
+    <rect class="spiral-rect" x="50" y="50" width="309" height="309"/>
+    <rect class="spiral-rect" x="50" y="50" width="191" height="191"/>
+    <rect class="spiral-rect" x="50" y="50" width="118" height="118"/>
+    <rect class="spiral-rect" x="50" y="50" width="73" height="73"/>
+    <rect class="spiral-rect" x="50" y="50" width="45" height="45"/>
+    <!-- Approximate Fibonacci spiral -->
+    <path class="spiral-line" d="
+        M 359 50
+        A 309 309 0 0 1 50 359
+        A 191 191 0 0 0 241 168
+        A 118 118 0 0 1 123 50
+        A 73 73 0 0 0 50 123
+        A 45 45 0 0 1 95 78
+    "/>
+</svg>
+
+<div class="container">
+    <h1>Sacred Composer</h1>
+    <p class="subtitle">Every name holds a unique eternal composition</p>
+
+    <div class="input-group">
+        <input type="text" id="seedInput" placeholder="Enter your name or a word..."
+               autocomplete="off" spellcheck="false">
+        <button id="generateBtn" onclick="generate()">Compose</button>
+    </div>
+
+    <div class="card" id="compositionCard">
+        <h2 id="cardTitle">Your Eternal Composition</h2>
+        <div class="meta" id="compMeta">
+            <!-- Filled by JS -->
+        </div>
+        <div class="controls">
+            <button class="btn-play" id="playBtn" onclick="togglePlay()">Play</button>
+            <button id="stopBtn" onclick="doStop()" disabled>Stop</button>
+            <button id="randomBtn" onclick="generateRandom()">Random Seed</button>
+        </div>
+        <div class="progress-bar" id="progressBar">
+            <div class="fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <footer>
+        Powered by Sacred Composer &mdash; every note traceable to mathematics
+    </footer>
+</div>
+
+<!-- Tone.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
+<!-- Composition engine -->
+<script src="player.js"></script>
+
+<script>
+    let currentComp = null;
+    let playing = false;
+
+    const seedInput    = document.getElementById('seedInput');
+    const compCard     = document.getElementById('compositionCard');
+    const compMeta     = document.getElementById('compMeta');
+    const cardTitle    = document.getElementById('cardTitle');
+    const playBtn      = document.getElementById('playBtn');
+    const stopBtn      = document.getElementById('stopBtn');
+    const progressBar  = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+
+    // Enter key triggers compose
+    seedInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') generate();
+    });
+
+    function generate() {
+        const input = seedInput.value.trim();
+        if (!input) {
+            seedInput.focus();
+            return;
+        }
+        const seed = hashString(input);
+        compose(seed, input);
+    }
+
+    function generateRandom() {
+        const seed = Math.floor(Math.random() * 2147483647);
+        seedInput.value = '';
+        compose(seed, null);
+    }
+
+    function compose(seed, label) {
+        // Stop any current playback
+        doStop();
+
+        currentComp = generateComposition(seed);
+
+        // Update card
+        const title = label
+            ? `Composition for "${label}"`
+            : 'Your Eternal Composition';
+        cardTitle.textContent = title;
+
+        compMeta.innerHTML = `
+            <div>Seed: <span>${currentComp.seed}</span></div>
+            <div>Pattern: <span>${currentComp.pattern}</span></div>
+            <div>Key: <span>${currentComp.key}</span></div>
+            <div>Tempo: <span>${currentComp.tempo} BPM</span></div>
+            <div>Notes: <span>${currentComp.noteCount}</span></div>
+            <div>Duration: <span>~${currentComp.durationSec}s</span></div>
+        `;
+
+        compCard.classList.add('visible');
+        playBtn.disabled = false;
+    }
+
+    function togglePlay() {
+        if (playing) {
+            doStop();
+            return;
+        }
+        if (!currentComp) return;
+
+        playing = true;
+        playBtn.textContent = 'Pause';
+        stopBtn.disabled = false;
+        progressBar.classList.add('active');
+        progressFill.style.width = '0%';
+
+        playComposition(
+            currentComp,
+            // onProgress
+            (pct) => {
+                progressFill.style.width = (pct * 100).toFixed(1) + '%';
+            },
+            // onDone
+            () => {
+                resetPlayState();
+            }
+        );
+    }
+
+    function doStop() {
+        stopPlayback();
+        resetPlayState();
+    }
+
+    function resetPlayState() {
+        playing = false;
+        playBtn.textContent = 'Play';
+        playBtn.disabled = false;
+        stopBtn.disabled = true;
+        progressBar.classList.remove('active');
+        progressFill.style.width = '0%';
+    }
+
+    // Focus input on load
+    seedInput.focus();
+</script>
+
+</body>
+</html>
