@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sacred Composer — Music from Mathematics</title>
+    <meta name="description" content="A Python library that turns mathematical patterns into music. Deterministic, GPU-free, music-theory-aware. Every note is traceable.">
+    <meta property="og:title" content="Sacred Composer — Music from Mathematics">
+    <meta property="og:description" content="A Python library that turns mathematical patterns into music. Every note is traceable. The code IS the score.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://konradreyhe.github.io/MUSIK/">
+    <meta property="og:image" content="https://konradreyhe.github.io/MUSIK/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Sacred Composer — Music from Mathematics">
+    <meta name="twitter:description" content="A Python library that turns mathematical patterns into music. Every note is traceable.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Animated golden spiral background -->
+<svg class="bg-spiral" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="spiralGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#c4a035" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#c4a035" stop-opacity="0.02"/>
+        </linearGradient>
+    </defs>
+    <rect class="spiral-rect" x="100" y="100" width="600" height="600"/>
+    <rect class="spiral-rect" x="100" y="100" width="371" height="371"/>
+    <rect class="spiral-rect" x="100" y="100" width="229" height="229"/>
+    <rect class="spiral-rect" x="100" y="100" width="142" height="142"/>
+    <rect class="spiral-rect" x="100" y="100" width="87" height="87"/>
+    <rect class="spiral-rect" x="100" y="100" width="55" height="55"/>
+    <path class="spiral-line" d="
+        M 471 100
+        A 371 371 0 0 1 100 471
+        A 229 229 0 0 0 329 242
+        A 142 142 0 0 1 187 100
+        A 87 87 0 0 0 100 187
+        A 55 55 0 0 1 155 132
+    "/>
+    <!-- Sacred geometry: subtle circles -->
+    <circle cx="400" cy="400" r="300" class="geo-circle"/>
+    <circle cx="400" cy="400" r="185" class="geo-circle"/>
+    <circle cx="400" cy="400" r="114" class="geo-circle"/>
+</svg>
+
+<div class="site-wrapper">
+
+    <!-- ======================== HERO ======================== -->
+    <header class="hero">
+        <h1 class="hero-title">Sacred Composer</h1>
+        <p class="hero-subtitle">Music from Mathematics</p>
+        <p class="hero-tagline">Turn Fibonacci, Lorenz attractors, cellular automata, and 20 more mathematical patterns into real music with a single Python call.</p>
+        <div class="hero-buttons">
+            <a href="https://sacred-composer.streamlit.app" class="btn btn-primary">Try it Now</a>
+            <a href="https://github.com/konradreyhe/MUSIK" class="btn btn-secondary">View on GitHub</a>
+            <a href="../web/index.html" class="btn btn-secondary">Web Player</a>
+        </div>
+    </header>
+
+    <!-- ======================== WHAT IS IT ======================== -->
+    <section class="section" id="about">
+        <h2 class="section-title">What is it?</h2>
+        <p class="section-lead">A Python library that turns mathematical patterns into music.<br>Every note is traceable. The code IS the score.</p>
+        <div class="uniqueness-grid">
+            <div class="uq-card">
+                <span class="uq-icon">f(x)</span>
+                <h3>Deterministic</h3>
+                <p>Same seed, same music. Forever reproducible.</p>
+            </div>
+            <div class="uq-card">
+                <span class="uq-icon">CPU</span>
+                <h3>GPU-Free</h3>
+                <p>Runs on any machine. No CUDA, no cloud, no waiting.</p>
+            </div>
+            <div class="uq-card">
+                <span class="uq-icon">VII</span>
+                <h3>Music-Theory-Aware</h3>
+                <p>Proper voice leading, cadences, and harmonic progressions.</p>
+            </div>
+            <div class="uq-card">
+                <span class="uq-icon">A/B</span>
+                <h3>Evaluation-Equipped</h3>
+                <p>Built-in metrics to measure what the music actually does.</p>
+            </div>
+            <div class="uq-card">
+                <span class="uq-icon">.mid</span>
+                <h3>Multi-Format</h3>
+                <p>MIDI, WAV, MP3, MusicXML, LilyPond, real-time audio.</p>
+            </div>
+            <div class="uq-card">
+                <span class="uq-icon">MIT</span>
+                <h3>Open Source</h3>
+                <p>MIT licensed. Use it, fork it, teach with it.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================== HEAR IT ======================== -->
+    <section class="section" id="listen">
+        <h2 class="section-title">Hear it</h2>
+        <p class="section-lead">Three compositions generated from pure mathematics. No AI, no sampling, no randomness.</p>
+        <div class="audio-grid">
+            <div class="audio-card">
+                <h3>Fibonacci Nocturne</h3>
+                <p class="audio-source">Pattern: Fibonacci Sequence in C minor</p>
+                <audio controls preload="none">
+                    <source src="../gallery/fibonacci_nocturne_c_minor.wav" type="audio/wav">
+                </audio>
+            </div>
+            <div class="audio-card">
+                <h3>Golden Spiral</h3>
+                <p class="audio-source">Pattern: Golden Spiral in A minor</p>
+                <audio controls preload="none">
+                    <source src="../gallery/golden_spiral_a_minor.wav" type="audio/wav">
+                </audio>
+            </div>
+            <div class="audio-card">
+                <h3>Logistic Dreams</h3>
+                <p class="audio-source">Pattern: Logistic Map in G minor</p>
+                <audio controls preload="none">
+                    <source src="../gallery/logistic_dreams_g_minor.wav" type="audio/wav">
+                </audio>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================== PATTERNS ======================== -->
+    <section class="section" id="patterns">
+        <h2 class="section-title">23 Pattern Generators</h2>
+        <p class="section-lead">Every generator maps a mathematical process onto musical dimensions: pitch, rhythm, dynamics, timbre.</p>
+
+        <h3 class="group-label">Mathematical</h3>
+        <div class="pattern-grid">
+            <div class="pat-card"><span class="pat-icon">1 1 2 3</span><strong>Fibonacci</strong><p>Golden ratio proportions shape form and melody</p></div>
+            <div class="pat-card"><span class="pat-icon">~</span><strong>Harmonic Series</strong><p>Overtone partials as the physics of consonance</p></div>
+            <div class="pat-card"><span class="pat-icon">+/-</span><strong>Infinity Series</strong><p>Per Norgard's self-similar integer sequence</p></div>
+            <div class="pat-card"><span class="pat-icon">||.|</span><strong>Euclidean Rhythm</strong><p>Maximally even beat distributions</p></div>
+            <div class="pat-card"><span class="pat-icon">1/3</span><strong>Cantor Set</strong><p>Fractal silence: recursive removal creates rhythm</p></div>
+            <div class="pat-card"><span class="pat-icon">a/b</span><strong>Stern-Brocot</strong><p>Rational number tree as interval generator</p></div>
+            <div class="pat-card"><span class="pat-icon">01</span><strong>Thue-Morse</strong><p>Overlap-free binary sequence for fair rhythms</p></div>
+            <div class="pat-card"><span class="pat-icon">n!</span><strong>Sieve Scale</strong><p>Xenakis sieve theory for custom pitch sets</p></div>
+        </div>
+
+        <h3 class="group-label">Dynamical Systems</h3>
+        <div class="pattern-grid">
+            <div class="pat-card"><span class="pat-icon">x'</span><strong>Lorenz Attractor</strong><p>Butterfly-effect chaos as melodic contour</p></div>
+            <div class="pat-card"><span class="pat-icon">rx</span><strong>Logistic Map</strong><p>Order-to-chaos bifurcation drives tension</p></div>
+            <div class="pat-card"><span class="pat-icon">xy</span><strong>Rossler Attractor</strong><p>Spiral chaos with simpler strange attractor</p></div>
+            <div class="pat-card"><span class="pat-icon">z*</span><strong>Mandelbrot Boundary</strong><p>Fractal boundary complexity as musical detail</p></div>
+        </div>
+
+        <h3 class="group-label">Natural Processes</h3>
+        <div class="pattern-grid">
+            <div class="pat-card"><span class="pat-icon">1/f</span><strong>Pink Noise</strong><p>The frequency spectrum of nature and music</p></div>
+            <div class="pat-card"><span class="pat-icon">phi</span><strong>Golden Spiral</strong><p>Logarithmic spiral as pitch trajectory</p></div>
+            <div class="pat-card"><span class="pat-icon">f+g</span><strong>Combination Tones</strong><p>Tartini tones from interacting frequencies</p></div>
+            <div class="pat-card"><span class="pat-icon">orb</span><strong>Planetary Rhythm</strong><p>Orbital period ratios as polyrhythm source</p></div>
+        </div>
+
+        <h3 class="group-label">Algorithmic</h3>
+        <div class="pattern-grid">
+            <div class="pat-card"><span class="pat-icon">[ ]</span><strong>Cellular Automata</strong><p>Rule-based emergence from simple states</p></div>
+            <div class="pat-card"><span class="pat-icon">F+F</span><strong>Lindenmayer</strong><p>L-system string rewriting as musical structure</p></div>
+            <div class="pat-card"><span class="pat-icon">pi</span><strong>Digits Of</strong><p>Transcendental number digits as note sequences</p></div>
+            <div class="pat-card"><span class="pat-icon">&#9776;</span><strong>I Ching</strong><p>64 hexagrams as harmonic-rhythmic templates</p></div>
+        </div>
+
+        <h3 class="group-label">Data</h3>
+        <div class="pattern-grid">
+            <div class="pat-card"><span class="pat-icon">Abc</span><strong>Text to Melody</strong><p>Map any text string into pitched sequences</p></div>
+            <div class="pat-card"><span class="pat-icon">1/n</span><strong>Zipf Distribution</strong><p>Power-law frequency ranking for note selection</p></div>
+            <div class="pat-card"><span class="pat-icon">[..]</span><strong>Data Pattern</strong><p>Sonify any numeric dataset as music</p></div>
+        </div>
+    </section>
+
+    <!-- ======================== QUICK START ======================== -->
+    <section class="section" id="quickstart">
+        <h2 class="section-title">Quick Start</h2>
+        <pre class="code-block"><code><span class="c-comment"># Install</span>
+pip install sacred-composer
+
+<span class="c-comment"># Compose</span>
+<span class="c-kw">from</span> sacred_composer <span class="c-kw">import</span> *
+
+piece = CompositionBuilder(key=<span class="c-str">"D_minor"</span>, tempo=<span class="c-num">72</span>, bars=<span class="c-num">32</span>) \
+    .melody(pattern=<span class="c-str">"fibonacci"</span>) \
+    .bass() \
+    .build()
+
+piece.render(<span class="c-str">"fibonacci_music.mid"</span>)</code></pre>
+    </section>
+
+    <!-- ======================== FEATURES ======================== -->
+    <section class="section" id="features">
+        <h2 class="section-title">Features</h2>
+        <div class="feature-grid">
+            <div class="feat-card">
+                <h3>Harmony Engine</h3>
+                <p>Four-part voice leading, secondary dominants, modal interchange, cadence detection.</p>
+            </div>
+            <div class="feat-card">
+                <h3>World Music</h3>
+                <p>7 tuning systems: Western 12-TET, just intonation, Pythagorean, Arabic maqam, Indian raga, gamelan slendro, and pelog.</p>
+            </div>
+            <div class="feat-card">
+                <h3>Adaptive Game Music</h3>
+                <p>Real-time parameter control for tension, energy, and mood. Seamless transitions.</p>
+            </div>
+            <div class="feat-card">
+                <h3>Consciousness Presets</h3>
+                <p>Binaural beats, isochronic tones, and entrainment patterns for focus, relaxation, and meditation.</p>
+            </div>
+            <div class="feat-card">
+                <h3>Psychoacoustics</h3>
+                <p>Shepard tones, tritone paradox, missing fundamental, and auditory illusions as compositional tools.</p>
+            </div>
+            <div class="feat-card">
+                <h3>Orchestration</h3>
+                <p>Multi-instrument scoring with range-aware voice assignment and idiomatic writing.</p>
+            </div>
+            <div class="feat-card">
+                <h3>REST API</h3>
+                <p>FastAPI server for on-demand generation. Send parameters, receive MIDI or audio.</p>
+            </div>
+            <div class="feat-card">
+                <h3>Discord Bot</h3>
+                <p>Generate and share compositions directly in Discord channels.</p>
+            </div>
+            <div class="feat-card">
+                <h3>Visualization</h3>
+                <p>Piano roll, waveform, spectrogram, and pattern-space plots for every composition.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================== FOOTER ======================== -->
+    <footer class="site-footer">
+        <div class="footer-links">
+            <a href="https://github.com/konradreyhe/MUSIK">GitHub</a>
+            <a href="../web/index.html">Web Player</a>
+            <a href="https://sacred-composer.streamlit.app">Playground</a>
+        </div>
+        <p class="footer-license">MIT License</p>
+        <p class="footer-tagline">Built with mathematics and love</p>
+    </footer>
+
+</div>
+
+</body>
+</html>
