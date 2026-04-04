@@ -149,7 +149,8 @@ def _synthesize_karplus_strong(
     period = max(2, int(round(sample_rate / freq)))
 
     # Initialize with noise burst
-    buf = np.random.uniform(-1.0, 1.0, period).astype(np.float64)
+    _rng = np.random.RandomState(int(freq) & 0x7FFFFFFF)
+    buf = _rng.uniform(-1.0, 1.0, period).astype(np.float64)
 
     output = np.empty(n_samples, dtype=np.float64)
 

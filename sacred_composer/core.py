@@ -236,7 +236,7 @@ class Composition:
             # Falls back to pure-Python synthesis if unavailable.
             try:
                 return self._render_fluidsynth_wav(filename)
-            except Exception:
+            except (ImportError, FileNotFoundError, OSError):
                 from sacred_composer.wav_renderer import render_wav
                 return render_wav(self.score, filename)
         else:

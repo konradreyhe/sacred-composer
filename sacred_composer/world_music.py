@@ -8,10 +8,10 @@ polyrhythm, Japanese form, Balinese kotekan, and overtone singing.
 from __future__ import annotations
 
 import math
-import random
+import random as _rng_mod
 from typing import Iterator
 
-from sacred_composer.core import Note, Voice, Composition
+from sacred_composer.core import Composition
 
 
 # ══════════════════════════════════════════════════════════════
@@ -152,14 +152,15 @@ class Raga:
         jaru = slide (approach from below by 0.5)
         nokku = stress/push (slight sharp, +0.15)
         """
+        rng = _rng_mod.Random(pitches[0] if pitches else 0)
         result = []
         for p in pitches:
             pc = p % 12
             gamaka = self.gamakas.get(pc)
             if gamaka == "kampita":
-                result.append(p + 0.3 * math.sin(random.random() * math.pi))
+                result.append(p + 0.3 * math.sin(rng.random() * math.pi))
             elif gamaka == "jaru":
-                result.append(p - 0.5 + random.random() * 0.5)
+                result.append(p - 0.5 + rng.random() * 0.5)
             elif gamaka == "nokku":
                 result.append(p + 0.15)
             else:

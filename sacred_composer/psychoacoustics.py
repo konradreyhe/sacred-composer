@@ -27,6 +27,8 @@ from typing import Sequence
 
 import numpy as np
 
+from sacred_composer.constants import PHI_INVERSE
+
 
 # =============================================================================
 # 1. EXPECTATION / SURPRISE — THE 75/25 RULE (Huron 2006)
@@ -191,7 +193,7 @@ def plan_frisson_events(
     Returns list of FrissonEvent objects.
     """
     if climax_beat is None:
-        climax_beat = total_beats * 0.618  # Golden ratio
+        climax_beat = total_beats * PHI_INVERSE
 
     events = []
     # Main climax — strongest event
@@ -565,7 +567,7 @@ def consonance_ranking(midi_notes: list[int], reference: int = 60) -> list[tuple
 
 def peak_end_score(
     tension_curve: list[float],
-    peak_target: float = 0.618,
+    peak_target: float = PHI_INVERSE,
     end_fraction: float = 0.12,
 ) -> float:
     """Score a tension curve for peak-end rule compliance.

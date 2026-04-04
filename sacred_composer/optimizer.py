@@ -8,6 +8,7 @@ Optuna (TPE sampler) is used when available; falls back to random search.
 
 from __future__ import annotations
 
+import logging
 import math
 import random
 import time
@@ -318,5 +319,5 @@ def optimize_and_build(n_trials: int = 100, **kwargs: Any) -> Composition:
     All extra keyword arguments are forwarded to :func:`optimize`.
     """
     result = optimize(n_trials=n_trials, **kwargs)
-    print(f"Best score: {result['score']:.1f}  params: {result['params']}")
+    logging.getLogger(__name__).info("Best score: %.1f  params: %s", result['score'], result['params'])
     return build_from_params(result["params"])

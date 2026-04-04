@@ -4,9 +4,9 @@
 
 function hashString(str) {
     let hash = 0;
-    for (const c of str) {
+    for (const c of str.toUpperCase()) {
         hash = ((hash << 5) - hash) + c.charCodeAt(0);
-        hash |= 0; // Convert to 32-bit integer
+        hash |= 0;
     }
     return Math.abs(hash);
 }
@@ -24,8 +24,7 @@ function makeRng(seed) {
 
 // --- Musical Building Blocks ---
 
-// C minor pentatonic across several octaves
-const SCALE_DEGREES = [0, 3, 5, 7, 10]; // semitone offsets
+const SCALE_DEGREES = [0, 3, 5, 7, 10]; // C minor pentatonic
 const BASE_OCTAVE = 3;
 
 function midiToNote(midi) {
@@ -37,7 +36,7 @@ function midiToNote(midi) {
 function scaleNote(index) {
     const degree = SCALE_DEGREES[((index % SCALE_DEGREES.length) + SCALE_DEGREES.length) % SCALE_DEGREES.length];
     const octaveShift = Math.floor(index / SCALE_DEGREES.length);
-    return 12 * (BASE_OCTAVE + 1) + degree + octaveShift * 12; // MIDI number
+    return 12 * (BASE_OCTAVE + 1) + degree + octaveShift * 12;
 }
 
 // --- Fibonacci Sequence ---
@@ -51,7 +50,6 @@ function fibonacci(n) {
 // --- Euclidean Rhythm ---
 
 function euclidean(k, n) {
-    // Bjorklund's algorithm: distribute k hits across n steps
     if (k >= n) return new Array(n).fill(1);
     if (k === 0) return new Array(n).fill(0);
 
@@ -101,23 +99,21 @@ function euclidean(k, n) {
 function generateComposition(seed) {
     const rng = makeRng(seed);
 
-    // Derive musical parameters from seed
-    const fibCount = 13 + Math.floor(rng() * 8); // 13-20 Fibonacci terms
+    const fibCount = 16 + Math.floor(rng() * 10); // 16-25 terms
     const fib = fibonacci(fibCount);
-    const eucHits = 3 + Math.floor(rng() * 6);   // 3-8 hits
-    const eucSteps = 8 + Math.floor(rng() * 9);   // 8-16 steps
+    const eucHits = 3 + Math.floor(rng() * 6);
+    const eucSteps = 8 + Math.floor(rng() * 9);
     const rhythm = euclidean(eucHits, eucSteps);
 
-    const tempoBase = [72, 80, 88, 96, 108, 120];
+    const tempoBase = [66, 72, 80, 88, 96, 108];
     const tempo = tempoBase[Math.floor(rng() * tempoBase.length)];
 
     const keys = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
     const keyName = keys[seed % keys.length] + ' minor pentatonic';
 
-    // Build note sequence from Fibonacci mapped to scale
     const noteIndices = fib.slice(2).map(f => f % (SCALE_DEGREES.length * 3));
-    const durations = ['8n', '4n', '4n', '4n.', '2n'];
-    const velocities = [0.4, 0.55, 0.65, 0.75, 0.6];
+    const durations = ['8n', '4n', '4n', '4n.', '2n', '2n.'];
+    const velocities = [0.35, 0.45, 0.55, 0.65, 0.70];
 
     const notes = [];
     let rhythmIdx = 0;
@@ -126,7 +122,6 @@ function generateComposition(seed) {
         rhythmIdx++;
 
         if (rStep === 0) {
-            // Rest
             notes.push({ rest: true, duration: '4n' });
         } else {
             const midi = scaleNote(noteIndices[i]);
@@ -154,7 +149,7 @@ function generateComposition(seed) {
         seed,
         tempo,
         key: keyName,
-        pattern: `Fibonacci(${fibCount}) + Euclidean(${eucHits},${eucSteps})`,
+        pattern: 'Fibonacci(' + fibCount + ') + Euclidean(' + eucHits + ',' + eucSteps + ')',
         noteCount: notes.filter(n => !n.rest).length,
         durationSec,
         notes
@@ -164,6 +159,7 @@ function generateComposition(seed) {
 // --- Tone.js Playback ---
 
 let currentPart = null;
+let padSynth = null;
 let isPlaying = false;
 
 async function playComposition(comp, onProgress, onDone) {
@@ -173,57 +169,95 @@ async function playComposition(comp, onProgress, onDone) {
     Tone.Transport.bpm.value = comp.tempo;
     Tone.Transport.position = 0;
 
+    // Main melodic synth — warm triangle with filter
     const synth = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'triangle8' },
-        envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 1.2 },
-        volume: -8
-    }).toDestination();
+        envelope: { attack: 0.04, decay: 0.25, sustain: 0.5, release: 1.5 },
+        volume: -10
+    });
 
-    const reverb = new Tone.Reverb({ decay: 3, wet: 0.3 }).toDestination();
-    synth.connect(reverb);
+    // Pad layer — slow attack, wide, adds depth
+    padSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.3, decay: 0.5, sustain: 0.6, release: 2.0 },
+        volume: -22
+    });
+
+    // Effects chain
+    const reverb = new Tone.Reverb({ decay: 4, wet: 0.35 }).toDestination();
+    const delay = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.15, wet: 0.12 }).connect(reverb);
+    const filter = new Tone.Filter({ frequency: 3000, type: 'lowpass' }).connect(delay);
+
+    synth.connect(filter);
+    padSynth.connect(reverb);
 
     // Schedule notes
     let time = 0;
     const events = [];
+    const noteTimings = []; // For tracking active notes
+
     for (const n of comp.notes) {
-        if (!n.rest) {
-            events.push({ time: `0:0:${time}`, note: n.note, dur: n.duration, vel: n.velocity });
-        }
         const d = n.duration.replace('.', '');
         const base = parseInt(d.replace('n', ''));
         const beats = 4 / base;
-        time += (n.duration.includes('.') ? beats * 1.5 : beats) * 2; // in sixteenths
+        const durBeats = n.duration.includes('.') ? beats * 1.5 : beats;
+
+        if (!n.rest) {
+            events.push({
+                time: '0:0:' + time,
+                note: n.note,
+                midi: n.midi,
+                dur: n.duration,
+                vel: n.velocity,
+                sixteenths: time,
+                durSixteenths: durBeats * 2
+            });
+        }
+        time += durBeats * 2;
     }
 
     const totalSixteenths = time;
     const totalSeconds = (totalSixteenths / 4) * (60 / comp.tempo);
 
+    const activeNotes = [];
+
     const part = new Tone.Part((time, value) => {
         synth.triggerAttackRelease(value.note, value.dur, time, value.vel);
-    }, events.map(e => [e.time, { note: e.note, dur: e.dur, vel: e.vel }]));
+        // Pad plays every other note, one octave down
+        if (value.midi > 48) {
+            const padNote = midiToNote(value.midi - 12);
+            padSynth.triggerAttackRelease(padNote, '2n', time, value.vel * 0.4);
+        }
+    }, events.map(e => [e.time, e]));
 
     part.start(0);
     currentPart = part;
     isPlaying = true;
 
-    // Progress tracking
     const startTime = Date.now();
     const progressInterval = setInterval(() => {
-        if (!isPlaying) {
-            clearInterval(progressInterval);
-            return;
-        }
+        if (!isPlaying) { clearInterval(progressInterval); return; }
+
         const elapsed = (Date.now() - startTime) / 1000;
         const pct = Math.min(elapsed / totalSeconds, 1);
-        if (onProgress) onProgress(pct);
+        const currentSixteenth = pct * totalSixteenths;
+
+        // Find active notes
+        const active = events.filter(e =>
+            currentSixteenth >= e.sixteenths &&
+            currentSixteenth < e.sixteenths + e.durSixteenths
+        );
+
+        if (onProgress) onProgress(pct, active);
+
         if (pct >= 1) {
             clearInterval(progressInterval);
             setTimeout(() => {
                 stopPlayback();
                 if (onDone) onDone();
-            }, 500);
+            }, 800);
         }
-    }, 100);
+    }, 50); // 20fps for smooth visualization
 
     Tone.Transport.start();
 }
@@ -233,6 +267,10 @@ function stopPlayback() {
         currentPart.stop();
         currentPart.dispose();
         currentPart = null;
+    }
+    if (padSynth) {
+        padSynth.releaseAll();
+        padSynth = null;
     }
     Tone.Transport.stop();
     Tone.Transport.cancel();

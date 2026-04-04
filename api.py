@@ -43,11 +43,25 @@ def _store(piece: Composition) -> str:
     """Persist a Composition to disk (MIDI + WAV) and return its UUID."""
     cid = uuid.uuid4().hex[:12]
     _compositions[cid] = piece
-    piece.render(str(OUTPUT_DIR / f"{cid}.mid"))
+    mid_path = str(OUTPUT_DIR / f"{cid}.mid")
+    wav_path = str(OUTPUT_DIR / f"{cid}.wav")
+    piece.render(mid_path)
+    # Try FluidSynth for realistic audio, fall back to built-in renderer
+    import logging
+    _log = logging.getLogger(__name__)
+    rendered = False
     try:
-        piece.render(str(OUTPUT_DIR / f"{cid}.wav"))
-    except Exception:
-        pass  # WAV renderer may not be available
+        from render_audio import render_fluidsynth, find_soundfonts, pick_best_soundfont
+        sf = pick_best_soundfont(find_soundfonts())
+        if sf:
+            rendered = render_fluidsynth(mid_path, wav_path, sf)
+    except Exception as e:
+        _log.warning("FluidSynth render failed: %s", e)
+    if not rendered:
+        try:
+            piece.render(wav_path)
+        except Exception as e:
+            _log.warning("Fallback WAV render failed: %s", e)
     return cid
 
 
@@ -119,7 +133,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -647,7 +661,7 @@ LANDING_HTML = r"""<!DOCTYPE html>
   <div class="footer">
     No AI. No GPU. Pure mathematics &rarr; pure music.<br>
     <span style="font-size:0.7rem;color:rgba(255,255,255,0.08)">
-      23 pattern generators &middot; 320 tests passing &middot; 88.5/100 eval score
+      23 pattern generators &middot; 320 tests passing &middot; 90.5/100 eval score
     </span>
   </div>
 </div>

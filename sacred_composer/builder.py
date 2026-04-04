@@ -6,7 +6,7 @@ voice leading to produce compositions that score well on evaluation.
 
 from __future__ import annotations
 
-from sacred_composer.core import Composition, Voice, Note, GM_INSTRUMENTS
+from sacred_composer.core import Composition
 from sacred_composer.patterns import (
     FibonacciSequence, HarmonicSeries, InfinitySeries,
     EuclideanRhythm, PinkNoise, GoldenSpiral, LogisticMap,
@@ -21,7 +21,6 @@ from sacred_composer.constraints import (
     smooth_direction, add_cadences, fix_seventh_resolution,
 )
 from sacred_composer.constants import phi, parse_scale, PHI_INVERSE
-from sacred_composer.constraints import _final_leap_recovery, _clamp_all_intervals
 from sacred_composer.variation import apply_developing_variation, ensure_motivic_echoes
 from sacred_composer.harmony import HarmonicEngine
 
@@ -421,105 +420,21 @@ class CompositionBuilder:
                               if v_spec["octave_range"][0] * 12 + 12 <= p <= (v_spec["octave_range"][1] + 1) * 12 + 11]
 
             if role == "melody":
-                pitches = constrained_melody(
-                    raw_pitches, scale_in_range, voice_type="melody",
-                    step_ratio=0.50, max_leap=7,
+                pitches, durations = self._constrain_melody(
+                    raw_pitches, durations, scale_in_range, v_spec, piece.form,
                 )
-                # Developing variation: echo the opening theme throughout.
-                # target_distance=0.15 balances echo recognition with variety.
-                pitches, durations = apply_developing_variation(
-                    pitches, durations, phrase_length=12,
-                    seed=v_spec.get("seed", 0), target_distance=0.15,
-                )
-                # Pitch tension AFTER variation: shape the register arc on top
-                pitches = add_pitch_tension_arc(pitches, scale_in_range, intensity=0.50)
-                # Phrase endings: gentle cadential descent + rests
-                pitches, durations = add_phrase_endings(
-                    pitches, durations, scale_in_range, phrase_length=12, min_pitch=62,
-                )
-                # Sectional variation: transpose later sections for development
-                if piece.form:
-                    pitches = self._add_sectional_variation(
-                        pitches, durations, piece.form, scale_in_range,
-                    )
-                # FINAL: enforce range, then clamp/recover only the SOUNDING
-                # pitches (rest positions get skipped in MIDI, so consecutive
-                # sounding notes must have small intervals).
-                pitches = enforce_range(pitches, voice_type="melody")
-                # Allow intervals up to 5st (perfect 4th). The evaluator's
-                # leap_recovery rule triggers at >5st, so 5st is the safe
-                # maximum that still fills bin 3 (5-7st) of the target
-                # interval distribution.
-                pitches = self._clamp_sounding_pitches(
-                    pitches, durations, scale_in_range, max_interval=5,
-                )
-                # Final pass: tile opening intervals throughout so the
-                # evaluator's 4-interval windows echo the theme.
-                pitches = ensure_motivic_echoes(
-                    pitches, durations, scale_in_range,
-                    seed=v_spec.get("seed", 0),
-                )
-                # Re-clamp after motivic echoes (scale snapping can create >5st)
-                pitches = self._clamp_sounding_pitches(
-                    pitches, durations, scale_in_range, max_interval=5,
-                )
-                # Smooth direction: extend short runs to improve
-                # directional_momentum (target mean run length >= 2.0)
-                pitches = smooth_direction(
-                    pitches, durations, scale_in_range,
-                )
-                # Store melody beat→pitch for voice coordination
                 beat = 0.0
                 for mp, md in zip(pitches, durations):
                     if md > 0:
                         _melody_beats.append((beat, mp))
                     beat += abs(md)
             elif role == "bass":
-                pitches = enforce_range(raw_pitches, voice_type="bass")
-                pitches = smooth_leaps(pitches, scale_in_range, max_leap=4)
-                pitches = enforce_range(pitches, voice_type="bass")
-                pitches = self._clamp_sounding_pitches(
-                    pitches, durations, scale_in_range, max_interval=4,
-                )
-                pitches = self._break_unisons(pitches, durations, scale_in_range)
-                # Insert V-I cadences at phrase boundaries
-                root_pc = self._scale[0] % 12 if self._scale else None
-                pitches, durations = add_cadences(
-                    pitches, durations, scale_in_range, phrase_length=16,
-                    root_pc=root_pc,
-                )
-                # Re-clamp bass after cadence insertion
-                pitches = self._clamp_sounding_pitches(
-                    pitches, durations, scale_in_range, max_interval=4,
+                pitches, durations = self._constrain_bass(
+                    raw_pitches, durations, scale_in_range,
                 )
             else:
-                pitches = enforce_range(raw_pitches, voice_type="alto")
-                pitches = improve_interval_distribution(pitches, scale_in_range, step_ratio=0.55)
-                # Diversify intervals: convert some steps to thirds/fourths
-                pitches = self._diversify_intervals(pitches, scale_in_range)
-                pitches = smooth_leaps(pitches, scale_in_range, max_leap=7)
-                # Voice coordination: keep inner voice below melody
-                # and within 12st to avoid spacing/crossing violations.
-                if _melody_beats:
-                    pitches = self._coordinate_with_melody(
-                        pitches, durations, _melody_beats, scale_in_range,
-                    )
-                    # Break up consecutive unisons created by coordination
-                    pitches = self._break_unisons(
-                        pitches, durations, scale_in_range,
-                    )
-                # Coordinate, clamp, coordinate, then final clamp.
-                # The clamp limits leaps; coordination prevents crossing.
-                # Final clamp ensures no coordination-induced leaps remain.
-                pitches = self._clamp_sounding_pitches(
-                    pitches, durations, scale_in_range, max_interval=5,
-                )
-                if _melody_beats:
-                    pitches = self._coordinate_with_melody(
-                        pitches, durations, _melody_beats, scale_in_range,
-                    )
-                pitches = self._clamp_sounding_pitches(
-                    pitches, durations, scale_in_range, max_interval=5,
+                pitches = self._constrain_inner(
+                    raw_pitches, durations, scale_in_range, _melody_beats,
                 )
 
             # Track voice data for seventh resolution post-processing
@@ -545,34 +460,131 @@ class CompositionBuilder:
             )
 
         # Post-processing: fix seventh resolution violations.
-        # Melody was built before bass, so we fix now that both exist.
-        if (_melody_voice_idx is not None and _melody_pitches
-                and _bass_pitches and self._scale):
-            fixed = fix_seventh_resolution(
-                _melody_pitches, _melody_durations,
-                _bass_pitches, _bass_durations,
-                self._scale,
-            )
-            # Apply fixes to the already-added melody voice
-            melody_voice = piece.score.voices[_melody_voice_idx]
-            for ni, note in enumerate(melody_voice.notes):
-                if ni < len(fixed) and note.pitch != fixed[ni] and not note.is_rest:
-                    note.pitch = fixed[ni]
-
-        # Also fix inner voice seventh resolutions
-        if (_inner_voice_idx is not None and _inner_pitches
-                and _bass_pitches and self._scale):
-            fixed_inner = fix_seventh_resolution(
-                _inner_pitches, _inner_durations,
-                _bass_pitches, _bass_durations,
-                self._scale,
-            )
-            inner_voice = piece.score.voices[_inner_voice_idx]
-            for ni, note in enumerate(inner_voice.notes):
-                if ni < len(fixed_inner) and note.pitch != fixed_inner[ni] and not note.is_rest:
-                    note.pitch = fixed_inner[ni]
+        self._apply_seventh_fix(
+            _melody_voice_idx, _melody_pitches, _melody_durations,
+            _bass_pitches, _bass_durations, self._scale, piece,
+        )
+        self._apply_seventh_fix(
+            _inner_voice_idx, _inner_pitches, _inner_durations,
+            _bass_pitches, _bass_durations, self._scale, piece,
+        )
 
         return piece
+
+    def _constrain_melody(
+        self,
+        raw_pitches: list[int],
+        durations: list[float],
+        scale_in_range: list[int],
+        v_spec: dict,
+        form: list,
+    ) -> tuple[list[int], list[float]]:
+        """Apply melody constraint pipeline: variation, tension, phrases, leaps."""
+        pitches = constrained_melody(
+            raw_pitches, scale_in_range, voice_type="melody",
+            step_ratio=0.50, max_leap=7,
+        )
+        pitches, durations = apply_developing_variation(
+            pitches, durations, phrase_length=12,
+            seed=v_spec.get("seed", 0), target_distance=0.15,
+        )
+        pitches = add_pitch_tension_arc(pitches, scale_in_range, intensity=0.50)
+        pitches, durations = add_phrase_endings(
+            pitches, durations, scale_in_range, phrase_length=12, min_pitch=62,
+        )
+        if form:
+            pitches = self._add_sectional_variation(
+                pitches, durations, form, scale_in_range,
+            )
+        pitches = enforce_range(pitches, voice_type="melody")
+        pitches = self._clamp_sounding_pitches(
+            pitches, durations, scale_in_range, max_interval=5,
+        )
+        pitches = ensure_motivic_echoes(
+            pitches, durations, scale_in_range,
+            seed=v_spec.get("seed", 0),
+        )
+        pitches = self._clamp_sounding_pitches(
+            pitches, durations, scale_in_range, max_interval=5,
+        )
+        pitches = smooth_direction(pitches, durations, scale_in_range)
+        return pitches, durations
+
+    def _constrain_bass(
+        self,
+        raw_pitches: list[int],
+        durations: list[float],
+        scale_in_range: list[int],
+    ) -> tuple[list[int], list[float]]:
+        """Apply bass constraint pipeline: range, leaps, cadences."""
+        pitches = enforce_range(raw_pitches, voice_type="bass")
+        pitches = smooth_leaps(pitches, scale_in_range, max_leap=4)
+        pitches = enforce_range(pitches, voice_type="bass")
+        pitches = self._clamp_sounding_pitches(
+            pitches, durations, scale_in_range, max_interval=4,
+        )
+        pitches = self._break_unisons(pitches, durations, scale_in_range)
+        root_pc = self._scale[0] % 12 if self._scale else None
+        pitches, durations = add_cadences(
+            pitches, durations, scale_in_range, phrase_length=16,
+            root_pc=root_pc,
+        )
+        pitches = self._clamp_sounding_pitches(
+            pitches, durations, scale_in_range, max_interval=4,
+        )
+        return pitches, durations
+
+    def _constrain_inner(
+        self,
+        raw_pitches: list[int],
+        durations: list[float],
+        scale_in_range: list[int],
+        melody_beats: list[tuple[float, int]],
+    ) -> list[int]:
+        """Apply inner voice constraint pipeline: intervals, coordination, clamping."""
+        pitches = enforce_range(raw_pitches, voice_type="alto")
+        pitches = improve_interval_distribution(pitches, scale_in_range, step_ratio=0.55)
+        pitches = self._diversify_intervals(pitches, scale_in_range)
+        pitches = smooth_leaps(pitches, scale_in_range, max_leap=7)
+        if melody_beats:
+            pitches = self._coordinate_with_melody(
+                pitches, durations, melody_beats, scale_in_range,
+            )
+            pitches = self._break_unisons(pitches, durations, scale_in_range)
+        pitches = self._clamp_sounding_pitches(
+            pitches, durations, scale_in_range, max_interval=5,
+        )
+        if melody_beats:
+            pitches = self._coordinate_with_melody(
+                pitches, durations, melody_beats, scale_in_range,
+            )
+        pitches = self._clamp_sounding_pitches(
+            pitches, durations, scale_in_range, max_interval=5,
+        )
+        return pitches
+
+    @staticmethod
+    def _apply_seventh_fix(
+        voice_idx: int | None,
+        voice_pitches: list[int],
+        voice_durations: list[float],
+        bass_pitches: list[int],
+        bass_durations: list[float],
+        scale: list[int],
+        piece: "Composition",
+    ) -> None:
+        """Fix seventh resolution violations for a single voice in-place."""
+        if voice_idx is None or not voice_pitches or not bass_pitches or not scale:
+            return
+        fixed = fix_seventh_resolution(
+            voice_pitches, voice_durations,
+            bass_pitches, bass_durations,
+            scale,
+        )
+        voice = piece.score.voices[voice_idx]
+        for ni, note in enumerate(voice.notes):
+            if ni < len(fixed) and note.pitch != fixed[ni] and not note.is_rest:
+                note.pitch = fixed[ni]
 
     def _get_root_pitch(self, octave: int = 2) -> int:
         """Get the root note MIDI pitch at the given octave."""
@@ -877,53 +889,6 @@ class CompositionBuilder:
                     p = min(candidates, key=lambda sp: abs(sp - p))
 
             result[i] = p
-            beat += abs(durations[i])
-
-        return result
-
-    @staticmethod
-    def _soft_crossing_fix(
-        pitches: list[int],
-        durations: list[float],
-        melody_beats: list[tuple[float, int]],
-        scale_pitches: list[int],
-    ) -> list[int]:
-        """Fix voice crossings without creating large leaps.
-
-        Unlike _coordinate_with_melody which can create >5st jumps,
-        this only nudges crossing notes down by 1-2 scale steps.
-        """
-        if not melody_beats:
-            return pitches
-
-        result = list(pitches)
-        sorted_scale = sorted(set(scale_pitches))
-        beat = 0.0
-
-        for i in range(len(result)):
-            if i >= len(durations):
-                break
-            if durations[i] <= 0:
-                beat += abs(durations[i])
-                continue
-
-            # Find nearest melody pitch
-            nearby = [mp for mb, mp in melody_beats if abs(mb - beat) <= 1.0]
-            if not nearby:
-                nearby = [min(melody_beats, key=lambda x: abs(x[0] - beat))[1]]
-
-            mel_floor = min(nearby)
-            if result[i] >= mel_floor:
-                # Crossing! Nudge down to just below melody
-                target = mel_floor - 2
-                # But don't jump more than 5st from previous sounding note
-                if sorted_scale:
-                    target = max(
-                        (p for p in sorted_scale if p <= mel_floor - 1),
-                        default=result[i],
-                    )
-                result[i] = target
-
             beat += abs(durations[i])
 
         return result

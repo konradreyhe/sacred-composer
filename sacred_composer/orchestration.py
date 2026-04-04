@@ -627,8 +627,8 @@ def generate_hall_impulse(
     rt60 : Reverberation time in seconds (1.5-2.5 for concert halls).
     early_reflection_count : Number of early reflection taps.
     """
-    import random
-    random.seed(42)  # reproducible
+    import random as _rng_mod
+    rng = _rng_mod.Random(42)  # deterministic seeded instance
 
     total_samples = int(rt60 * 2 * sample_rate)
     ir = [0.0] * total_samples
@@ -638,17 +638,17 @@ def generate_hall_impulse(
 
     # Early reflections: spaced 5-50ms, decreasing amplitude
     for i in range(early_reflection_count):
-        delay_ms = 5 + i * 4 + random.uniform(0, 3)
+        delay_ms = 5 + i * 4 + rng.uniform(0, 3)
         delay_samples = int(delay_ms * sample_rate / 1000)
         amp = 0.5 * (0.8 ** i)
         if delay_samples < total_samples:
-            ir[delay_samples] += amp * (1 if random.random() > 0.5 else -1)
+            ir[delay_samples] += amp * (1 if rng.random() > 0.5 else -1)
 
     # Late reverb: gaussian noise with exponential decay
     decay_rate = -6.91 / (rt60 * sample_rate)  # -60dB at rt60
     late_start = int(0.08 * sample_rate)  # starts after 80ms
     for i in range(late_start, total_samples):
-        noise = random.gauss(0, 0.15)
+        noise = rng.gauss(0, 0.15)
         envelope = math.exp(decay_rate * i)
         ir[i] += noise * envelope
 

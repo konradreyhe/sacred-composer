@@ -55,7 +55,7 @@ try:
     from sacred_composer.core import GM_INSTRUMENTS
     for _name, _prog in GM_INSTRUMENTS.items():
         _GM_PROG_TO_NAME.setdefault(_prog, _name)
-except Exception:
+except ImportError:
     pass
 
 

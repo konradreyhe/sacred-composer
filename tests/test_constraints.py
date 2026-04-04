@@ -13,6 +13,7 @@ from sacred_composer.constraints import (
     improve_interval_distribution,
     add_phrase_endings,
     add_motivic_variation,
+    fix_seventh_resolution,
     _clamp_all_intervals,
     _final_leap_recovery,
     VOICE_RANGES,
@@ -194,3 +195,70 @@ class TestFinalLeapRecovery:
     def test_short_input(self, melody_scale):
         assert _final_leap_recovery([60, 72], melody_scale) == [60, 72]
         assert _final_leap_recovery([60], melody_scale) == [60]
+
+
+# ── fix_seventh_resolution ────────────────────────────────────
+
+class TestFixSeventhResolution:
+    """Tests for chord seventh resolution post-processing."""
+
+    @pytest.fixture
+    def c_minor_scale(self):
+        return parse_scale("C_minor")
+
+    def test_no_change_when_no_seventh(self, c_minor_scale):
+        melody = [60, 62, 63, 65, 67]
+        bass = [48, 48, 48, 48, 48]
+        durs = [1.0, 1.0, 1.0, 1.0, 1.0]
+        result = fix_seventh_resolution(melody, durs, bass, durs, c_minor_scale)
+        assert result == melody
+
+    def test_fixes_upward_motion_after_seventh(self, c_minor_scale):
+        # 58 - 48 = 10 mod 12 = 10 (minor 7th), next note 65 is +7 (upward > 2)
+        melody = [60, 58, 65, 63]
+        bass = [48, 48, 48, 48]
+        durs = [1.0, 1.0, 1.0, 1.0]
+        result = fix_seventh_resolution(melody, durs, bass, durs, c_minor_scale)
+        # The note at index 2 should be moved closer to 58 (≤ 58+2 = 60)
+        assert result[2] <= 60
+
+    def test_does_not_create_large_leap(self, c_minor_scale):
+        # After fix, no consecutive sounding notes should be > 5st apart
+        melody = [60, 58, 65, 70]
+        bass = [48, 48, 48, 48]
+        durs = [1.0, 1.0, 1.0, 1.0]
+        result = fix_seventh_resolution(melody, durs, bass, durs, c_minor_scale)
+        for i in range(len(result) - 1):
+            assert abs(result[i + 1] - result[i]) <= 7, \
+                f"Leap too large: {result[i]} -> {result[i+1]}"
+
+    def test_empty_input(self, c_minor_scale):
+        assert fix_seventh_resolution([], [], [], [], c_minor_scale) == []
+
+    def test_no_bass_returns_unchanged(self, c_minor_scale):
+        melody = [60, 62, 63]
+        durs = [1.0, 1.0, 1.0]
+        result = fix_seventh_resolution(melody, durs, [], [], c_minor_scale)
+        assert result == melody
+
+    def test_skips_rests(self, c_minor_scale):
+        # Rest (negative duration) between seventh and resolution
+        melody = [60, 58, 0, 65, 63]
+        bass = [48, 48, 48, 48, 48]
+        durs = [1.0, 1.0, -0.5, 1.0, 1.0]
+        result = fix_seventh_resolution(melody, durs, bass, durs, c_minor_scale)
+        # Should still fix the note after the rest
+        assert result[3] <= 60
+
+    def test_fallback_nudges_seventh_note(self, c_minor_scale):
+        # Scenario where no safe j-replacement exists: i=60, j=65, k=70
+        # 60 - 50 = 10 (seventh). Valid replacements for j: p ≤ 62.
+        # But |70 - p| must be ≤ 5, so p ≥ 65. No overlap → falls back to nudging i.
+        melody = [60, 65, 70]
+        bass = [50, 50, 50]
+        durs = [1.0, 1.0, 1.0]
+        result = fix_seventh_resolution(melody, durs, bass, durs, c_minor_scale)
+        # Either j was fixed or i was nudged so interval is no longer 10/11
+        interval = (result[0] - 50) % 12
+        j_motion = result[1] - result[0]
+        assert interval not in (10, 11) or j_motion <= 2

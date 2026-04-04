@@ -6,11 +6,14 @@ pipeline, and returns the report.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import tempfile
 
 from sacred_composer.core import Composition
+
+_log = logging.getLogger(__name__)
 
 
 def evaluate_composition(composition: Composition, verbose: bool = True) -> dict:
@@ -55,12 +58,13 @@ def evaluate_composition(composition: Composition, verbose: bool = True) -> dict
         }
 
         if verbose:
-            print(f"\n  Evaluation: {composition.title}")
-            print(f"  Final Score: {result['final_score']:.1f}/100")
-            print(f"  Level 1 (Rules):      {'PASS' if result['level1_pass'] else 'FAIL'} ({result['rule_violations']} violations)")
-            print(f"  Level 2 (Structure):   {result['level2_score']:.1f}")
-            print(f"  Level 3 (Expression):  {result['level3_score']:.1f}")
-            print(f"  Level 4 (Performance): {result['level4_score']:.1f}")
+            _log.info("Evaluation: %s", composition.title)
+            _log.info("Final Score: %.1f/100", result['final_score'])
+            _log.info("Level 1 (Rules): %s (%d violations)",
+                       'PASS' if result['level1_pass'] else 'FAIL', result['rule_violations'])
+            _log.info("Level 2 (Structure): %.1f", result['level2_score'])
+            _log.info("Level 3 (Expression): %.1f", result['level3_score'])
+            _log.info("Level 4 (Performance): %.1f", result['level4_score'])
 
         return result
 
@@ -100,10 +104,10 @@ def _fallback_evaluate(composition: Composition, verbose: bool) -> dict:
     }
 
     if verbose:
-        print(f"\n  Basic Evaluation: {composition.title}")
-        print(f"  Estimated Score: {estimated_score:.0f}/100 (install music21 for full eval)")
+        _log.info("Basic Evaluation: %s", composition.title)
+        _log.info("Estimated Score: %.0f/100 (install music21 for full eval)", estimated_score)
         for name, passed in checks.items():
-            print(f"    {'PASS' if passed else 'FAIL'}: {name}")
+            _log.info("  %s: %s", 'PASS' if passed else 'FAIL', name)
 
     return result
 
