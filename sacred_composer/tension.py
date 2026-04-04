@@ -14,8 +14,8 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from sacred_composer.constants import NOTE_NAMES, SCALES, parse_scale, PHI_INVERSE
-from sacred_composer.harmony import Chord, roman_to_chord, generate_progression
+from sacred_composer.constants import NOTE_NAMES, SCALES, PHI_INVERSE
+from sacred_composer.harmony import Chord
 
 if TYPE_CHECKING:
     from sacred_composer.core import Composition

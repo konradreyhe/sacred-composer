@@ -30,8 +30,9 @@ def evaluate_composition(composition: Composition, verbose: bool = True) -> dict
     level4_score, rule_violations, metrics, summary.
     """
     # Import evaluation framework from project root
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sys.path.insert(0, project_root)
+    from sacred_composer.constants import PROJECT_ROOT
+    if PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, PROJECT_ROOT)
 
     try:
         from evaluation_framework import evaluate_midi

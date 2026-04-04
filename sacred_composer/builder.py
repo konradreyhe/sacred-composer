@@ -497,17 +497,17 @@ class CompositionBuilder:
                 pitches, durations, form, scale_in_range,
             )
         pitches = enforce_range(pitches, voice_type="melody")
-        pitches = self._clamp_sounding_pitches(
-            pitches, durations, scale_in_range, max_interval=5,
-        )
-        pitches = ensure_motivic_echoes(
-            pitches, durations, scale_in_range,
-            seed=v_spec.get("seed", 0),
-        )
+        pitches = self._diversify_intervals(pitches, scale_in_range)
         pitches = self._clamp_sounding_pitches(
             pitches, durations, scale_in_range, max_interval=5,
         )
         pitches = smooth_direction(pitches, durations, scale_in_range)
+        pitches = ensure_motivic_echoes(
+            pitches, durations, scale_in_range,
+            seed=v_spec.get("seed", 0),
+        )
+        # Light leap recovery: fix any leaps > 5st created by echoes
+        pitches = self._recover_leaps(pitches, durations, scale_in_range)
         return pitches, durations
 
     def _constrain_bass(
@@ -971,6 +971,47 @@ class CompositionBuilder:
                               and abs(p - result[i - 1]) <= 7]
                 if candidates:
                     result[i] = candidates[0] if direction > 0 else candidates[-1]
+
+        return result
+
+    @staticmethod
+    def _recover_leaps(
+        pitches: list[int],
+        durations: list[float],
+        scale_pitches: list[int],
+    ) -> list[int]:
+        """Fix unrecovered leaps (>5st) by nudging the recovery note.
+
+        After a leap, the next note must move in the opposite direction
+        by stepwise motion (≤5st for moderate leaps, ≤2st for large).
+        Only modifies the recovery note, preserving the leap itself.
+        """
+        sounding = [i for i in range(min(len(pitches), len(durations)))
+                    if durations[i] > 0]
+        if len(sounding) < 3 or not scale_pitches:
+            return list(pitches)
+
+        result = list(pitches)
+        sorted_scale = sorted(set(scale_pitches))
+
+        for k in range(len(sounding) - 2):
+            i0, i1, i2 = sounding[k], sounding[k + 1], sounding[k + 2]
+            leap = result[i1] - result[i0]
+            if abs(leap) <= 5:
+                continue
+            recovery = result[i2] - result[i1]
+            opposite = (leap > 0 and recovery < 0) or (leap < 0 and recovery > 0)
+            max_rec = 5 if abs(leap) <= 8 else 2
+            stepwise = abs(recovery) <= max_rec
+            if opposite and stepwise:
+                continue
+            # Fix: move recovery note to step in opposite direction
+            direction = -1 if leap > 0 else 1
+            candidates = [p for p in sorted_scale
+                          if (p - result[i1]) * direction > 0
+                          and abs(p - result[i1]) <= max_rec]
+            if candidates:
+                result[i2] = min(candidates, key=lambda p: abs(p - result[i1]))
 
         return result
 

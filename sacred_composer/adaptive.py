@@ -20,7 +20,6 @@ from sacred_composer.patterns import (
     InfinitySeries, GoldenSpiral, PinkNoise, HarmonicSeries,
 )
 from sacred_composer.mappers import to_pitch, to_rhythm, to_dynamics
-from sacred_composer.constants import parse_scale
 
 
 # ---------------------------------------------------------------------------

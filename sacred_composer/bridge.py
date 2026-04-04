@@ -8,8 +8,8 @@ humanization pass (1/f rubato, KTH rules, etc.).
 from __future__ import annotations
 
 import sys
-import os
 
+from sacred_composer.constants import PROJECT_ROOT
 from sacred_composer.core import Score, Voice, Note
 
 
@@ -21,7 +21,8 @@ def score_to_performance_ir(score: Score):
     from beats to seconds using the score's tempo.
     """
     # Import from the existing system
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, PROJECT_ROOT)
     from SYSTEM_ARCHITECTURE import PerformanceNote, PerformanceIR
 
     beats_per_sec = score.tempo / 60.0
@@ -58,7 +59,8 @@ def score_to_performance_ir(score: Score):
 
 def voice_to_performance_notes(voice: Voice, tempo: int = 72) -> list:
     """Convert a single Voice to a list of PerformanceNote objects."""
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, PROJECT_ROOT)
     from SYSTEM_ARCHITECTURE import PerformanceNote
 
     beats_per_sec = tempo / 60.0

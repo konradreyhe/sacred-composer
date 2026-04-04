@@ -375,20 +375,32 @@ def ensure_motivic_echoes(
             perturb = 0
             if rng.random() < perturb_rate:
                 perturb = rng.choice([-1, 1])
+            # Reduce unisons: if base is 0, nudge to a scale step (±2st)
+            if base == 0:
+                prev_ivl = theme_ivl[(j - 1) % THEME_LEN] if j > 0 else 1
+                base = 2 if prev_ivl >= 0 else -2
             desired = max(-max_interval, min(max_interval, base + perturb))
 
             prev_pitch = out[sounding_idx[pos]]
             target = prev_pitch + desired
 
-            # Enforce melody range (no extreme register)
-            if target > 84:
-                target -= 12
-            elif target < 55:
-                target += 12
+            # Enforce melody range by clamping (no octave jumps)
+            target = max(55, min(84, target))
 
-            # Snap to scale
+            # Snap to scale, avoiding unison with previous note
             if scale_pitches:
-                target = min(scale_pitches, key=lambda p: abs(p - target))
+                in_range = [p for p in scale_pitches if 55 <= p <= 84]
+                if not in_range:
+                    in_range = scale_pitches
+                snapped = min(in_range, key=lambda p: abs(p - target))
+                if snapped == prev_pitch and desired != 0:
+                    # Find nearest scale note in the intended direction
+                    direction = 1 if desired > 0 else -1
+                    alt = [p for p in in_range
+                           if (p - prev_pitch) * direction > 0]
+                    if alt:
+                        snapped = min(alt, key=lambda p: abs(p - prev_pitch))
+                target = snapped
 
             out[sounding_idx[note_idx]] = target
 

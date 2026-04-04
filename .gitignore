@@ -41,3 +41,9 @@ build/
 
 # Exception: keep viz public audio for Remotion
 !viz/public/*.wav
+
+# Remotion output
+viz/out/
+
+# MCP config (local)
+.mcp.json

@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from sacred_composer.core import Score, Voice, Note, GM_INSTRUMENTS
+from sacred_composer.core import Score, Note
 
 
 # ---------------------------------------------------------------------------

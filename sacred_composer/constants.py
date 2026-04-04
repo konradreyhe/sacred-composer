@@ -1,6 +1,10 @@
 """Sacred and mathematical constants."""
 
 import math
+import os
+
+# Project root directory (parent of sacred_composer package)
+PROJECT_ROOT: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # The golden ratio
 phi: float = (1 + math.sqrt(5)) / 2  # 1.6180339887...

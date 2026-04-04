@@ -258,10 +258,9 @@ class Composition:
         try:
             # Use the render_audio module's FluidSynth backend
             import sys
-            # Ensure project root is importable
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            if project_root not in sys.path:
-                sys.path.insert(0, project_root)
+            from sacred_composer.constants import PROJECT_ROOT
+            if PROJECT_ROOT not in sys.path:
+                sys.path.insert(0, PROJECT_ROOT)
 
             from render_audio import find_soundfonts, render_fluidsynth
 
