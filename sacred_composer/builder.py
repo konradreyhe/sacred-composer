@@ -18,7 +18,7 @@ from sacred_composer.constraints import (
     constrained_melody, enforce_range, smooth_leaps,
     improve_interval_distribution,
     add_phrase_endings, add_pitch_tension_arc,
-    smooth_direction, add_cadences,
+    smooth_direction, add_cadences, fix_seventh_resolution,
 )
 from sacred_composer.constants import phi, parse_scale, PHI_INVERSE
 from sacred_composer.constraints import _final_leap_recovery, _clamp_all_intervals
@@ -334,6 +334,15 @@ class CompositionBuilder:
 
         # Will store melody beat→pitch mapping for voice coordination
         _melody_beats: list[tuple[float, int]] = []
+        # For seventh resolution post-processing
+        _melody_voice_idx: int | None = None
+        _inner_voice_idx: int | None = None
+        _melody_pitches: list[int] = []
+        _melody_durations: list[float] = []
+        _inner_pitches: list[int] = []
+        _inner_durations: list[float] = []
+        _bass_pitches: list[int] = []
+        _bass_durations: list[float] = []
 
         for v_spec in sorted_voices:
             role = v_spec["role"]
@@ -513,6 +522,20 @@ class CompositionBuilder:
                     pitches, durations, scale_in_range, max_interval=5,
                 )
 
+            # Track voice data for seventh resolution post-processing
+            voice_idx = len(piece.score.voices)
+            if role == "melody":
+                _melody_voice_idx = voice_idx
+                _melody_pitches = pitches
+                _melody_durations = durations
+            elif role == "inner":
+                _inner_voice_idx = voice_idx
+                _inner_pitches = pitches
+                _inner_durations = durations
+            elif role == "bass":
+                _bass_pitches = pitches
+                _bass_durations = durations
+
             piece.add_voice(
                 name=f"{role}_{v_spec['instrument']}",
                 pitches=pitches,
@@ -520,6 +543,34 @@ class CompositionBuilder:
                 velocities=dynamics,
                 instrument=v_spec["instrument"],
             )
+
+        # Post-processing: fix seventh resolution violations.
+        # Melody was built before bass, so we fix now that both exist.
+        if (_melody_voice_idx is not None and _melody_pitches
+                and _bass_pitches and self._scale):
+            fixed = fix_seventh_resolution(
+                _melody_pitches, _melody_durations,
+                _bass_pitches, _bass_durations,
+                self._scale,
+            )
+            # Apply fixes to the already-added melody voice
+            melody_voice = piece.score.voices[_melody_voice_idx]
+            for ni, note in enumerate(melody_voice.notes):
+                if ni < len(fixed) and note.pitch != fixed[ni] and not note.is_rest:
+                    note.pitch = fixed[ni]
+
+        # Also fix inner voice seventh resolutions
+        if (_inner_voice_idx is not None and _inner_pitches
+                and _bass_pitches and self._scale):
+            fixed_inner = fix_seventh_resolution(
+                _inner_pitches, _inner_durations,
+                _bass_pitches, _bass_durations,
+                self._scale,
+            )
+            inner_voice = piece.score.voices[_inner_voice_idx]
+            for ni, note in enumerate(inner_voice.notes):
+                if ni < len(fixed_inner) and note.pitch != fixed_inner[ni] and not note.is_rest:
+                    note.pitch = fixed_inner[ni]
 
         return piece
 
@@ -1027,26 +1078,33 @@ class CompositionBuilder:
             if not changed:
                 break
 
-        # Final dedicated leap recovery pass — never overwritten by clamp
-        for k in range(1, len(sounding_idx) - 1):
-            i0 = sounding_idx[k - 1]
-            i1 = sounding_idx[k]
-            i2 = sounding_idx[k + 1]
-            leap = result[i1] - result[i0]
-            if abs(leap) > 5:
-                recovery = result[i2] - result[i1]
-                recovery_dir = -1 if leap > 0 else 1
-                opposite = (recovery * leap) < 0
-                max_rec = 5 if abs(leap) <= 8 else 2
-                stepwise = abs(recovery) <= max_rec
-                if not (opposite and stepwise):
-                    if scale_pitches:
-                        from sacred_composer.constraints import _step_in_scale
-                        target = _step_in_scale(result[i1], recovery_dir, scale_pitches)
-                    else:
-                        target = result[i1] + recovery_dir * 2
-                    if 0 <= target <= 127:
-                        result[i2] = target
+        # Final dedicated leap recovery pass — never overwritten by clamp.
+        # Multiple passes because fixing one leap's recovery can create
+        # a new >5st interval that itself needs recovery.
+        for _final_pass in range(3):
+            fixed_any = False
+            for k in range(1, len(sounding_idx) - 1):
+                i0 = sounding_idx[k - 1]
+                i1 = sounding_idx[k]
+                i2 = sounding_idx[k + 1]
+                leap = result[i1] - result[i0]
+                if abs(leap) > 5:
+                    recovery = result[i2] - result[i1]
+                    recovery_dir = -1 if leap > 0 else 1
+                    opposite = (recovery * leap) < 0
+                    max_rec = 5 if abs(leap) <= 8 else 2
+                    stepwise = abs(recovery) <= max_rec
+                    if not (opposite and stepwise):
+                        if scale_pitches:
+                            from sacred_composer.constraints import _step_in_scale
+                            target = _step_in_scale(result[i1], recovery_dir, scale_pitches)
+                        else:
+                            target = result[i1] + recovery_dir * 2
+                        if 0 <= target <= 127:
+                            result[i2] = target
+                            fixed_any = True
+            if not fixed_any:
+                break
 
         return result
 

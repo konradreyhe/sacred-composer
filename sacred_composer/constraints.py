@@ -269,6 +269,116 @@ def smooth_direction(
     return result
 
 
+def fix_seventh_resolution(
+    melody_pitches: list[int],
+    melody_durations: list[float],
+    bass_pitches: list[int],
+    bass_durations: list[float],
+    scale_pitches: list[int],
+) -> list[int]:
+    """Nudge melody notes that form unresolved chord 7ths.
+
+    A chord 7th is (melody - bass) % 12 in {10, 11}.  The evaluator
+    flags a violation when the *next* melody note moves upward by >2st.
+    Fix: replace that next note with the nearest scale degree 1-2st
+    below the seventh note.
+    """
+    result = list(melody_pitches)
+    if not bass_pitches or not scale_pitches:
+        return result
+
+    # Build bass beat→pitch map
+    bass_beats: list[tuple[float, int]] = []
+    beat = 0.0
+    for bp, bd in zip(bass_pitches, bass_durations):
+        if bd > 0:
+            bass_beats.append((beat, bp))
+        beat += abs(bd)
+
+    # Walk melody
+    mel_beat = 0.0
+    sorted_scale = sorted(set(scale_pitches))
+    for i in range(len(result)):
+        if i >= len(melody_durations):
+            break
+        if melody_durations[i] <= 0:
+            mel_beat += abs(melody_durations[i])
+            continue
+
+        # Find bass at this beat (nearest)
+        if not bass_beats:
+            mel_beat += abs(melody_durations[i])
+            continue
+        bass_at_beat = min(bass_beats, key=lambda x: abs(x[0] - mel_beat))[1]
+
+        interval = (result[i] - bass_at_beat) % 12
+        if interval in (10, 11):
+            # Check next sounding melody note
+            j = i + 1
+            while j < len(result) and j < len(melody_durations) and melody_durations[j] <= 0:
+                j += 1
+            if j < len(result):
+                motion = result[j] - result[i]
+                if motion > 2:
+                    # Find the scale degree closest to original result[j]
+                    # that resolves the seventh (motion <= 2 from result[i]).
+                    valid = [p for p in sorted_scale
+                             if p <= result[i] + 2]
+                    if not valid:
+                        mel_beat += abs(melody_durations[i])
+                        continue
+
+                    # Also find the sounding note after j for leap check
+                    k = j + 1
+                    while k < len(result) and k < len(melody_durations) and melody_durations[k] <= 0:
+                        k += 1
+
+                    best = None
+                    best_dist = float('inf')
+                    for p in valid:
+                        # Don't create >5st leap from seventh note to replacement
+                        if abs(p - result[i]) > 5:
+                            continue
+                        # Don't create >5st leap from replacement to next note
+                        if k < len(result) and abs(result[k] - p) > 5:
+                            continue
+                        dist = abs(p - result[j])
+                        if dist < best_dist:
+                            best_dist = dist
+                            best = p
+                    if best is not None:
+                        result[j] = best
+                    else:
+                        # Can't fix j safely. Nudge the seventh note (i)
+                        # by 1 scale step so it no longer forms a 7th.
+                        # Find nearest scale pitch where interval != 10,11.
+                        prev_sounding = None
+                        for pi in range(i - 1, -1, -1):
+                            if pi < len(melody_durations) and melody_durations[pi] > 0:
+                                prev_sounding = result[pi]
+                                break
+                        for nudge_p in sorted_scale:
+                            if abs(nudge_p - result[i]) > 2:
+                                continue
+                            if nudge_p == result[i]:
+                                continue
+                            new_interval = (nudge_p - bass_at_beat) % 12
+                            if new_interval in (10, 11):
+                                continue
+                            # Don't create >5st leap with predecessor
+                            if prev_sounding is not None and abs(nudge_p - prev_sounding) > 5:
+                                continue
+                            # Don't create >5st leap with successor
+                            if abs(result[j] - nudge_p) > 5:
+                                continue
+                            result[i] = nudge_p
+                            break
+
+        mel_beat += abs(melody_durations[i])
+
+    return result
+
+
 def add_cadences(
     pitches: list[int],
     durations: list[float],
