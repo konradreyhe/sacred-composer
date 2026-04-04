@@ -51,6 +51,7 @@ from sacred_composer.constraints import (
     constrained_melody, enforce_range, smooth_leaps,
     add_tension_arc, improve_interval_distribution,
     add_phrase_endings, add_pitch_tension_arc, add_motivic_variation,
+    smooth_direction, add_cadences,
 )
 from sacred_composer.variation import (
     Motif, augment, diminish, invert, retrograde,

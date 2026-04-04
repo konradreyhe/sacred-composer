@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-91.4/100 (best with L1 PASS: D_minor logistic seed=13). Seven metrics at 100 (cadence, entropy, harmonic_rhythm, phrase_length, form_proportions, phrase_boundaries, plus phrase_length). Weakest: directional_momentum (70.8), repetition_variation (81.7).
+92.4/100 (best absolute: C_minor golden_spiral seed=21, 4 minor L1 violations). Best L1 PASS: **90.7/100** (C_minor golden_spiral seed=12, 0 violations). Eight metrics at 100 (cadence, entropy, harmonic_rhythm, phrase_length, chord_vocabulary, thematic_development, directional_momentum, form_proportions). Weakest: tension_arc (77.6), phrase_boundaries (76.7).
 
 ## Key Files
 

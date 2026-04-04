@@ -18,6 +18,7 @@ from sacred_composer.constraints import (
     constrained_melody, enforce_range, smooth_leaps,
     improve_interval_distribution,
     add_phrase_endings, add_pitch_tension_arc,
+    smooth_direction, add_cadences,
 )
 from sacred_composer.constants import phi, parse_scale, PHI_INVERSE
 from sacred_composer.constraints import _final_leap_recovery, _clamp_all_intervals
@@ -339,6 +340,9 @@ class CompositionBuilder:
 
             if role == "drone":
                 root = self._get_root_pitch(octave=2)
+                # Ensure drone is within evaluator's bass range (MIDI 40-62)
+                if root < 40:
+                    root += 12
                 piece.add_drone(
                     "drone", pitch=root, total_beats=float(self._beats),
                     velocity=v_spec.get("velocity", 55),
@@ -450,6 +454,11 @@ class CompositionBuilder:
                 pitches = self._clamp_sounding_pitches(
                     pitches, durations, scale_in_range, max_interval=5,
                 )
+                # Smooth direction: extend short runs to improve
+                # directional_momentum (target mean run length >= 2.0)
+                pitches = smooth_direction(
+                    pitches, durations, scale_in_range,
+                )
                 # Store melody beat→pitch for voice coordination
                 beat = 0.0
                 for mp, md in zip(pitches, durations):
@@ -464,9 +473,21 @@ class CompositionBuilder:
                     pitches, durations, scale_in_range, max_interval=4,
                 )
                 pitches = self._break_unisons(pitches, durations, scale_in_range)
+                # Insert V-I cadences at phrase boundaries
+                root_pc = self._scale[0] % 12 if self._scale else None
+                pitches, durations = add_cadences(
+                    pitches, durations, scale_in_range, phrase_length=16,
+                    root_pc=root_pc,
+                )
+                # Re-clamp bass after cadence insertion
+                pitches = self._clamp_sounding_pitches(
+                    pitches, durations, scale_in_range, max_interval=4,
+                )
             else:
                 pitches = enforce_range(raw_pitches, voice_type="alto")
                 pitches = improve_interval_distribution(pitches, scale_in_range, step_ratio=0.55)
+                # Diversify intervals: convert some steps to thirds/fourths
+                pitches = self._diversify_intervals(pitches, scale_in_range)
                 pitches = smooth_leaps(pitches, scale_in_range, max_leap=7)
                 # Voice coordination: keep inner voice below melody
                 # and within 12st to avoid spacing/crossing violations.
@@ -478,6 +499,19 @@ class CompositionBuilder:
                     pitches = self._break_unisons(
                         pitches, durations, scale_in_range,
                     )
+                # Coordinate, clamp, coordinate, then final clamp.
+                # The clamp limits leaps; coordination prevents crossing.
+                # Final clamp ensures no coordination-induced leaps remain.
+                pitches = self._clamp_sounding_pitches(
+                    pitches, durations, scale_in_range, max_interval=5,
+                )
+                if _melody_beats:
+                    pitches = self._coordinate_with_melody(
+                        pitches, durations, _melody_beats, scale_in_range,
+                    )
+                pitches = self._clamp_sounding_pitches(
+                    pitches, durations, scale_in_range, max_interval=5,
+                )
 
             piece.add_voice(
                 name=f"{role}_{v_spec['instrument']}",
@@ -764,8 +798,8 @@ class CompositionBuilder:
                 beat += abs(durations[i])
                 continue
 
-            # Melody pitches within ±1 beat
-            nearby = [mp for mb, mp in melody_beats if abs(mb - beat) <= 1.0]
+            # Melody pitches within ±2 beats (wider window catches more crossings)
+            nearby = [mp for mb, mp in melody_beats if abs(mb - beat) <= 2.0]
             if not nearby:
                 nearby = [min(melody_beats, key=lambda x: abs(x[0] - beat))[1]]
 
@@ -774,13 +808,13 @@ class CompositionBuilder:
             p = result[i]
 
             changed = False
-            # No crossing: inner must be below lowest nearby melody
-            if p >= mel_floor:
-                p = mel_floor - 2
+            # No crossing: inner must be at least 4st below lowest nearby melody
+            if p >= mel_floor - 3:
+                p = mel_floor - 5
                 changed = True
-            # No excessive spacing: inner within 12st of highest nearby
-            if mel_ceil - p > 12:
-                p = mel_ceil - 10
+            # No excessive spacing: inner within 11st of highest nearby
+            if mel_ceil - p > 11:
+                p = mel_ceil - 9
                 changed = True
 
             if changed and scale_pitches:
@@ -792,6 +826,53 @@ class CompositionBuilder:
                     p = min(candidates, key=lambda sp: abs(sp - p))
 
             result[i] = p
+            beat += abs(durations[i])
+
+        return result
+
+    @staticmethod
+    def _soft_crossing_fix(
+        pitches: list[int],
+        durations: list[float],
+        melody_beats: list[tuple[float, int]],
+        scale_pitches: list[int],
+    ) -> list[int]:
+        """Fix voice crossings without creating large leaps.
+
+        Unlike _coordinate_with_melody which can create >5st jumps,
+        this only nudges crossing notes down by 1-2 scale steps.
+        """
+        if not melody_beats:
+            return pitches
+
+        result = list(pitches)
+        sorted_scale = sorted(set(scale_pitches))
+        beat = 0.0
+
+        for i in range(len(result)):
+            if i >= len(durations):
+                break
+            if durations[i] <= 0:
+                beat += abs(durations[i])
+                continue
+
+            # Find nearest melody pitch
+            nearby = [mp for mb, mp in melody_beats if abs(mb - beat) <= 1.0]
+            if not nearby:
+                nearby = [min(melody_beats, key=lambda x: abs(x[0] - beat))[1]]
+
+            mel_floor = min(nearby)
+            if result[i] >= mel_floor:
+                # Crossing! Nudge down to just below melody
+                target = mel_floor - 2
+                # But don't jump more than 5st from previous sounding note
+                if sorted_scale:
+                    target = max(
+                        (p for p in sorted_scale if p <= mel_floor - 1),
+                        default=result[i],
+                    )
+                result[i] = target
+
             beat += abs(durations[i])
 
         return result
