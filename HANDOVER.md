@@ -1,189 +1,362 @@
 # Session Handover
 
-**Date:** 2026-04-05 (Session 10)
-**Duration:** 1 session, 3 commits (+ 1 reverted experiment)
-**Goal:** Session-9 cleanups + break the `tension_arc` ceiling.
+**Date:** 2026-04-05 (Session 10 continued)
+**Duration:** ~6 hours (long session, extended into album production)
+**Goal:** Pick up from session-10 bridge.py cleanup and do "whatever seems most valuable." Ended up pivoting from eval-score climbing to shipping an actual album.
 
 ## Summary
 
-Landed a bridge.py cleanup, followed the hypothesis trail through a failed
-tail-merge experiment, and ended the session with a **new peak eval score:
-91.96** (Bb_minor seed=43, up from 90.78 — the best score this repo has
-ever recorded in a reproducible config). The win came from reshaping the
-piece's *entry*, not its tail: a sin-ramp crescendo over the first 55% of
-each voice lifted `L3.tension_arc` by +9.65 points with no regressions.
-327 tests green, L1 PASS preserved, 24 commits ahead of origin.
+This session took a strategic turn. It started as another iteration on
+eval-score improvements (crescendo entry experiment, velocity tuning,
+name→vowel bug fix), but after a creative brainstorm that identified
+the project's actual bottleneck — **8,600 lines of composition engine
+with ZERO public artifacts** — the work pivoted to **shipping a signature
+album**.
 
-## What Got Done This Session
+By the end of the session, the 4-week album plan was written
+(`ALBUM_PLAN.md`, 521 lines), Weeks 1 and 2 were **executed in full**:
+grid-searched 1,620 candidates across 9 patterns, locked 9 tracks in
+`seeds.json`, built the **Goosebump Engine** (appoggiatura injection
+at golden-section climax, Sloboda 1991 research-grounded), rendered
+all 9 masters to WAV via FluidSynth, and normalized them to -14 LUFS
+(Spotify target). The album is listenable NOW at
+`examples/album/normalized/*.wav`.
 
-1. **`bridge.py` lazy-import hoist** — commit `be80563`. Closes
-   session-9 Next Step #1 (and dangling session-8 #6).
+The project went from having zero public artifacts to having a
+complete, reproducible 9-track album draft in one session. **Weeks 3
+(video + distribution) and 4 (launch) are the only remaining work
+before Sacred Geometry Vol. 1 ships.**
 
-2. **Ritardando tail experiment (reverted)** — tried merging consecutive
-   sounding notes in the final 20% of each voice. Broke voice leading,
-   made `tension_arc` *worse* (79 → 76). See "Why It Failed" below.
+32 commits landed. 327 tests stay green. The Goosebump Engine is the
+single most differentiated feature this project has ever had — it
+deterministically places chill triggers grounded in music-psychology
+research, which no other generative music tool does.
 
-3. **Crescendo entry implemented** — commit `6021902`. Added
-   `_apply_crescendo_entry()` in `sacred_composer/builder.py` which
-   scales opening velocities by a sin ramp (start=0.10, floor=15) over
-   the first 55% of each voice. Runs automatically in `build()` just
-   before `piece.add_voice()`.
+## What Got Done
 
-## New Peak Eval
+### Strategic pivot
+- [x] **Creative brainstorm** surfaced the real problem: the project
+  has been building features without shipping art, and one good album
+  would make every other roadmap direction easier.
+- [x] **ALBUM_PLAN.md** written (521 lines) — 4-week plan, risks,
+  success metrics, 5 fallback plans (B-F), codebase contact points.
 
-**Bb_minor seed=43, 48 bars, 72 BPM, fibonacci form:** **91.96/100 L1 PASS.**
+### Cleanups (early session, before the pivot)
+- [x] **bridge.py lazy-import hoist** (`be80563`) — closed session-9
+  Next Step #1. SYSTEM_ARCHITECTURE import now runs once at module
+  load instead of per function call.
+- [x] **Crescendo entry** (`6021902`) — scales opening velocities by
+  a sin ramp, lifted `L3.tension_arc` 79.02 → 88.67, final eval
+  90.78 → 91.96 on Bb_minor seed=43.
+- [x] **name→vowel bug fix** (`e38bd0b`) — `CompositionBuilder.melody()`
+  now accepts `text=...` and routes it through to `TextToMelody(text)`.
+  Previously the name endpoint advertised Guido d'Arezzo vowel mapping
+  but always fell back to the default string.
+- [x] **Louder default velocities** (`2a678d5`) — raised melody/bass/
+  inner defaults so rendered output is actually audible at reasonable
+  speaker volume. Eval trade: 91.96 → 91.14 (-0.82), worth it.
 
-| Metric | Before | After | Δ |
-|---|---|---|---|
-| L3.tension_arc | 79.02 | **88.67** | **+9.65** |
-| L2.interval_distribution | 86.43 | 86.43 | 0 |
-| L2.entropy | 100.00 | 100.00 | 0 |
-| L2.harmonic_rhythm | 95.16 | 95.16 | 0 |
-| L2.chord_vocabulary | 88.19 | 88.19 | 0 |
-| L2.cadence_placement | 100.00 | 100.00 | 0 |
-| L2.repetition_variation | 89.33 | 89.33 | 0 |
-| L2.phrase_length | 100.00 | 100.00 | 0 |
-| L3.phrase_boundaries | 100.00 | 100.00 | 0 |
-| L3.thematic_development | 100.00 | 100.00 | 0 |
-| L3.form_proportions | 91.39 | 91.39 | 0 |
-| L4.intentionality | 91.71 | 91.71 | 0 |
-| **L4.transition_motivation** | **71.43** | **71.43** | **0** |
-| L4.directional_momentum | 89.89 | 89.89 | 0 |
-| **FINAL** | **90.78** | **91.96** | **+1.18** |
+### Album Week 1: Seed search (all complete)
+- [x] **search_seeds.py** — grid-search `(seed × key)` space per
+  pattern, writes top-20 to CSV with full 14-metric breakdown.
+- [x] **Searched 9 patterns** × 15 seeds × 12 keys = **1,620 candidates**.
+- [x] **Locked `examples/album/seeds.json`** — 9 tracks, all L1 PASS,
+  average score 89.22/100.
 
-**Multi-seed verification** (Bb_minor, same config, crescendo on/off):
+### Album Week 2: Goosebump Engine + renders (all complete)
+- [x] **`CompositionBuilder.frisson()`** — opt-in chill trigger API.
+- [x] **`_inject_frisson_on_voice()`** — finds melody note nearest
+  golden-section, splits it into appoggiatura + resolution. Runs
+  LAST so _apply_seventh_fix doesn't overwrite the deliberate
+  dissonance.
+- [x] **A/B verified** on Bb_minor seed=43: baseline 91.14 → frisson
+  91.19, L1 PASS preserved. Pitch 71 (B♮) → 70 (B♭), velocity 127→118
+  at the climax. Textbook leading-tone appoggiatura.
+- [x] **render_masters.py** — reads seeds.json, renders all 9 tracks
+  via FluidSynth, applies frisson to track 6 (Mandelbrot Boundary).
+- [x] **9 master WAVs rendered** → `examples/album/masters/` (~254 MB).
+- [x] **9 tracks normalized to -14 LUFS** via FFmpeg loudnorm →
+  `examples/album/normalized/` (Spotify target).
 
-| Seed | Before | After | Δ |
-|---|---|---|---|
-| 43 | 90.78 | 91.96 | +1.18 |
-| 34 | 89.76 | 90.20 | +0.44 |
-| 47 | 88.67 | 89.66 | +0.99 |
-| 1 | 82.34 | 83.05 | +0.71 |
-| 17 | 74.43 | 76.66 | +2.23 |
-| 23 | 75.77 | 77.18 | +1.41 |
-| 42 | 80.37 | 81.02 | +0.65 |
+### Supporting infrastructure
+- [x] **render_candidates.py** — renders top-N candidates per pattern
+  for human auditioning.
+- [x] **liner_notes/README.md** — album notes template with historical
+  context (Pythagoras → Guido → Xenakis → Nørgård).
+- [x] **examples/album/README.md** — production dashboard tracking
+  Weeks 1-4 progress.
 
-Every seed improved. No L1 regressions introduced.
+## What's In Progress
 
-## Parameters of `_apply_crescendo_entry`
+Nothing. Every Week 1-2 deliverable shipped. Working tree clean
+except for gitignored `examples/album/masters/` directory (shows as
+untracked but all files inside are `.wav` matched by `.gitignore:8`).
 
-Chosen after a 105-point grid search over (start_scale, entry_fraction,
-floor_velocity):
+## What Didn't Get Done (and Why)
 
-- `start_scale = 0.10` — voice starts at 10% of its generated velocity
-- `entry_fraction = 0.55` — ramp reaches 1.0 at ~55% of voice length (near
-  golden section at 0.618)
-- `floor_velocity = 15` — absolute minimum velocity; notes below 15*0.10 =
-  1.5 get clamped here to stay audible
-- Curve: `scale = start + (1-start) * sin(π·t/2)` where `t ∈ [0, 1]` across
-  the entry region
+- **Week 3 (video + distribution)** — deferred to next session. Plan
+  is documented in `ALBUM_PLAN.md` and `examples/album/README.md`.
+  Next session's first task.
+- **Week 4 (social launch)** — blocked by Week 3.
+- **Ritardando tail experiment** — attempted earlier in session,
+  reverted cleanly because the piece's density curve is plateau+cliff
+  not plateau+arch (see session-10 traps below).
+- **Track 10 (Thue-Morse)** — ThueMorse pattern exists in
+  `patterns.py` but isn't wired through `CompositionBuilder`. Album
+  ships as 9 tracks; wiring ThueMorse in + re-searching is ~1 hour
+  if we want a 10th track later.
+- **Per-beat melody floor tracking** — session 9 Next Step #2,
+  deferred indefinitely. Not relevant to album shipping.
 
-The search surface was shallow — neighboring points (e.g. start=0.15,
-frac=0.50) give 91.84-91.94. The peak isn't fragile.
+## Architecture & Design Decisions
 
-## Why the Ritardando-Tail Experiment Failed
+| Decision | Chosen Approach | Why | Alternatives Considered | Why Rejected |
+|---|---|---|---|---|
+| Strategic pivot from features to shipping | Write album plan, execute Weeks 1-2 | Project has 23 patterns + 28-item roadmap + ZERO public artifacts. Every follow-up direction needs an album to point at. | Keep climbing eval score; build Breathing Companion; Git Commit Sonata; museum installation | Eval climbing has diminishing returns (91.14 plateau). Other directions all need an audio portfolio to pitch credibly. |
+| Frisson runs AFTER all constraint passes | `_inject_frisson_on_voice()` mutates Voice object post-build() after `_apply_seventh_fix` | The deliberate dissonance IS the point. If the seventh-fix runs last, it will "correct" the appoggiatura back into a scale tone. | Run inside the constraint pipeline; chain in builder as pre-render | Both would have the correction pass overwrite the chill trigger. |
+| Voice mutation in place (not returning new lists) | Insert resolution Note directly into `voice.notes` list | The Voice object is mutable; append/insert is simpler than rebuilding; Note.time field needs to be explicitly set for the inserted resolution | Return new pitches/durations/dynamics tuple (matching `_apply_crescendo_entry`) | Would require rebuilding the whole voice; more complex integration; mixing styles |
+| Seed search grid: 15 seeds × 12 keys | 180 candidates per pattern | Good coverage in ~4 minutes per pattern; enough to find a clear winner | 50 seeds × 12 keys (600); 15 seeds × 6 keys (90) | 600 is 3x runtime for marginal gain; 90 misses good keys |
+| Album: 9 tracks not 10 | Ship 9, skip ThueMorse wiring | Builder can't currently route ThueMorse; wiring adds delay; EP-length albums are legitimate | Wire ThueMorse in; add 10th seed from another pattern | Delay for 1 track isn't worth it; duplicating a pattern feels weak |
+| Signature track: #6 (Mandelbrot) | Frisson engine only on track 6 | Mandelbrot has the most "journey" quality (iteration counts = depth); E_minor is a traditional chill-music key | Apply frisson to all tracks; apply to track 4 (Harmonic Series, highest eval) | Frisson everywhere dulls the moment (habituation, Sloboda 1991); track 4 is tonally stable, doesn't benefit |
+| Normalize to -14 LUFS | `ffmpeg loudnorm I=-14 TP=-1.5 LRA=11` | Spotify's target loudness. Apple Music is -16, YouTube -14, Tidal -14. -14 is the modal choice. | Ship un-normalized; -16 LUFS (Apple); -23 LUFS (broadcast) | Un-normalized is quieter than any user expects; -16 is quiet for streaming; -23 is for TV |
+| Render all 9 at 48 bars/72 BPM | Same config as canonical peak | Consistency across album; known-good config; each track has ~2:40 runtime | Per-track bars/tempo tuning | Adds a new parameter sweep per track; variance in runtime is fine |
+| WAVs gitignored | `*.wav` already in `.gitignore` | ~1.3 GB total; reproducible from seeds.json | Commit them for convenience | GitHub has 100MB file limits; git history bloat |
 
-Hypothesis: merging notes at the end would create a density falloff that
-tension_arc rewards.
+## Mental Model
 
-Reality: the piece's density curve is *already* a **plateau + cliff**, not
-a plateau + arch. The melody voice's total is only 159.5 beats in a
-192-beat score (due to `_cap_to_target_beats` + phrase breaths + section
-rhythm variation), so bars 41-48 already have near-zero melody density.
-Adding ritardando made bars 35-40 empty too, which made the cliff worse,
-not better, and broke leap-recovery chains (merged groups discard
-intermediate pitches, so a recovery note gets absorbed into the leap
-note).
+**The album pipeline is a 4-stage funnel:**
 
-The correct diagnosis: **the piece needs an ENTRY, not a better tail.**
-The arch target at t=0 is 0.0 — bar 1 should be near-silent. The
-crescendo-entry approach lifts `tension_arc` by +9.65 because it
-converts the flat opening into a rising phase that actually correlates
-with the arch.
+```
+PATTERN            SEED SEARCH          AUDITION              MASTER
+(23 available)  →  (1,620 candidates)  (top 3 per pattern) → (9 final)
+                   per pattern
+                           │
+                           ▼
+                   examples/album/seeds/*.csv
+                           │
+                           ▼
+                   examples/album/seeds.json (LOCKED)
+                           │
+                           ▼
+                   render_masters.py
+                           │
+                           ▼
+           examples/album/masters/*.wav (254 MB)
+                           │
+                           ▼
+                   ffmpeg loudnorm
+                           │
+                           ▼
+           examples/album/normalized/*.wav (Spotify target)
+```
 
-## Files Changed This Session
+**Why this order matters:** the eval framework is a taste-prior —
+14 metrics scoring classical-music qualities. Grid search finds
+configurations the evaluator likes. But the evaluator is not a human.
+Week 1 uses it as a FILTER (narrows 1,620 candidates to ~20 per
+pattern), then human listening picks from those 20. This session
+skipped the human-listen step and just took the #1 per pattern —
+if any tracks sound bad, re-do this step.
 
-**Modified (2):**
-- `sacred_composer/bridge.py` — hoisted `from SYSTEM_ARCHITECTURE import`
-  to module top (commit `be80563`).
-- `sacred_composer/builder.py` — added `_apply_crescendo_entry` static
-  method (62 lines) and one call site in `build()` (commit `6021902`).
-- `HANDOVER.md` — this file.
+**The Goosebump Engine's trick:** the constraint pipeline wants to
+remove dissonance. The frisson engine deliberately ADDS it, and runs
+AFTER the constraint pipeline so the pipeline can't undo it. This
+is a genuine insight about the architecture: you can use the
+existing constraint pipeline as a "defaults provider" and then
+selectively violate it in research-backed places.
 
-**Created:** none. **Deleted:** none.
+**Why the project needed this pivot:** Tyler Hobbs didn't get famous
+by explaining Fidenza. He got famous by **minting 999 pieces.** Vera
+Molnár's plotter is in museums only because her pieces are. Sacred
+Composer was building a better tool endlessly; the move that unlocks
+everything else is to produce an **artifact the world can point at**.
+Once the album exists on Spotify, every next step (paper, museum,
+NFT, meditation app, teaching tool) gets easier to pitch.
 
-## Updated Next Steps (Priority Order)
+## Known Issues & Risks
 
-1. **Attack `L4.transition_motivation` (71.43)** — now the single
-   lowest-scoring metric. It measures bar-to-bar density *jumps*
-   (`p90_jump` across note-onset counts per bar). Big jumps happen at:
-   (a) the bar-40 cliff where melody ends, (b) phrase breath points.
-   Plausible fix: extend the melody slightly past its current ~160-beat
-   cap so the density falloff is gradual, OR add a few sparse tail
-   bars in the melody (1-2 sustained notes per bar) to bridge the
-   cliff. Target lift: 71→85 would give +0.7 final score.
-
-2. **Also attack `L2.interval_distribution` (86.43)** — weight 0.20,
-   so ~1.4 points on the table. Check what interval classes are
-   over/under-represented vs the target distribution (10%/55%/20%/10%/5%
-   for unisons/steps/thirds/fourths/sixths+).
-
-3. **Per-beat melody floor tracking** (session 9 #2, carried over) —
-   targets inner-voice L1 PASS rate in 3-voice configs.
-
-4. **Investigate unreproducible 94.0/seed=47 claim** (session 9 #4) —
-   with the crescendo now lifting everything, this seed=47 config
-   currently scores 89.66. Still not 94.
-
-5. **Make repo public + GitHub Pages** (session 6).
-
-6. **Push 24 commits to origin** — user hasn't asked.
-
-## Rollback Plan
-
-- **Last known good state:** `6021902` (current HEAD) — crescendo entry,
-  91.96 eval, 327 tests.
-- **Rollback crescendo entry only:** `git revert 6021902`. Eval goes
-  back to 90.78.
-- **Rollback bridge.py cleanup:** `git revert be80563`.
-- **Full session-10 reset:** `git reset --hard be35703` (destructive,
-  discards all 3 session-10 commits).
-
-## Traps to Avoid
-
-- **Don't retry the ritardando-tail approach** — tail work can't fix
-  `tension_arc` when the underlying density curve is plateau+cliff.
-- **Voice-level merging breaks voice leading** — if you absorb note N+1
-  into N, you lose N+1's pitch. That breaks leap recovery, phrase
-  endings, and anything else that depends on adjacent pitches.
-- **Melody voice is only ~159 beats in a 192-beat piece** — the
-  `_cap_to_target_beats` + phrase breaths + section rhythm variation
-  chain doesn't preserve total length. The final 8 bars are bass-only.
-- **Crescendo changes velocities broadly** — existing users relying on
-  absolute velocity values in the first half of the piece will see
-  different output. The eval improvement is consistent so this is kept
-  default-on, but it's technically a behavior change.
+- **`examples/album/masters/` shows as untracked** — Impact: cosmetic,
+  `git status` looks dirty. | Workaround: ignore it; all files inside
+  are `.wav` matched by gitignore. | Fix: add an empty `.gitkeep` if
+  it bothers you, but Git doesn't track empty dirs anyway.
+- **Track 7 (Rössler) is ~3:43 vs others at ~2:40** — Impact: uneven
+  pacing. | Why: Rössler pattern produced fewer but longer notes.
+  | Fix: accept as artistic variation, or re-search with constrained
+  duration.
+- **Eval scores are self-assigned** — Impact: 89.22 average means
+  nothing to listeners. | Mitigation: the real validation is the A/B
+  listen; do it before shipping.
+- **Frisson only tested on one seed** — Impact: might produce weird
+  dissonance on track 6 specifically. | Mitigation: A/B test track 6
+  with + without `.frisson()` before finalizing. Currently the
+  normalized/ folder has it WITH frisson baked in.
+- **FFmpeg on Windows** — Impact: midi2audio fallback to CLI, verbose
+  warnings. | Workaround: none needed, renders complete successfully.
+- **DistroKid account not created** — Impact: cannot distribute.
+  | Likelihood: certain — user hasn't signed up yet. | Mitigation:
+  Week 3's first task.
 
 ## What Worked Well
 
-- **Fast feedback loop**: 2-minute eval runs let us grid-search 105
-  parameter combinations in ~4 minutes. Multi-seed verification in
-  another minute. This turned a "substantive design task" into a
-  mechanical hill-climb.
-- **Commit-and-revert discipline**: the ritardando tail got as far as
-  a working implementation, measured regression, reverted to clean
-  state with no commit. No wasted commit noise in git log.
-- **Honest handover of failure**: documenting WHY the ritardando
-  approach didn't work, including the concrete diagnosis (plateau+cliff
-  density curve), protects future sessions from repeating it.
+- **Committing the plan before executing it.** `ALBUM_PLAN.md` created
+  commitment + clarity. Every next step had a document to check.
+- **Grid search with background execution.** Started the 9-pattern
+  search as a background task, worked on Goosebump Engine in parallel,
+  checked progress periodically. Saved ~45 minutes of blocking wait.
+- **Treating the evaluator as a filter, not a judge.** Used it to
+  narrow 1,620 → 20 per pattern, not to pick the "best" composition.
+  Acknowledges that eval ≠ taste.
+- **Running frisson AFTER _apply_seventh_fix.** Realized early that
+  the constraint pipeline would "fix" the chill trigger. Placing
+  the frisson call at the end of `build()` was the key architectural
+  move.
+- **Opt-in frisson via `.frisson()` method.** Doesn't disturb existing
+  users; the canonical 91.14 config still works unchanged.
+- **Reproducibility via seeds.json.** Every track regeneratable
+  bit-identically from a JSON file. Makes collaboration and later
+  re-rendering trivial.
 
----
+## What Didn't Work (Traps to Avoid)
 
-## Prior Sessions (Summary)
+- **First frisson attempt applied pre-seventh-fix** — got overwritten.
+  Debugging took 3 iterations. **Lesson:** trace which passes run
+  AFTER your mutation before committing to a location in the pipeline.
+- **Ritardando tail experiment** — merging consecutive notes at the
+  end of each voice made tension_arc WORSE (79→76) because the piece's
+  density curve is plateau+cliff, not plateau+arch. The melody voice
+  only fills ~160 of the 192 beats, so bars 41-48 are already empty.
+  **Lesson:** diagnose the shape of the actual curve before optimizing
+  against a target.
+- **Velocity too quiet after crescendo entry** — the `start_scale=0.10`
+  combined with the sin-arch velocity curve produced whisper-quiet
+  audio. Required raising defaults to (85-127) for melody. **Lesson:**
+  test with actual speakers, not just eval scores.
+- **Background command piping with buffering** — initial seed search
+  via `python ... 2>&1 | tail -25` produced empty output because
+  stdout was buffered. Fixed with `python -u`. **Lesson:** for
+  background commands that stream progress, always use unbuffered I/O.
+- **pipeline from earlier cd** — `git commit` failed because previous
+  `cd examples/album/masters` kept working dir stuck. **Lesson:**
+  use absolute `cd /c/path` when returning to root.
 
-### Session 9 — 2026-04-05
+## Next Steps (Priority Order)
 
-**Goal:** Decompose 6 god functions deferred by session 8.
+### 1. **A/B test Track 6 before committing to frisson** (~15 min)
+Render track 6 with AND without `.frisson()`. Listen to both. If the
+appoggiatura at the golden section (around 1:45 in a 2:45 piece)
+sounds wrong or jarring, either (a) lower intensity from 1.0 to 0.6
+or (b) disable frisson on this track.
 
-**Result:** 7 commits, all byte-verified via SHA256 of MIDI/WAV/XML
-output. 327 tests pass. All session-8 Next Steps #1-#5 closed.
+```bash
+# With frisson (current):
+python examples/album/render_masters.py --track 6
+
+# Without frisson:
+python examples/album/render_masters.py --track 6 --no-frisson
+# (move the output somewhere safe before re-rendering)
+```
+
+### 2. **Listen to all 9 masters end-to-end** (~30 min)
+Open `examples/album/normalized/*.wav` in any audio player, listen
+in order. For each track, score 0-5 on: (a) musicality, (b) coherence,
+(c) memorable moments. Any track scoring ≤2 on musicality gets
+re-searched (take #2-3 candidate from its search CSV).
+
+### 3. **Create cover art** (~1 hour)
+Export a still frame from Remotion using the Fibonacci spiral
+component, or generate a Mandelbrot zoom in black/gold/deep red.
+3000×3000 JPG for DistroKid.
+
+### 4. **Remotion video per track** (~6-8 hours)
+Existing viz components: FibonacciSpiral, GoldenRatioWave,
+ParticleField, NoteConstellation, PulseRings, SacredGeometry. Map:
+- Track 1 (fibonacci) → FibonacciSpiral
+- Track 3 (golden_spiral) → GoldenRatioWave
+- Track 6 (mandelbrot) → custom Mandelbrot zoom
+- Others → ParticleField / NoteConstellation
+
+Export composition JSON from each track using
+`viz/src/data/sample.json` format. Render 1920×1080 at 60fps.
+
+### 5. **DistroKid signup + upload** (~2 hours + 2-4 week propagation)
+Create account ($22/year), upload 9 normalized WAVs with metadata:
+- Artist: [decide: kreyh / pseudonym]
+- Album: Sacred Geometry Vol. 1
+- Genre: Classical / Ambient / Electronic
+- Release date: 2-4 weeks out to allow Spotify ingest
+
+### 6. **Social launch** (~4 hours)
+Twitter thread, HN "Show HN", r/GenerativeArt, r/algorave,
+Music Theory Discord. Template in `ALBUM_PLAN.md` §Week-4.
+
+### 7. **Push 32 commits to origin** (not yet done)
+Master is 32 commits ahead. Only when user asks.
+
+## Rollback Plan
+
+- **Last known good state:** `308aa60` (current HEAD) — Week 2 complete,
+  327 tests green, album renders exist.
+- **Rollback frisson only:** `git revert 776d99b` — removes both the
+  Goosebump Engine AND the seed search. Use `git revert 776d99b~..776d99b`
+  isolation if only killing Goosebump: easier to just edit
+  `sacred_composer/builder.py` and remove the three touchpoints:
+  (1) `self._frisson_enabled=False` init, (2) `.frisson()` method,
+  (3) `_inject_frisson_on_voice()` call at end of `build()`, and the
+  method itself.
+- **Rollback entire album pivot:** `git reset --hard 2a678d5` — this
+  reverts everything from ALBUM_PLAN.md onward (including seed search,
+  frisson engine, render scripts). Destructive. Only if the whole
+  album direction is abandoned.
+- **Rollback to pre-session:** `git reset --hard be35703` — takes you
+  back to session-9 end. Loses crescendo entry, name-vowel fix, louder
+  velocities, and all album work. Very destructive.
+
+## Files Changed This Session
+
+**New (9 files):**
+- `ALBUM_PLAN.md` — 521-line 4-week plan
+- `examples/album/seeds.json` — 9-track locked spec
+- `examples/album/search_seeds.py` — grid search (180 candidates/pattern)
+- `examples/album/render_candidates.py` — top-N auditioning
+- `examples/album/render_masters.py` — final renders with frisson
+- `examples/album/README.md` — production dashboard
+- `examples/album/liner_notes/README.md` — album notes template
+- `examples/album/seeds/search_*.csv` (9 files) — top-20 per pattern
+
+**Modified (3 files):**
+- `sacred_composer/builder.py` — added `.frisson()`, `_inject_frisson_on_voice()`, crescendo tuning, velocity defaults, name→vowel `text=` param
+- `api.py` — passes `text=clean` through to the builder
+- `CLAUDE.md` — updated eval score section
+
+**Untouched, gitignored:**
+- `examples/album/masters/*.wav` (9 files, ~254 MB)
+- `examples/album/normalized/*.wav` (9 files, ~1.1 GB)
+
+## Open Questions
+
+1. **Track 10 — ship 9 or add ThueMorse?** 9 is a legit EP length
+   (~25 min); adding Thue-Morse is ~1 hour of builder wiring.
+2. **Artist name** — kreyh, pseudonym (e.g. "Chorda"), or project
+   name ("Sacred Composer")?
+3. **License model** — commercial (DistroKid royalties, ~$0 but
+   symbolic) or CC-BY (max spread)?
+4. **Release cadence** — all 9 at once, or singles over 2-3 weeks
+   to build anticipation?
+5. **Cover art** — DIY Remotion still, or commissioned ($50-150)?
+6. **Track 7 length difference** (~3:43 vs ~2:40) — artistic or
+   problem? Re-search to match, or keep?
+7. **Does frisson on track 6 actually sound good?** Requires A/B
+   listening. Critical decision before Week 3 starts.
+
+## Final Verification Checklist
+
+- [x] git status clean (masters/ untracked = gitignored, benign)
+- [x] HANDOVER.md complete — every section filled
+- [x] Mental Model section teaches something (frisson-after-seventh-fix;
+  evaluator-as-filter-not-judge)
+- [x] Next steps are specific and actionable (exact commands included)
+- [x] Architecture decisions include rejected alternatives
+- [x] "What Didn't Work" section has 5 specific traps documented
+- [x] Open questions captured (7 items)
+- [x] All 32 session commits landed in master
+- [x] Rollback plan includes 3 specific reset points
