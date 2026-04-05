@@ -1038,7 +1038,75 @@ class CompositionBuilder:
         return result
 
     @staticmethod
+    def _clamp_one_interval(
+        result: list[int], i_prev: int, i_curr: int,
+        scale_pitches: list[int], max_interval: int,
+    ) -> bool:
+        """Shrink ``result[i_curr]`` until the step from i_prev fits max_interval.
+
+        Returns True if the pitch was modified.
+        """
+        interval = result[i_curr] - result[i_prev]
+        if abs(interval) <= max_interval:
+            return False
+        direction = 1 if interval > 0 else -1
+        target = result[i_prev] + direction * 2
+        if scale_pitches:
+            from sacred_composer.constraints import _step_in_scale
+            step = _step_in_scale(result[i_prev], direction, scale_pitches)
+            if abs(step - result[i_prev]) <= max_interval:
+                target = step
+        result[i_curr] = max(0, min(127, target))
+        return True
+
+    @staticmethod
+    def _needs_leap_recovery(leap: int, recovery: int) -> bool:
+        """True iff the recovery note doesn't satisfy the L1 leap-recovery rule.
+
+        For leaps of 6-8 semitones the recovery must be an opposite-direction
+        step of ≤5st; for leaps >8st the recovery must be ≤2st.
+        """
+        if abs(leap) <= 5:
+            return False
+        opposite = (recovery * leap) < 0
+        max_rec = 5 if abs(leap) <= 8 else 2
+        stepwise = abs(recovery) <= max_rec
+        return not (opposite and stepwise)
+
+    @staticmethod
+    def _try_recover_leap(
+        result: list[int], i1: int, i2: int, leap: int,
+        scale_pitches: list[int], gate_into_range: bool,
+    ) -> bool:
+        """Set ``result[i2]`` to a step that recovers the leap at i1.
+
+        When ``gate_into_range`` is True the candidate must fall within the
+        allowed recovery window (≤5st for ≤8st leaps, ≤2st for bigger ones)
+        AND be opposite-signed to the leap.  When False the candidate is
+        accepted as long as it stays in MIDI range.  Returns True if
+        result[i2] was modified.
+        """
+        recovery_dir = -1 if leap > 0 else 1
+        max_rec = 5 if abs(leap) <= 8 else 2
+        if scale_pitches:
+            from sacred_composer.constraints import _step_in_scale
+            target = _step_in_scale(result[i1], recovery_dir, scale_pitches)
+        else:
+            target = result[i1] + recovery_dir * 2
+
+        if gate_into_range:
+            if abs(target - result[i1]) <= max_rec and (target - result[i1]) * leap < 0:
+                result[i2] = max(0, min(127, target))
+                return True
+            return False
+        if 0 <= target <= 127:
+            result[i2] = target
+            return True
+        return False
+
+    @classmethod
     def _clamp_sounding_pitches(
+        cls,
         pitches: list[int],
         durations: list[float],
         scale_pitches: list[int],
@@ -1050,59 +1118,31 @@ class CompositionBuilder:
         The evaluator reads only sounding notes, so we must ensure that
         consecutive *sounding* pitches have small intervals.
         """
-        # Collect indices of sounding notes
         sounding_idx = [i for i in range(min(len(pitches), len(durations)))
                         if durations[i] > 0]
-
         if len(sounding_idx) < 2:
             return list(pitches)
 
         result = list(pitches)
 
-        # Clamp intervals between consecutive sounding notes
-        for pass_num in range(6):
+        # Up to six clamp+recovery passes until the material stabilises.
+        for _pass in range(6):
             changed = False
             for k in range(1, len(sounding_idx)):
-                i_prev = sounding_idx[k - 1]
-                i_curr = sounding_idx[k]
-                interval = result[i_curr] - result[i_prev]
-                if abs(interval) > max_interval:
-                    direction = 1 if interval > 0 else -1
-                    target = result[i_prev] + direction * 2
-                    if scale_pitches:
-                        from sacred_composer.constraints import _step_in_scale
-                        step = _step_in_scale(result[i_prev], direction, scale_pitches)
-                        if abs(step - result[i_prev]) <= max_interval:
-                            target = step
-                    result[i_curr] = max(0, min(127, target))
+                if cls._clamp_one_interval(
+                    result, sounding_idx[k - 1], sounding_idx[k],
+                    scale_pitches, max_interval,
+                ):
                     changed = True
-
-            # Enforce L1 leap recovery: any leap >5st MUST be followed
-            # by opposite-direction step. For 6-8st: recovery ≤5st.
-            # For >8st: recovery ≤2st. This matches the evaluator's rule.
             for k in range(1, len(sounding_idx) - 1):
-                i0 = sounding_idx[k - 1]
-                i1 = sounding_idx[k]
-                i2 = sounding_idx[k + 1]
+                i0, i1, i2 = sounding_idx[k - 1], sounding_idx[k], sounding_idx[k + 1]
                 leap = result[i1] - result[i0]
-                if abs(leap) > 5:
-                    recovery = result[i2] - result[i1]
-                    recovery_dir = -1 if leap > 0 else 1
-                    opposite = (recovery * leap) < 0
-                    max_rec = 5 if abs(leap) <= 8 else 2
-                    stepwise = abs(recovery) <= max_rec
-
-                    if not (opposite and stepwise):
-                        # Fix: place recovery note in correct direction
-                        if scale_pitches:
-                            from sacred_composer.constraints import _step_in_scale
-                            target = _step_in_scale(result[i1], recovery_dir, scale_pitches)
-                        else:
-                            target = result[i1] + recovery_dir * 2
-                        if abs(target - result[i1]) <= max_rec and (target - result[i1]) * leap < 0:
-                            result[i2] = max(0, min(127, target))
-                            changed = True
-
+                recovery = result[i2] - result[i1]
+                if cls._needs_leap_recovery(leap, recovery):
+                    if cls._try_recover_leap(
+                        result, i1, i2, leap, scale_pitches, gate_into_range=True,
+                    ):
+                        changed = True
             if not changed:
                 break
 
@@ -1112,25 +1152,14 @@ class CompositionBuilder:
         for _final_pass in range(3):
             fixed_any = False
             for k in range(1, len(sounding_idx) - 1):
-                i0 = sounding_idx[k - 1]
-                i1 = sounding_idx[k]
-                i2 = sounding_idx[k + 1]
+                i0, i1, i2 = sounding_idx[k - 1], sounding_idx[k], sounding_idx[k + 1]
                 leap = result[i1] - result[i0]
-                if abs(leap) > 5:
-                    recovery = result[i2] - result[i1]
-                    recovery_dir = -1 if leap > 0 else 1
-                    opposite = (recovery * leap) < 0
-                    max_rec = 5 if abs(leap) <= 8 else 2
-                    stepwise = abs(recovery) <= max_rec
-                    if not (opposite and stepwise):
-                        if scale_pitches:
-                            from sacred_composer.constraints import _step_in_scale
-                            target = _step_in_scale(result[i1], recovery_dir, scale_pitches)
-                        else:
-                            target = result[i1] + recovery_dir * 2
-                        if 0 <= target <= 127:
-                            result[i2] = target
-                            fixed_any = True
+                recovery = result[i2] - result[i1]
+                if cls._needs_leap_recovery(leap, recovery):
+                    if cls._try_recover_leap(
+                        result, i1, i2, leap, scale_pitches, gate_into_range=False,
+                    ):
+                        fixed_any = True
             if not fixed_any:
                 break
 
