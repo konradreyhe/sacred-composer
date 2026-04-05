@@ -113,6 +113,9 @@ class CompositionBuilder:
         self._harmony_n_chords: int | None = None
         self._harmony_seed: int | None = None
         self._harmony_engine: HarmonicEngine | None = None
+        # Goosebump Engine (opt-in via .frisson())
+        self._frisson_enabled: bool = False
+        self._frisson_intensity: float = 1.0
 
     # ---- Consciousness presets ----
 
@@ -218,6 +221,33 @@ class CompositionBuilder:
         self._harmony_enabled = True
         self._harmony_n_chords = n_chords
         self._harmony_seed = seed if seed is not None else 42
+        return self
+
+    def frisson(self, intensity: float = 1.0) -> "CompositionBuilder":
+        """Enable the Goosebump Engine: inject a chill-trigger appoggiatura
+        at the golden-section climax of the melody voice.
+
+        Based on Sloboda (1991), which found appoggiaturas accounted for
+        82% of self-reported chill moments across classical listeners.
+        An appoggiatura is a dissonant non-chord tone on a strong beat
+        that resolves stepwise to a chord tone on the next beat — the
+        brief tension before resolution is what triggers the physiological
+        response (dopamine release, Salimpoor et al. 2011).
+
+        This replaces the melody note closest to the golden section
+        (0.618 × total_beats) with two notes: the appoggiatura (one
+        semitone off, non-scale, slightly louder) followed by a
+        resolution (the original pitch, slightly softer). Total
+        duration of the replaced span is preserved.
+
+        Parameters
+        ----------
+        intensity : 0.0-1.0, scales the velocity accent on the
+            appoggiatura note. 1.0 = strong accent (+12 velocity).
+        """
+        self._frisson_enabled = True
+        self._frisson_intensity = max(0.0, min(1.0, intensity))
+        return self
         return self
 
     def melody(
@@ -491,6 +521,15 @@ class CompositionBuilder:
             _inner_voice_idx, _inner_pitches, _inner_durations,
             _bass_pitches, _bass_durations, self._scale, piece,
         )
+
+        # Goosebump Engine (opt-in via .frisson()): inject an appoggiatura
+        # at the golden-section climax of the melody voice. Runs LAST so
+        # the seventh-fix doesn't overwrite our deliberate dissonance.
+        if self._frisson_enabled and _melody_voice_idx is not None:
+            self._inject_frisson_on_voice(
+                piece.score.voices[_melody_voice_idx],
+                scale_pitches=self._scale,
+            )
 
         return piece
 
@@ -1185,6 +1224,80 @@ class CompositionBuilder:
             beat += abs(d)
 
         return out
+
+    def _inject_frisson_on_voice(
+        self,
+        voice,
+        scale_pitches: list[int],
+    ) -> None:
+        """Inject an appoggiatura→resolution at the golden-section climax.
+
+        Finds the sounding note whose onset is closest to the golden-
+        section (0.618 × total duration) and splits it into two halves:
+        an appoggiatura (one semitone off, non-scale, accented) followed
+        by the resolution (original pitch, softer). Mutates Voice.notes
+        in place.
+
+        Runs AFTER all constraint passes (including seventh-fix) so
+        the deliberate dissonance survives to final output.
+
+        Reference: Sloboda 1991 — appoggiaturas accounted for 82% of
+        self-reported chill moments in classical listeners.
+        """
+        from sacred_composer.psychoacoustics import appoggiatura_pitches
+        from sacred_composer.core import Note
+
+        notes = voice.notes
+        if not notes or not scale_pitches:
+            return
+
+        total_beats = sum(abs(n.duration) for n in notes)
+        if total_beats <= 0:
+            return
+
+        target_beat = total_beats * 0.618
+        min_split_dur = 0.25
+
+        # Find the sounding note whose onset is closest to the golden
+        # section. Track onsets so we can set the resolution's time field.
+        beat = 0.0
+        onsets = [0.0] * len(notes)
+        best_idx = -1
+        best_dist = float("inf")
+        for i, n in enumerate(notes):
+            onsets[i] = beat
+            if n.duration > 0 and n.duration >= min_split_dur:
+                dist = abs(beat - target_beat)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_idx = i
+            beat += abs(n.duration)
+
+        if best_idx < 0:
+            return
+
+        orig = notes[best_idx]
+        original_pitch = orig.pitch
+        original_velocity = orig.velocity
+        half = orig.duration / 2.0
+
+        app_pitch, _ = appoggiatura_pitches(original_pitch, scale_pitches)
+        app_pitch = max(0, min(127, app_pitch))
+        accent = int(12 * self._frisson_intensity)
+
+        # In-place: convert orig to the appoggiatura (dissonant, accented)
+        orig.pitch = app_pitch
+        orig.duration = half
+        orig.velocity = max(1, min(127, original_velocity + accent))
+
+        # Insert resolution note (original pitch, softer, half duration)
+        resolution = Note(
+            pitch=original_pitch,
+            duration=half,
+            velocity=max(1, min(127, original_velocity - int(accent * 0.3))),
+            time=onsets[best_idx] + half,
+        )
+        notes.insert(best_idx + 1, resolution)
 
     @classmethod
     def _clamp_sounding_pitches(
