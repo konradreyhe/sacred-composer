@@ -361,6 +361,76 @@ def _perf_ir_to_music21_score(perf_ir: PerformanceIR, form_ir: FormIR) -> stream
 # COMPOSE (main pipeline)
 # =============================================================================
 
+def _apply_augmented_interval_fixes(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> None:
+    """Scrub augmented intervals from every S/A/T/B line in the chord grid.
+
+    Converts each voice's chord-tone sequence into MelodicNote objects,
+    runs fix_augmented_intervals on them, and writes the corrected MIDI
+    values back into the chord events and into inner_voices/bass_line.
+    """
+    for voice_attr in ("soprano", "alto", "tenor", "bass"):
+        voice_notes = [
+            MelodicNote(midi=getattr(ce, voice_attr), bar=ce.bar,
+                        beat=ce.beat, duration_beats=ce.duration_beats,
+                        is_chord_tone=True)
+            for ce in vl_ir.chords if getattr(ce, voice_attr) != 0
+        ]
+        if voice_notes:
+            fixed = fix_augmented_intervals(voice_notes, form_ir.home_key)
+            idx = 0
+            for ce in vl_ir.chords:
+                if getattr(ce, voice_attr) != 0:
+                    setattr(ce, voice_attr, fixed[idx].midi)
+                    idx += 1
+
+    if vl_ir.inner_voices:
+        for i, ce in enumerate(vl_ir.chords):
+            if i < len(vl_ir.inner_voices.get("alto", [])):
+                vl_ir.inner_voices["alto"][i].midi = ce.alto
+            if i < len(vl_ir.inner_voices.get("tenor", [])):
+                vl_ir.inner_voices["tenor"][i].midi = ce.tenor
+    if vl_ir.bass_line:
+        for i, ce in enumerate(vl_ir.chords):
+            if i < len(vl_ir.bass_line):
+                vl_ir.bass_line[i].midi = ce.bass
+
+
+def _assemble_performance_ir(
+    tracks: Dict[str, List[PerformanceNote]], form_ir: FormIR,
+) -> PerformanceIR:
+    """Flatten per-instrument tracks into a single PerformanceIR."""
+    perf_ir = PerformanceIR()
+    for inst_name, notes in tracks.items():
+        perf_ir.notes.extend(notes)
+    if perf_ir.notes:
+        perf_ir.total_duration_sec = max(
+            n.start_time_sec + n.duration_sec for n in perf_ir.notes
+        )
+    perf_ir.tempo_map = [(0.0, form_ir.tempo_bpm)]
+    return perf_ir
+
+
+def _log_final_summary(perf_ir: PerformanceIR, form_ir: FormIR,
+                       report: ValidationReport, output_file: str) -> None:
+    """Log the end-of-composition summary block."""
+    _log.info(f"\n{'=' * 60}")
+    _log.info(f"  COMPOSITION COMPLETE")
+    _log.info(f"  Title:       {form_ir.title}")
+    _log.info(f"  Form:        {form_ir.form.value}")
+    _log.info(f"  Key:         {form_ir.home_key.value}")
+    _log.info(f"  Character:   {form_ir.character.value}")
+    _log.info(f"  Bars:        {form_ir.total_bars}")
+    _log.info(f"  Tempo:       {form_ir.tempo_bpm} BPM")
+    _log.info(f"  Instruments: {', '.join(form_ir.instrumentation)}")
+    _log.info(f"  Notes:       {len(perf_ir.notes)}")
+    _log.info(f"  Duration:    {perf_ir.total_duration_sec:.1f}s")
+    _log.info(f"  MIDI file:   {output_file}")
+    _log.info(f"  Validation:  {'PASS' if report.is_valid else 'FAIL'}")
+    avg_score = np.mean(list(report.scores.values())) if report.scores else 0
+    _log.info(f"  Avg quality: {avg_score:.2f}")
+    _log.info(f"{'=' * 60}")
+
+
 def compose(prompt: str, output_file: str = "composed_output.mid",
             seed: Optional[int] = None) -> Tuple[PerformanceIR, FormIR, ValidationReport]:
     """
@@ -484,31 +554,7 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     _log.info(f"  [Fix] Voice crossing corrected (S >= A >= T >= B)")
 
     # --- Fix 5: Augmented intervals in all voice lines ---
-    for voice_attr in ("soprano", "alto", "tenor", "bass"):
-        voice_notes = [
-            MelodicNote(midi=getattr(ce, voice_attr), bar=ce.bar,
-                        beat=ce.beat, duration_beats=ce.duration_beats,
-                        is_chord_tone=True)
-            for ce in vl_ir.chords if getattr(ce, voice_attr) != 0
-        ]
-        if voice_notes:
-            fixed = fix_augmented_intervals(voice_notes, form_ir.home_key)
-            idx = 0
-            for ce in vl_ir.chords:
-                if getattr(ce, voice_attr) != 0:
-                    setattr(ce, voice_attr, fixed[idx].midi)
-                    idx += 1
-
-    if vl_ir.inner_voices:
-        for i, ce in enumerate(vl_ir.chords):
-            if i < len(vl_ir.inner_voices.get("alto", [])):
-                vl_ir.inner_voices["alto"][i].midi = ce.alto
-            if i < len(vl_ir.inner_voices.get("tenor", [])):
-                vl_ir.inner_voices["tenor"][i].midi = ce.tenor
-    if vl_ir.bass_line:
-        for i, ce in enumerate(vl_ir.chords):
-            if i < len(vl_ir.bass_line):
-                vl_ir.bass_line[i].midi = ce.bass
+    _apply_augmented_interval_fixes(vl_ir, form_ir)
 
     # --- Fix 6: Melody voice spacing ---
     _fix_melody_voice_spacing(vl_ir)
@@ -553,14 +599,7 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
         _log.info(f"  Mean timing offset:  {np.mean(offsets):.1f}ms")
 
     # Assemble PerformanceIR
-    perf_ir = PerformanceIR()
-    for inst_name, notes in tracks.items():
-        perf_ir.notes.extend(notes)
-    if perf_ir.notes:
-        perf_ir.total_duration_sec = max(
-            n.start_time_sec + n.duration_sec for n in perf_ir.notes
-        )
-    perf_ir.tempo_map = [(0.0, form_ir.tempo_bpm)]
+    perf_ir = _assemble_performance_ir(tracks, form_ir)
 
     # --- Pass 9: Validation ---
     _log.info(f"\n[Pass 9] Validating output...")
@@ -577,22 +616,7 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     print_quality_report(perf_ir, form_ir)
 
     # Final summary
-    _log.info(f"\n{'=' * 60}")
-    _log.info(f"  COMPOSITION COMPLETE")
-    _log.info(f"  Title:       {form_ir.title}")
-    _log.info(f"  Form:        {form_ir.form.value}")
-    _log.info(f"  Key:         {form_ir.home_key.value}")
-    _log.info(f"  Character:   {form_ir.character.value}")
-    _log.info(f"  Bars:        {form_ir.total_bars}")
-    _log.info(f"  Tempo:       {form_ir.tempo_bpm} BPM")
-    _log.info(f"  Instruments: {', '.join(form_ir.instrumentation)}")
-    _log.info(f"  Notes:       {len(perf_ir.notes)}")
-    _log.info(f"  Duration:    {perf_ir.total_duration_sec:.1f}s")
-    _log.info(f"  MIDI file:   {output_file}")
-    _log.info(f"  Validation:  {'PASS' if report.is_valid else 'FAIL'}")
-    avg_score = np.mean(list(report.scores.values())) if report.scores else 0
-    _log.info(f"  Avg quality: {avg_score:.2f}")
-    _log.info(f"{'=' * 60}")
+    _log_final_summary(perf_ir, form_ir, report, output_file)
 
     return perf_ir, form_ir, report
 

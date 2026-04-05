@@ -296,27 +296,50 @@ class CompositionBuilder:
         })
         return self
 
+    def _init_harmony_tracks(
+        self,
+    ) -> tuple[tuple[list[int], list[float]] | None,
+               tuple[list[int], list[float]] | None]:
+        """Instantiate the HarmonicEngine and return the pre-voiced
+        melody / bass tracks (or (None, None) when harmony mode is off)."""
+        if not self._harmony_enabled:
+            return None, None
+        n_chords = self._harmony_n_chords
+        if n_chords is None:
+            # Default: roughly 1 chord per 2 bars
+            n_chords = max(2, self.bars // 2)
+        beats_per_chord = max(1, self._beats // n_chords)
+        self._harmony_engine = HarmonicEngine(
+            key=self.key,
+            n_chords=n_chords,
+            seed=self._harmony_seed,
+            beats_per_chord=beats_per_chord,
+        )
+        return (
+            self._harmony_engine.melody(octave=5),
+            self._harmony_engine.bass(octave=2),
+        )
+
+    @staticmethod
+    def _cap_to_target_beats(
+        raw_pitches: list[int], durations: list[float], target_beats: float,
+    ) -> tuple[list[int], list[float]]:
+        """Truncate (pitches, durations) so cumulative duration >= target_beats."""
+        cum = 0.0
+        cap = len(raw_pitches)
+        for ci, d in enumerate(durations):
+            cum += abs(d)
+            if cum >= target_beats:
+                cap = ci + 1
+                break
+        return list(raw_pitches[:cap]), list(durations[:cap])
+
     def build(self) -> Composition:
         """Build the composition with all constraints applied."""
         piece = Composition(tempo=self.tempo, title=self.title)
 
         # Harmony engine: create once if harmony mode is enabled.
-        harmony_melody: tuple[list[int], list[float]] | None = None
-        harmony_bass: tuple[list[int], list[float]] | None = None
-        if self._harmony_enabled:
-            n_chords = self._harmony_n_chords
-            if n_chords is None:
-                # Default: roughly 1 chord per 2 bars
-                n_chords = max(2, self.bars // 2)
-            beats_per_chord = max(1, self._beats // n_chords)
-            self._harmony_engine = HarmonicEngine(
-                key=self.key,
-                n_chords=n_chords,
-                seed=self._harmony_seed,
-                beats_per_chord=beats_per_chord,
-            )
-            harmony_melody = self._harmony_engine.melody(octave=5)
-            harmony_bass = self._harmony_engine.bass(octave=2)
+        harmony_melody, harmony_bass = self._init_harmony_tracks()
 
         # Form
         if self._form_values:
@@ -370,31 +393,14 @@ class CompositionBuilder:
             # IMPORTANT: harmony durations are already sized for the piece,
             # so we cap n_notes by total beats rather than looping endlessly.
             if self._harmony_enabled and role == "melody" and harmony_melody is not None:
-                raw_pitches, durations = harmony_melody
-                # Cap by total beats to avoid overshoot
-                target_beats = float(self._beats)
-                cum = 0.0
-                cap = len(raw_pitches)
-                for ci, d in enumerate(durations):
-                    cum += abs(d)
-                    if cum >= target_beats:
-                        cap = ci + 1
-                        break
-                raw_pitches = list(raw_pitches[:cap])
-                durations = list(durations[:cap])
+                raw_pitches, durations = self._cap_to_target_beats(
+                    *harmony_melody, float(self._beats),
+                )
                 n_notes = len(raw_pitches)
             elif self._harmony_enabled and role == "bass" and harmony_bass is not None:
-                raw_pitches, durations = harmony_bass
-                target_beats = float(self._beats)
-                cum = 0.0
-                cap = len(raw_pitches)
-                for ci, d in enumerate(durations):
-                    cum += abs(d)
-                    if cum >= target_beats:
-                        cap = ci + 1
-                        break
-                raw_pitches = list(raw_pitches[:cap])
-                durations = list(durations[:cap])
+                raw_pitches, durations = self._cap_to_target_beats(
+                    *harmony_bass, float(self._beats),
+                )
                 n_notes = len(raw_pitches)
             else:
                 raw_pitches = self._generate_pitches(v_spec, n_notes)
