@@ -49,18 +49,7 @@ class ValidationReport:
         return "\n".join(lines)
 
 
-def pass_9_validation(perf_ir: PerformanceIR,
-                      form_ir: FormIR) -> ValidationReport:
-    """
-    PASS 9: Check the 50 rules. Returns a validation report.
-    """
-    report = ValidationReport()
-
-    if not perf_ir.notes:
-        report.errors.append("No notes in performance IR!")
-        return report
-
-    # -- 1. Range compliance --
+def _check_range_compliance(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     range_violations = 0
     for n in perf_ir.notes:
         lo, hi = INSTRUMENT_RANGES.get(n.instrument, (21, 108))
@@ -74,19 +63,22 @@ def pass_9_validation(perf_ir: PerformanceIR,
         report.errors.append(f"  ... {range_violations - 5} more range violations")
     report.scores["range_compliance"] = 1.0 - (range_violations / max(len(perf_ir.notes), 1))
 
-    # -- 2. Velocity bounds --
+
+def _check_velocity_bounds(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     vel_violations = sum(1 for n in perf_ir.notes if n.velocity < 1 or n.velocity > 127)
     report.scores["velocity_bounds"] = 1.0 - (vel_violations / max(len(perf_ir.notes), 1))
     if vel_violations:
         report.errors.append(f"Velocity: {vel_violations} notes outside [1, 127]")
 
-    # -- 3. Negative start times --
+
+def _check_timing_validity(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     neg_times = sum(1 for n in perf_ir.notes if n.start_time_sec < 0)
     if neg_times:
         report.errors.append(f"Timing: {neg_times} notes with negative start time")
     report.scores["timing_validity"] = 1.0 - (neg_times / max(len(perf_ir.notes), 1))
 
-    # -- 4. Bass spacing --
+
+def _check_bass_spacing(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     bass_notes = defaultdict(list)
     for n in perf_ir.notes:
         if n.midi_pitch < 48:
@@ -102,7 +94,8 @@ def pass_9_validation(perf_ir: PerformanceIR,
         report.warnings.append(f"Bass spacing: {spacing_warnings} close intervals below C3")
     report.scores["bass_spacing"] = 1.0 - min(1.0, spacing_warnings / 20.0)
 
-    # -- 5. Parallel fifths/octaves (sampled check) --
+
+def _check_parallel_motion(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     by_time = defaultdict(list)
     for n in perf_ir.notes:
         by_time[round(n.start_time_sec, 2)].append(n.midi_pitch)
@@ -124,14 +117,16 @@ def pass_9_validation(perf_ir: PerformanceIR,
         report.warnings.append(f"Parallel 5ths/8ves detected: ~{parallel_count} instances")
     report.scores["voice_leading"] = max(0.0, 1.0 - parallel_count / 50.0)
 
-    # -- 6. Humanization check --
+
+def _check_humanization(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     nonzero_offsets = sum(1 for n in perf_ir.notes if abs(n.timing_offset_ms) > 0.1)
     humanization_ratio = nonzero_offsets / max(len(perf_ir.notes), 1)
     report.scores["humanization"] = min(1.0, humanization_ratio / 0.8)
     if humanization_ratio < 0.5:
         report.warnings.append("Low humanization: fewer than 50% of notes have timing offsets")
 
-    # -- 7. Melodic interval distribution --
+
+def _check_melodic_intervals(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     melody_notes = sorted(
         [n for n in perf_ir.notes if n.instrument in ("violin1", "flute", "piano", "piano_rh", "piano_s")],
         key=lambda n: n.start_time_sec)
@@ -146,20 +141,24 @@ def pass_9_validation(perf_ir: PerformanceIR,
     else:
         report.scores["melodic_steps_ratio"] = 0.5
 
-    # -- 8. Duration sanity --
+
+def _check_duration_sanity(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     dur_issues = sum(1 for n in perf_ir.notes if n.duration_sec < 0.01 or n.duration_sec > 30)
     report.scores["duration_sanity"] = 1.0 - (dur_issues / max(len(perf_ir.notes), 1))
     if dur_issues:
         report.warnings.append(f"Duration: {dur_issues} notes with extreme durations")
 
-    # -- 9. Dynamic range --
+
+def _check_dynamic_range(perf_ir: PerformanceIR, report: ValidationReport) -> None:
     velocities = [n.velocity for n in perf_ir.notes]
     vel_range = max(velocities) - min(velocities)
     report.scores["dynamic_range"] = min(1.0, vel_range / 40.0)
     if vel_range < 15:
         report.warnings.append(f"Narrow dynamic range: only {vel_range} velocity units")
 
-    # -- 10. Total duration check --
+
+def _check_total_duration(perf_ir: PerformanceIR, form_ir: FormIR,
+                          report: ValidationReport) -> None:
     tempo = form_ir.tempo_bpm
     expected_duration = form_ir.total_bars * 4 * 60.0 / tempo
     actual_duration = perf_ir.total_duration_sec
@@ -168,5 +167,28 @@ def pass_9_validation(perf_ir: PerformanceIR,
         report.warnings.append(
             f"Duration mismatch: expected ~{expected_duration:.0f}s, got {actual_duration:.0f}s")
     report.scores["duration_match"] = max(0.0, 1.0 - abs(1.0 - duration_ratio))
+
+
+def pass_9_validation(perf_ir: PerformanceIR,
+                      form_ir: FormIR) -> ValidationReport:
+    """
+    PASS 9: Check the 50 rules. Returns a validation report.
+    """
+    report = ValidationReport()
+
+    if not perf_ir.notes:
+        report.errors.append("No notes in performance IR!")
+        return report
+
+    _check_range_compliance(perf_ir, report)
+    _check_velocity_bounds(perf_ir, report)
+    _check_timing_validity(perf_ir, report)
+    _check_bass_spacing(perf_ir, report)
+    _check_parallel_motion(perf_ir, report)
+    _check_humanization(perf_ir, report)
+    _check_melodic_intervals(perf_ir, report)
+    _check_duration_sanity(perf_ir, report)
+    _check_dynamic_range(perf_ir, report)
+    _check_total_duration(perf_ir, form_ir, report)
 
     return report
