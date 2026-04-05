@@ -529,16 +529,9 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
     motif_appearance_count = 0
 
     antecedent_motif: Optional[SeedMotif] = None
-    antecedent_pitch: int = 72
     is_antecedent_next = True
 
-    key_obj = m21key.Key(m21_key_str)
-    sc = key_obj.getScale()
-    pool = sorted(
-        [p for p in sc.getPitches("C4", "C6")],
-        key=lambda p: p.midi,
-    )
-
+    pool = _build_scale_pitch_pool(m21_key_str)
     _current_seed_motif = _parser_module._current_seed_motif
 
     for i, chord_evt in enumerate(vl_ir.chords):
@@ -552,38 +545,12 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
             current_sec_idx = sec_idx
             is_antecedent_next = True
             antecedent_motif = None
-
-            if _current_seed_motif is not None:
-                is_return = _is_return_section(sec_type, sec_idx, form_ir)
-
-                if is_return:
-                    current_transform = MotivicEngine.LITERAL
-                elif sub_type in (SubsectionType.P_THEME,):
-                    current_transform = rng().choice(
-                        [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
-                elif sub_type in (SubsectionType.S_THEME,):
-                    current_transform = MotivicEngine.TRANSPOSITION
-                else:
-                    current_transform = MotivicEngine.pick_transform(sub_type)
-
-                seq_offset = rng().choice([2, 3, 4, 5])
-                transformed_motif = MotivicEngine.transform(
-                    _current_seed_motif, current_transform,
-                    transpose_semitones=seq_offset)
-
-                motif_appearance_count += 1
-                if _current_seed_motif is not None and transformed_motif is not None:
-                    dist = _motif_edit_distance(_current_seed_motif, transformed_motif)
-                    max_allowed = 0.15 if motif_appearance_count <= 3 else 0.30
-                    if dist > max_allowed:
-                        fallback = rng().choice(
-                            [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
-                        transformed_motif = MotivicEngine.transform(
-                            _current_seed_motif, fallback,
-                            transpose_semitones=seq_offset)
-                        current_transform = fallback
-            else:
-                transformed_motif = None
+            transformed_motif, current_transform, motif_appearance_count = (
+                _refresh_section_motif(
+                    _current_seed_motif, sub_type, sec_type, sec_idx,
+                    form_ir, motif_appearance_count,
+                )
+            )
 
         is_phrase_start = ((chord_evt.bar - 1) % 4 == 0 and chord_evt.beat <= 1.5)
         use_motif = (
@@ -627,82 +594,154 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
             total_note_count += 1
 
             if chord_evt.duration_beats >= 2:
-                remaining_beats = chord_evt.duration_beats - 1
-                if i + 1 < len(vl_ir.chords):
-                    next_soprano = vl_ir.chords[i + 1].soprano
-                    if next_soprano == 0:
-                        next_soprano = soprano
-                else:
-                    next_soprano = soprano
+                next_soprano = _lookup_next_soprano(vl_ir, i, soprano)
+                total_note_count += _emit_stepwise_tail(
+                    melody_notes, soprano, next_soprano, chord_evt, pool,
+                )
 
-                current_midi = soprano
-                beat_pos = chord_evt.beat + 1.0
-                bar = chord_evt.bar
-                prev_direction = 0
-                momentum_steps = 0
-
-                for step in range(int(remaining_beats)):
-                    direction = 1 if next_soprano > current_midi else (
-                        -1 if next_soprano < current_midi else 0)
-                    if direction == 0:
-                        direction = 1 if step % 2 == 0 else -1
-
-                    if prev_direction != 0 and momentum_steps < 4:
-                        if direction != prev_direction:
-                            direction = prev_direction
-
-                    if rng().random() < 0.25:
-                        target_interval = phyllotaxis_interval()
-                    else:
-                        target_interval = rng().choice([1, 1, 2, 2, 2])
-                    target_midi = current_midi + direction * target_interval
-                    candidates = [p for p in pool
-                                  if (p.midi - current_midi) * direction > 0
-                                  and abs(p.midi - current_midi) <= target_interval + 1]
-                    if candidates:
-                        chosen = min(candidates,
-                                     key=lambda p: abs(p.midi - target_midi))
-                        current_midi = chosen.midi
-
-                    if direction == prev_direction:
-                        momentum_steps += 1
-                    else:
-                        prev_direction = direction
-                        momentum_steps = 1
-
-                    if beat_pos > 4.0:
-                        beat_pos -= 4.0
-                        bar += 1
-
-                    melody_notes.append(MelodicNote(
-                        midi=current_midi,
-                        bar=bar,
-                        beat=beat_pos,
-                        duration_beats=1.0,
-                        is_chord_tone=False,
-                        ornament_type="passing" if direction != 0 else "neighbor",
-                    ))
-                    beat_pos += 1.0
-                    total_note_count += 1
-
-    if melody_notes:
-        n = len(melody_notes)
-        for idx, mn in enumerate(melody_notes):
-            t = idx / max(n - 1, 1)
-            arch = math.sin(math.pi * t)
-            contour_shift = int(arch * 1.5 - 0.75)
-            mn.midi = max(48, min(96, mn.midi + contour_shift))
-
-    if total_note_count > 0:
-        coverage = motif_note_count / total_note_count
-        _log.info(f"  [Motif] Coverage: {motif_note_count}/{total_note_count} "
-              f"notes ({coverage:.0%}) derived from seed motif")
-    if motif_appearance_count > 0:
-        _log.info(f"  [Motif] Theme appearances: {motif_appearance_count}, "
-              f"transform used: {current_transform}")
+    _apply_arch_contour(melody_notes)
+    _log_motif_coverage(motif_note_count, total_note_count,
+                        motif_appearance_count, current_transform)
 
     vl_ir.melody = melody_notes
     return vl_ir
+
+
+def _build_scale_pitch_pool(m21_key_str: str):
+    key_obj = m21key.Key(m21_key_str)
+    sc = key_obj.getScale()
+    return sorted(sc.getPitches("C4", "C6"), key=lambda p: p.midi)
+
+
+def _refresh_section_motif(
+    _current_seed_motif: Optional[SeedMotif],
+    sub_type: Optional[SubsectionType],
+    sec_type, sec_idx: Optional[int],
+    form_ir: FormIR, motif_appearance_count: int,
+) -> Tuple[Optional[SeedMotif], Optional[str], int]:
+    """Choose a transform + realize it when entering a new subsection.
+
+    Returns (transformed_motif, current_transform, updated_motif_appearance_count).
+    """
+    if _current_seed_motif is None:
+        return None, None, motif_appearance_count
+
+    is_return = _is_return_section(sec_type, sec_idx, form_ir)
+    if is_return:
+        current_transform = MotivicEngine.LITERAL
+    elif sub_type in (SubsectionType.P_THEME,):
+        current_transform = rng().choice(
+            [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
+    elif sub_type in (SubsectionType.S_THEME,):
+        current_transform = MotivicEngine.TRANSPOSITION
+    else:
+        current_transform = MotivicEngine.pick_transform(sub_type)
+
+    seq_offset = rng().choice([2, 3, 4, 5])
+    transformed_motif = MotivicEngine.transform(
+        _current_seed_motif, current_transform,
+        transpose_semitones=seq_offset)
+
+    motif_appearance_count += 1
+    if transformed_motif is not None:
+        dist = _motif_edit_distance(_current_seed_motif, transformed_motif)
+        max_allowed = 0.15 if motif_appearance_count <= 3 else 0.30
+        if dist > max_allowed:
+            fallback = rng().choice(
+                [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
+            transformed_motif = MotivicEngine.transform(
+                _current_seed_motif, fallback,
+                transpose_semitones=seq_offset)
+            current_transform = fallback
+    return transformed_motif, current_transform, motif_appearance_count
+
+
+def _lookup_next_soprano(vl_ir: VoiceLeadingIR, i: int, fallback: int) -> int:
+    if i + 1 < len(vl_ir.chords):
+        next_soprano = vl_ir.chords[i + 1].soprano
+        return next_soprano if next_soprano != 0 else fallback
+    return fallback
+
+
+def _emit_stepwise_tail(
+    melody_notes: List[MelodicNote], soprano: int, next_soprano: int,
+    chord_evt, pool,
+) -> int:
+    """Append passing/neighbor tones for beats 2+ of a long chord. Returns count added."""
+    remaining_beats = chord_evt.duration_beats - 1
+    current_midi = soprano
+    beat_pos = chord_evt.beat + 1.0
+    bar = chord_evt.bar
+    prev_direction = 0
+    momentum_steps = 0
+    added = 0
+
+    for step in range(int(remaining_beats)):
+        direction = 1 if next_soprano > current_midi else (
+            -1 if next_soprano < current_midi else 0)
+        if direction == 0:
+            direction = 1 if step % 2 == 0 else -1
+
+        if prev_direction != 0 and momentum_steps < 4:
+            if direction != prev_direction:
+                direction = prev_direction
+
+        if rng().random() < 0.25:
+            target_interval = phyllotaxis_interval()
+        else:
+            target_interval = rng().choice([1, 1, 2, 2, 2])
+        target_midi = current_midi + direction * target_interval
+        candidates = [p for p in pool
+                      if (p.midi - current_midi) * direction > 0
+                      and abs(p.midi - current_midi) <= target_interval + 1]
+        if candidates:
+            chosen = min(candidates, key=lambda p: abs(p.midi - target_midi))
+            current_midi = chosen.midi
+
+        if direction == prev_direction:
+            momentum_steps += 1
+        else:
+            prev_direction = direction
+            momentum_steps = 1
+
+        if beat_pos > 4.0:
+            beat_pos -= 4.0
+            bar += 1
+
+        melody_notes.append(MelodicNote(
+            midi=current_midi,
+            bar=bar,
+            beat=beat_pos,
+            duration_beats=1.0,
+            is_chord_tone=False,
+            ornament_type="passing" if direction != 0 else "neighbor",
+        ))
+        beat_pos += 1.0
+        added += 1
+    return added
+
+
+def _apply_arch_contour(melody_notes: List[MelodicNote]) -> None:
+    if not melody_notes:
+        return
+    n = len(melody_notes)
+    for idx, mn in enumerate(melody_notes):
+        t = idx / max(n - 1, 1)
+        arch = math.sin(math.pi * t)
+        contour_shift = int(arch * 1.5 - 0.75)
+        mn.midi = max(48, min(96, mn.midi + contour_shift))
+
+
+def _log_motif_coverage(motif_note_count: int, total_note_count: int,
+                        motif_appearance_count: int,
+                        current_transform: Optional[str]) -> None:
+    if total_note_count > 0:
+        coverage = motif_note_count / total_note_count
+        _log.info(f"  [Motif] Coverage: {motif_note_count}/{total_note_count} "
+                  f"notes ({coverage:.0%}) derived from seed motif")
+    if motif_appearance_count > 0:
+        _log.info(f"  [Motif] Theme appearances: {motif_appearance_count}, "
+                  f"transform used: {current_transform}")
 
 
 # ============================================================================
