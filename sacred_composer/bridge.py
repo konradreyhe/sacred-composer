@@ -12,6 +12,13 @@ import sys
 from sacred_composer.constants import PROJECT_ROOT
 from sacred_composer.core import Score, Voice, Note
 
+# SYSTEM_ARCHITECTURE.py lives at PROJECT_ROOT (not on sys.path by default
+# when sacred_composer is imported as a package). Ensure it's importable
+# once, at module load, rather than inside every function call.
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+from SYSTEM_ARCHITECTURE import PerformanceNote, PerformanceIR  # noqa: E402
+
 
 def score_to_performance_ir(score: Score):
     """Convert a Sacred Composer Score to a PerformanceIR.
@@ -20,11 +27,6 @@ def score_to_performance_ir(score: Score):
     containing all notes from all voices, with timing converted
     from beats to seconds using the score's tempo.
     """
-    # Import from the existing system
-    if PROJECT_ROOT not in sys.path:
-        sys.path.insert(0, PROJECT_ROOT)
-    from SYSTEM_ARCHITECTURE import PerformanceNote, PerformanceIR
-
     beats_per_sec = score.tempo / 60.0
     perf_notes = []
 
@@ -59,10 +61,6 @@ def score_to_performance_ir(score: Score):
 
 def voice_to_performance_notes(voice: Voice, tempo: int = 72) -> list:
     """Convert a single Voice to a list of PerformanceNote objects."""
-    if PROJECT_ROOT not in sys.path:
-        sys.path.insert(0, PROJECT_ROOT)
-    from SYSTEM_ARCHITECTURE import PerformanceNote
-
     beats_per_sec = tempo / 60.0
     notes = []
 
