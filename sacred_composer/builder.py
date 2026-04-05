@@ -1136,8 +1136,8 @@ class CompositionBuilder:
         durations: list[float],
         dynamics: list[int],
         entry_fraction: float = 0.55,
-        start_scale: float = 0.10,
-        floor_velocity: int = 15,
+        start_scale: float = 0.30,
+        floor_velocity: int = 50,
     ) -> list[int]:
         """Scale down velocities in the opening of the voice so the piece
         starts quiet and grows to full intensity near the golden section.
@@ -1261,11 +1261,11 @@ class CompositionBuilder:
         vel_range = v_spec.get("velocity_range")
         if vel_range is None:
             if role == "melody":
-                vel_range = (40, 105)
+                vel_range = (85, 127)
             elif role == "bass":
-                vel_range = (40, 90)
+                vel_range = (75, 115)
             else:
-                vel_range = (35, 80)
+                vel_range = (70, 105)
 
         lo, hi = vel_range
         climax = PHI_INVERSE  # 0.618
