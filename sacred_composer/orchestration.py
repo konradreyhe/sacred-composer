@@ -806,8 +806,6 @@ def render_orchestral_wav(
     - Stereo panning following orchestral seating
     - Optional convolution reverb (concert hall impulse response)
     """
-    import struct as _struct
-
     beats_per_sec = score.tempo / 60.0
     total_dur_sec = score.duration / beats_per_sec + 2.0
     total_samples = int(total_dur_sec * sample_rate)
@@ -816,96 +814,114 @@ def render_orchestral_wav(
     buf_r = [0.0] * total_samples
 
     for voice in score.voices:
-        # Look up orchestral profile by GM program
-        profile = None
-        for name, p in ORCHESTRA_DB.items():
-            if p.gm_program == voice.instrument:
-                profile = p
-                break
-        if profile is None:
-            # Fallback: use default piano-like partials
-            partials = ((1, 1.0), (2, 0.5), (3, 0.25))
-            pan = 0.0
-        else:
-            partials = profile.partials
-            pan = profile.pan
-
+        partials, pan = _lookup_partials_pan(voice.instrument)
+        gain_l, gain_r = _constant_power_pan_gains(pan)
         for note in voice.notes:
             if note.is_rest:
                 continue
+            _render_note_into_stereo_buffers(
+                buf_l, buf_r, note, partials, gain_l, gain_r,
+                beats_per_sec, sample_rate, total_samples,
+            )
 
-            freq = 440.0 * (2 ** ((note.pitch + note.pitch_bend - 69) / 12))
-            start_sec = note.time / beats_per_sec
-            dur_sec = note.duration / beats_per_sec
-            amp = (note.velocity / 127.0) * 0.2
-
-            attack = min(0.04, dur_sec * 0.1)
-            decay = min(0.08, dur_sec * 0.2)
-            release = min(0.2, dur_sec * 0.3)
-
-            total_note_dur = dur_sec + release
-            n_samples = int(total_note_dur * sample_rate)
-            start_idx = int(start_sec * sample_rate)
-
-            # Constant-power panning
-            angle = (pan + 1.0) / 2.0 * (math.pi / 2.0)
-            gain_l = math.cos(angle)
-            gain_r = math.sin(angle)
-
-            two_pi = 2.0 * math.pi
-            for harmonic, rel_amp in partials:
-                h_freq = freq * harmonic
-                if h_freq > sample_rate / 2:
-                    continue
-                phase_inc = two_pi * h_freq / sample_rate
-                phase = 0.0
-                for i in range(n_samples):
-                    idx = start_idx + i
-                    if idx >= total_samples:
-                        break
-                    t = i / sample_rate
-                    # ADSR
-                    if t < attack:
-                        env = t / attack if attack > 0 else 1.0
-                    elif t < attack + decay:
-                        env = 1.0 - 0.3 * ((t - attack) / decay) if decay > 0 else 0.7
-                    elif t < dur_sec:
-                        env = 0.7
-                    else:
-                        rt = t - dur_sec
-                        env = 0.7 * (1 - rt / release) if release > 0 else 0.0
-                        env = max(0.0, env)
-
-                    sample = math.sin(phase) * rel_amp * amp * env
-                    buf_l[idx] += sample * gain_l
-                    buf_r[idx] += sample * gain_r
-                    phase += phase_inc
-
-    # Apply reverb
     if reverb:
         ir = generate_hall_impulse(sample_rate, rt60=1.8)
         buf_l = convolve_reverb(buf_l, ir, wet_ratio=0.2)
         buf_r = convolve_reverb(buf_r, ir, wet_ratio=0.2)
 
-    # Normalize stereo
+    _normalize_stereo_in_place(buf_l, buf_r)
+    pcm = _interleave_stereo_pcm(buf_l, buf_r)
+    _write_stereo_wav(filename, pcm, sample_rate)
+    return filename
+
+
+def _lookup_partials_pan(gm_program: int):
+    """Look up orchestral partials/pan for a GM program, or fall back."""
+    for _name, p in ORCHESTRA_DB.items():
+        if p.gm_program == gm_program:
+            return p.partials, p.pan
+    # Fallback: piano-like partials, centered
+    return ((1, 1.0), (2, 0.5), (3, 0.25)), 0.0
+
+
+def _constant_power_pan_gains(pan: float) -> tuple[float, float]:
+    angle = (pan + 1.0) / 2.0 * (math.pi / 2.0)
+    return math.cos(angle), math.sin(angle)
+
+
+def _render_note_into_stereo_buffers(
+    buf_l: list, buf_r: list, note, partials, gain_l: float, gain_r: float,
+    beats_per_sec: float, sample_rate: int, total_samples: int,
+) -> None:
+    freq = 440.0 * (2 ** ((note.pitch + note.pitch_bend - 69) / 12))
+    start_sec = note.time / beats_per_sec
+    dur_sec = note.duration / beats_per_sec
+    amp = (note.velocity / 127.0) * 0.2
+
+    attack = min(0.04, dur_sec * 0.1)
+    decay = min(0.08, dur_sec * 0.2)
+    release = min(0.2, dur_sec * 0.3)
+
+    total_note_dur = dur_sec + release
+    n_samples = int(total_note_dur * sample_rate)
+    start_idx = int(start_sec * sample_rate)
+
+    two_pi = 2.0 * math.pi
+    for harmonic, rel_amp in partials:
+        h_freq = freq * harmonic
+        if h_freq > sample_rate / 2:
+            continue
+        phase_inc = two_pi * h_freq / sample_rate
+        phase = 0.0
+        for i in range(n_samples):
+            idx = start_idx + i
+            if idx >= total_samples:
+                break
+            t = i / sample_rate
+            env = _adsr_env(t, attack, decay, dur_sec, release)
+            sample = math.sin(phase) * rel_amp * amp * env
+            buf_l[idx] += sample * gain_l
+            buf_r[idx] += sample * gain_r
+            phase += phase_inc
+
+
+def _adsr_env(t: float, attack: float, decay: float,
+              dur_sec: float, release: float) -> float:
+    if t < attack:
+        return t / attack if attack > 0 else 1.0
+    if t < attack + decay:
+        return 1.0 - 0.3 * ((t - attack) / decay) if decay > 0 else 0.7
+    if t < dur_sec:
+        return 0.7
+    rt = t - dur_sec
+    env = 0.7 * (1 - rt / release) if release > 0 else 0.0
+    return max(0.0, env)
+
+
+def _normalize_stereo_in_place(buf_l: list, buf_r: list) -> None:
     peak = max(
         max((abs(s) for s in buf_l), default=1.0),
         max((abs(s) for s in buf_r), default=1.0),
     )
     if peak > 0:
         scale = 0.85 / peak
-        buf_l = [s * scale for s in buf_l]
-        buf_r = [s * scale for s in buf_r]
+        for i in range(len(buf_l)):
+            buf_l[i] *= scale
+            buf_r[i] *= scale
 
-    # Interleave L/R for stereo WAV
-    pcm = b"".join(
+
+def _interleave_stereo_pcm(buf_l: list, buf_r: list) -> bytes:
+    import struct as _struct
+    return b"".join(
         _struct.pack("<hh",
                      max(-32767, min(32767, int(l * 32767))),
                      max(-32767, min(32767, int(r * 32767))))
         for l, r in zip(buf_l, buf_r)
     )
 
-    # Write stereo WAV
+
+def _write_stereo_wav(filename: str, pcm: bytes, sample_rate: int) -> None:
+    import struct as _struct
     channels = 2
     bits = 16
     bps = bits // 8
@@ -925,5 +941,3 @@ def render_orchestral_wav(
         f.write(b"data")
         f.write(_struct.pack("<I", data_size))
         f.write(pcm)
-
-    return filename
