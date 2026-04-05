@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
+
+_log = logging.getLogger(__name__)
 
 from SYSTEM_ARCHITECTURE import FormIR, FormType
 from composer.parser import (
@@ -59,12 +62,12 @@ def pass_1_plan(parsed: dict) -> FormIR:
 
     # Log golden-ratio climax target
     climax_bar = round(actual_bars * PHI_INVERSE)
-    print(f"  [Plan] Golden-ratio climax target: bar {climax_bar}/{actual_bars}")
+    _log.info(f"  [Plan] Golden-ratio climax target: bar {climax_bar}/{actual_bars}")
 
     # Generate seed motif for motivic development
     m21_key_str = _KEY_TO_M21.get(home_key, "C")
     _parser_module._current_seed_motif = MotivicEngine.generate_seed(m21_key_str)
-    print(f"  [Plan] Seed motif: {len(_parser_module._current_seed_motif.rhythm)} notes, "
+    _log.info(f"  [Plan] Seed motif: {len(_parser_module._current_seed_motif.rhythm)} notes, "
           f"intervals={_parser_module._current_seed_motif.intervals}, "
           f"rhythm={_parser_module._current_seed_motif.rhythm}")
 

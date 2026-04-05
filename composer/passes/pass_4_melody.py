@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from typing import Dict, List, Optional, Tuple
+
+_log = logging.getLogger(__name__)
 
 from music21 import key as m21key
 
@@ -383,7 +386,7 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
             if use_tight:
                 for v, notes in trial_voices.items():
                     voice_lines[v].extend(notes)
-                print(f"  [Fugue] Tight stretto used "
+                _log.info(f"  [Fugue] Tight stretto used "
                       f"(dissonance: {dissonance_ratio:.0%})")
             else:
                 stretto_offset_bars = max(1, fugue.subject_bars // 2)
@@ -399,7 +402,7 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
                         n.midi = max(lo_v, min(hi_v, n.midi))
                         if n.bar <= end_bar:
                             voice_lines[v].append(n)
-                print(f"  [Fugue] Wide stretto used "
+                _log.info(f"  [Fugue] Wide stretto used "
                       f"(tight dissonance: {dissonance_ratio:.0%} > 30%)")
 
         elif sec_type == SectionType.CODA:
@@ -494,11 +497,11 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
             ce.bass = b_note.midi
 
     total_notes = sum(len(v) for v in voice_lines.values())
-    print(f"  [Fugue] Subject: {len(fugue.subject.intervals)+1} notes, "
+    _log.info(f"  [Fugue] Subject: {len(fugue.subject.intervals)+1} notes, "
           f"{fugue.subject_bars} bars")
-    print(f"  [Fugue] Voice lines: S={len(voice_lines['soprano'])}, "
+    _log.info(f"  [Fugue] Voice lines: S={len(voice_lines['soprano'])}, "
           f"A={len(voice_lines['alto'])}, B={len(voice_lines['bass'])}")
-    print(f"  [Fugue] Total notes: {total_notes}")
+    _log.info(f"  [Fugue] Total notes: {total_notes}")
 
     return vl_ir
 
@@ -692,10 +695,10 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
 
     if total_note_count > 0:
         coverage = motif_note_count / total_note_count
-        print(f"  [Motif] Coverage: {motif_note_count}/{total_note_count} "
+        _log.info(f"  [Motif] Coverage: {motif_note_count}/{total_note_count} "
               f"notes ({coverage:.0%}) derived from seed motif")
     if motif_appearance_count > 0:
-        print(f"  [Motif] Theme appearances: {motif_appearance_count}, "
+        _log.info(f"  [Motif] Theme appearances: {motif_appearance_count}, "
               f"transform used: {current_transform}")
 
     vl_ir.melody = melody_notes
@@ -780,7 +783,7 @@ def _apply_rondo_refrain_replay(vl_ir: VoiceLeadingIR,
 
     vl_ir.melody.sort(key=lambda n: (n.bar, n.beat))
 
-    print(f"  [Rondo] Refrain replayed {refrain_replays} times "
+    _log.info(f"  [Rondo] Refrain replayed {refrain_replays} times "
           f"(source: bars {first_start}-{first_end}, "
           f"{len(first_refrain_melody)} notes)")
 
@@ -861,7 +864,7 @@ def _apply_ternary_refrain_replay(vl_ir: VoiceLeadingIR,
 
     vl_ir.melody.sort(key=lambda n: (n.bar, n.beat))
 
-    print(f"  [Ternary] A-section replayed {refrain_replays} times "
+    _log.info(f"  [Ternary] A-section replayed {refrain_replays} times "
           f"(source: bars {first_start}-{first_end}, "
           f"{len(first_a_melody)} notes)")
 

@@ -52,6 +52,19 @@ import logging
 _log = logging.getLogger(__name__)
 
 
+def _ensure_console_logging() -> None:
+    """Enable INFO-level console output if the caller hasn't configured logging.
+
+    compose() has historically printed progress directly to stdout. After
+    migrating those prints to the logging module, scripts that run compose()
+    as a CLI tool would otherwise get silent output. This helper installs a
+    minimal StreamHandler only when the root logger has no handlers yet, so
+    library users who configure their own logging are not overridden.
+    """
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+
 # =============================================================================
 # POST-PROCESSING FIXES
 # =============================================================================
@@ -245,7 +258,7 @@ def export_midi(perf_ir: PerformanceIR, output_path: str,
     instruments = sorted(set(n.instrument for n in perf_ir.notes),
                          key=lambda i: _INST_VOICE_ORDER.get(i, 99))
     if not instruments:
-        print("  [MIDI] Warning: no notes to export!")
+        _log.info("  [MIDI] Warning: no notes to export!")
         return output_path
 
     inst_to_track = {inst: i for i, inst in enumerate(instruments)}
@@ -309,14 +322,14 @@ def print_quality_report(perf_ir: PerformanceIR, form_ir: FormIR):
         violations.extend(rule_parallel_fifths(score))
         violations.extend(rule_parallel_octaves(score))
         violations.extend(rule_voice_range(score))
-        print(f"\n  Evaluation Framework Results:")
-        print(f"    Parallel 5ths violations:  {sum(1 for v in violations if v.rule_name == 'parallel_5ths')}")
-        print(f"    Parallel 8ves violations:  {sum(1 for v in violations if v.rule_name == 'parallel_octaves')}")
-        print(f"    Voice range violations:    {sum(1 for v in violations if v.rule_name == 'voice_range')}")
-        print(f"    Total Level-1 violations:  {len(violations)}")
+        _log.info(f"\n  Evaluation Framework Results:")
+        _log.info(f"    Parallel 5ths violations:  {sum(1 for v in violations if v.rule_name == 'parallel_5ths')}")
+        _log.info(f"    Parallel 8ves violations:  {sum(1 for v in violations if v.rule_name == 'parallel_octaves')}")
+        _log.info(f"    Voice range violations:    {sum(1 for v in violations if v.rule_name == 'voice_range')}")
+        _log.info(f"    Total Level-1 violations:  {len(violations)}")
     except Exception as e:
-        print(f"\n  [Note] Could not run full evaluation framework: {e}")
-        print(f"  Using Pass 9 validation report instead.")
+        _log.info(f"\n  [Note] Could not run full evaluation framework: {e}")
+        _log.info(f"  Using Pass 9 validation report instead.")
 
 
 def _perf_ir_to_music21_score(perf_ir: PerformanceIR, form_ir: FormIR) -> stream.Score:
@@ -356,65 +369,66 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     Input:  A natural-language prompt string.
     Output: (PerformanceIR, FormIR, ValidationReport) + MIDI file on disk.
     """
+    _ensure_console_logging()
     set_rng(seed)
 
-    print("=" * 60)
-    print("  CLASSICAL MUSIC COMPOSITION PIPELINE")
-    print("=" * 60)
-    print(f"\n  Prompt: \"{prompt}\"\n")
+    _log.info("=" * 60)
+    _log.info("  CLASSICAL MUSIC COMPOSITION PIPELINE")
+    _log.info("=" * 60)
+    _log.info(f"\n  Prompt: \"{prompt}\"\n")
 
     # Parse the text prompt into a structured plan
     parsed = parse_prompt(prompt)
-    print(f"  Parsed: form={parsed['form'].value}, key={parsed['home_key'].value}, "
+    _log.info(f"  Parsed: form={parsed['form'].value}, key={parsed['home_key'].value}, "
           f"character={parsed['character'].value}, bars={parsed['total_bars']}, "
           f"instruments={parsed['instrumentation']}")
 
     # --- Pass 1: Plan ---
-    print(f"\n[Pass 1] Planning form structure...")
+    _log.info(f"\n[Pass 1] Planning form structure...")
     form_ir = pass_1_plan(parsed)
-    print(f"  Form: {form_ir.form.value}, {form_ir.total_bars} bars, "
+    _log.info(f"  Form: {form_ir.form.value}, {form_ir.total_bars} bars, "
           f"{len(form_ir.sections)} sections")
     for sec in form_ir.sections:
         sub_str = ", ".join(f"{s.type.value}({s.bars}b)" for s in sec.subsections)
-        print(f"    {sec.type.value}: [{sub_str}]")
+        _log.info(f"    {sec.type.value}: [{sub_str}]")
 
     # --- Pass 2: Schema ---
     is_fugue = (form_ir.form == FormType.FUGUE)
-    print(f"\n[Pass 2] Filling sections with {'fugue harmonic plan' if is_fugue else 'galant schemata'}...")
+    _log.info(f"\n[Pass 2] Filling sections with {'fugue harmonic plan' if is_fugue else 'galant schemata'}...")
     schema_ir = pass_2_schema_fugue(form_ir) if is_fugue else pass_2_schema(form_ir)
     total_schemas = sum(len(s.schema_sequence) for s in schema_ir.schema_plan)
-    print(f"  Total schema slots: {total_schemas}")
+    _log.info(f"  Total schema slots: {total_schemas}")
     for sub_schema in schema_ir.schema_plan:
         names = [s.schema.value if hasattr(s.schema, 'value') else str(s.schema)
                  for s in sub_schema.schema_sequence]
-        print(f"    {sub_schema.subsection_ref.type.value}: {' -> '.join(names)}")
+        _log.info(f"    {sub_schema.subsection_ref.type.value}: {' -> '.join(names)}")
 
     # --- Pass 3: Harmony ---
-    print(f"\n[Pass 3] Realizing harmony (Roman numerals -> chords)...")
+    _log.info(f"\n[Pass 3] Realizing harmony (Roman numerals -> chords)...")
     vl_ir = pass_3_harmony(schema_ir)
-    print(f"  Chord events: {len(vl_ir.chords)}")
+    _log.info(f"  Chord events: {len(vl_ir.chords)}")
     for ce in vl_ir.chords[:6]:
-        print(f"    Bar {ce.bar} beat {ce.beat}: {ce.roman_numeral} in {ce.key.value} "
+        _log.info(f"    Bar {ce.bar} beat {ce.beat}: {ce.roman_numeral} in {ce.key.value} "
               f"[S={ce.soprano} B={ce.bass}]")
     if len(vl_ir.chords) > 6:
-        print(f"    ... ({len(vl_ir.chords) - 6} more)")
+        _log.info(f"    ... ({len(vl_ir.chords) - 6} more)")
 
     # --- Fix 5: Mark explicit cadence positions (before melody pass) ---
     vl_ir = mark_cadence_positions(vl_ir, schema_ir)
     cadence_marked = sum(1 for ce in vl_ir.chords if ce.is_cadential)
-    print(f"  Cadence positions marked: {cadence_marked}")
+    _log.info(f"  Cadence positions marked: {cadence_marked}")
 
     # --- Pass 4: Melody ---
     if is_fugue:
-        print(f"\n[Pass 4] Generating 3-voice fugue texture...")
+        _log.info(f"\n[Pass 4] Generating 3-voice fugue texture...")
         vl_ir = pass_4_melody_fugue(vl_ir, form_ir)
     else:
-        print(f"\n[Pass 4] Generating melodic lines...")
+        _log.info(f"\n[Pass 4] Generating melodic lines...")
         vl_ir = pass_4_melody(vl_ir, form_ir)
-    print(f"  Melody notes: {len(vl_ir.melody)}")
+    _log.info(f"  Melody notes: {len(vl_ir.melody)}")
     ct = sum(1 for m in vl_ir.melody if m.is_chord_tone)
     nct = len(vl_ir.melody) - ct
-    print(f"    Chord tones: {ct}, Non-chord tones: {nct}")
+    _log.info(f"    Chord tones: {ct}, Non-chord tones: {nct}")
 
     # --- Rondo refrain replay ---
     if form_ir.form == FormType.RONDO:
@@ -426,11 +440,11 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
 
     # --- Fix 1: Augmented intervals in melody ---
     vl_ir.melody = fix_augmented_intervals(vl_ir.melody, form_ir.home_key)
-    print(f"  [Fix] Augmented intervals cleaned in melody")
+    _log.info(f"  [Fix] Augmented intervals cleaned in melody")
 
     # --- Fix 3: Leap recovery in melody ---
     vl_ir.melody = fix_leap_recovery(vl_ir.melody)
-    print(f"  [Fix] Leap recovery applied to melody")
+    _log.info(f"  [Fix] Leap recovery applied to melody")
 
     # For fugue: also fix augmented intervals and leap recovery in alto and bass lines
     if is_fugue:
@@ -443,10 +457,10 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
             vl_ir.bass_line = fix_leap_recovery(vl_ir.bass_line)
 
     # --- Pass 5: Counterpoint ---
-    print(f"\n[Pass 5] Adding inner voices (counterpoint)...")
+    _log.info(f"\n[Pass 5] Adding inner voices (counterpoint)...")
     vl_ir = pass_5_counterpoint(vl_ir, form_ir)
-    print(f"  Alto notes: {len(vl_ir.inner_voices.get('alto', []))}")
-    print(f"  Tenor notes: {len(vl_ir.inner_voices.get('tenor', []))}")
+    _log.info(f"  Alto notes: {len(vl_ir.inner_voices.get('alto', []))}")
+    _log.info(f"  Tenor notes: {len(vl_ir.inner_voices.get('tenor', []))}")
     p5_count = 0
     for i in range(len(vl_ir.chords) - 1):
         c1 = vl_ir.chords[i]
@@ -455,19 +469,19 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
         v2 = (c2.soprano, c2.alto, c2.tenor, c2.bass)
         if VoiceLeader.has_parallel_fifths_or_octaves(v1, v2):
             p5_count += 1
-    print(f"  Parallel 5th/8ve checks: {p5_count} issues found")
+    _log.info(f"  Parallel 5th/8ve checks: {p5_count} issues found")
 
     # --- Fix 2: Leading tone resolution ---
     vl_ir = fix_leading_tone_resolution(vl_ir, form_ir.home_key)
-    print(f"  [Fix] Leading tone resolution enforced at strong beats")
+    _log.info(f"  [Fix] Leading tone resolution enforced at strong beats")
 
     # --- Fix 2b: Seventh resolution ---
     vl_ir = fix_seventh_resolution(vl_ir)
-    print(f"  [Fix] Chord seventh resolution enforced at strong beats")
+    _log.info(f"  [Fix] Chord seventh resolution enforced at strong beats")
 
     # --- Fix 4: Voice crossing ---
     vl_ir = fix_voice_crossing(vl_ir)
-    print(f"  [Fix] Voice crossing corrected (S >= A >= T >= B)")
+    _log.info(f"  [Fix] Voice crossing corrected (S >= A >= T >= B)")
 
     # --- Fix 5: Augmented intervals in all voice lines ---
     for voice_attr in ("soprano", "alto", "tenor", "bass"):
@@ -498,45 +512,45 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
 
     # --- Fix 6: Melody voice spacing ---
     _fix_melody_voice_spacing(vl_ir)
-    print(f"  [Fix] Melody voice spacing constrained (no crossing below alto)")
+    _log.info(f"  [Fix] Melody voice spacing constrained (no crossing below alto)")
 
     # --- Pass 6: Orchestration ---
-    print(f"\n[Pass 6] Assigning to instruments...")
+    _log.info(f"\n[Pass 6] Assigning to instruments...")
     if is_fugue:
         tracks = pass_6_orchestration_fugue(vl_ir, form_ir)
     else:
         tracks = pass_6_orchestration(vl_ir, form_ir)
     total_notes = sum(len(notes) for notes in tracks.values())
     for inst, notes in tracks.items():
-        print(f"    {inst}: {len(notes)} notes")
-    print(f"  Total performance notes: {total_notes}")
+        _log.info(f"    {inst}: {len(notes)} notes")
+    _log.info(f"  Total performance notes: {total_notes}")
 
     # --- Pass 6a: Smooth section transitions ---
-    print(f"\n[Pass 6a] Smoothing section boundary density transitions...")
+    _log.info(f"\n[Pass 6a] Smoothing section boundary density transitions...")
     tracks = _smooth_section_transitions(tracks, form_ir)
 
     # --- Pass 6b: Phrase Breathing ---
-    print(f"\n[Pass 6b] Inserting phrase breathing (rests at cadences, general pause)...")
+    _log.info(f"\n[Pass 6b] Inserting phrase breathing (rests at cadences, general pause)...")
     tracks = pass_6b_phrase_breathing(tracks, vl_ir, form_ir)
     cadence_count = sum(1 for ce in vl_ir.chords if ce.is_cadential)
-    print(f"  Cadence points processed: {cadence_count}")
-    print(f"  General pause at {form_ir.total_bars * PHI_INVERSE:.0f} bars (~62% golden ratio)")
+    _log.info(f"  Cadence points processed: {cadence_count}")
+    _log.info(f"  General pause at {form_ir.total_bars * PHI_INVERSE:.0f} bars (~62% golden ratio)")
 
     # --- Pass 7: Expression ---
-    print(f"\n[Pass 7] Applying expression with tension arc (climax at 62%)...")
+    _log.info(f"\n[Pass 7] Applying expression with tension arc (climax at 62%)...")
     tracks = pass_7_expression(tracks, form_ir)
     vels = [n.velocity for notes in tracks.values() for n in notes]
     if vels:
-        print(f"  Velocity range: {min(vels)}-{max(vels)}")
-        print(f"  Mean velocity: {np.mean(vels):.0f}")
+        _log.info(f"  Velocity range: {min(vels)}-{max(vels)}")
+        _log.info(f"  Mean velocity: {np.mean(vels):.0f}")
 
     # --- Pass 8: Humanization ---
-    print(f"\n[Pass 8] Humanizing performance...")
+    _log.info(f"\n[Pass 8] Humanizing performance...")
     tracks = pass_8_humanization(tracks, form_ir)
     offsets = [abs(n.timing_offset_ms) for notes in tracks.values() for n in notes]
     if offsets:
-        print(f"  Timing offset range: 0-{max(offsets):.1f}ms")
-        print(f"  Mean timing offset:  {np.mean(offsets):.1f}ms")
+        _log.info(f"  Timing offset range: 0-{max(offsets):.1f}ms")
+        _log.info(f"  Mean timing offset:  {np.mean(offsets):.1f}ms")
 
     # Assemble PerformanceIR
     perf_ir = PerformanceIR()
@@ -549,36 +563,36 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     perf_ir.tempo_map = [(0.0, form_ir.tempo_bpm)]
 
     # --- Pass 9: Validation ---
-    print(f"\n[Pass 9] Validating output...")
+    _log.info(f"\n[Pass 9] Validating output...")
     report = pass_9_validation(perf_ir, form_ir)
-    print(report.summary())
+    _log.info(report.summary())
 
     # --- Export MIDI ---
-    print(f"\n[Export] Writing MIDI to {output_file}...")
+    _log.info(f"\n[Export] Writing MIDI to {output_file}...")
     export_midi(perf_ir, output_file, form_ir.tempo_bpm)
-    print(f"  Done. {len(perf_ir.notes)} notes, "
+    _log.info(f"  Done. {len(perf_ir.notes)} notes, "
           f"{perf_ir.total_duration_sec:.1f}s duration.")
 
     # --- Quality report ---
     print_quality_report(perf_ir, form_ir)
 
     # Final summary
-    print(f"\n{'=' * 60}")
-    print(f"  COMPOSITION COMPLETE")
-    print(f"  Title:       {form_ir.title}")
-    print(f"  Form:        {form_ir.form.value}")
-    print(f"  Key:         {form_ir.home_key.value}")
-    print(f"  Character:   {form_ir.character.value}")
-    print(f"  Bars:        {form_ir.total_bars}")
-    print(f"  Tempo:       {form_ir.tempo_bpm} BPM")
-    print(f"  Instruments: {', '.join(form_ir.instrumentation)}")
-    print(f"  Notes:       {len(perf_ir.notes)}")
-    print(f"  Duration:    {perf_ir.total_duration_sec:.1f}s")
-    print(f"  MIDI file:   {output_file}")
-    print(f"  Validation:  {'PASS' if report.is_valid else 'FAIL'}")
+    _log.info(f"\n{'=' * 60}")
+    _log.info(f"  COMPOSITION COMPLETE")
+    _log.info(f"  Title:       {form_ir.title}")
+    _log.info(f"  Form:        {form_ir.form.value}")
+    _log.info(f"  Key:         {form_ir.home_key.value}")
+    _log.info(f"  Character:   {form_ir.character.value}")
+    _log.info(f"  Bars:        {form_ir.total_bars}")
+    _log.info(f"  Tempo:       {form_ir.tempo_bpm} BPM")
+    _log.info(f"  Instruments: {', '.join(form_ir.instrumentation)}")
+    _log.info(f"  Notes:       {len(perf_ir.notes)}")
+    _log.info(f"  Duration:    {perf_ir.total_duration_sec:.1f}s")
+    _log.info(f"  MIDI file:   {output_file}")
+    _log.info(f"  Validation:  {'PASS' if report.is_valid else 'FAIL'}")
     avg_score = np.mean(list(report.scores.values())) if report.scores else 0
-    print(f"  Avg quality: {avg_score:.2f}")
-    print(f"{'=' * 60}")
+    _log.info(f"  Avg quality: {avg_score:.2f}")
+    _log.info(f"{'=' * 60}")
 
     return perf_ir, form_ir, report
 
@@ -592,12 +606,13 @@ def compose_suite(prompt: str, output_path: str = "output/suite.mid",
     """
     Compose a complete 3-movement work (classical suite / sonata cycle).
     """
+    _ensure_console_logging()
     set_rng(seed)
 
-    print("=" * 60)
-    print("  MULTI-MOVEMENT SUITE COMPOSITION")
-    print("=" * 60)
-    print(f"\n  Prompt: \"{prompt}\"\n")
+    _log.info("=" * 60)
+    _log.info("  MULTI-MOVEMENT SUITE COMPOSITION")
+    _log.info("=" * 60)
+    _log.info(f"\n  Prompt: \"{prompt}\"\n")
 
     parsed = parse_prompt(prompt)
     home_key = parsed["home_key"]
@@ -630,9 +645,9 @@ def compose_suite(prompt: str, output_path: str = "output/suite.mid",
     movement_forms: List[FormIR] = []
 
     for i, (title, mv_prompt) in enumerate(movement_prompts):
-        print(f"\n{'#' * 60}")
-        print(f"# {title}")
-        print(f"{'#' * 60}\n")
+        _log.info(f"\n{'#' * 60}")
+        _log.info(f"# {title}")
+        _log.info(f"{'#' * 60}\n")
         mv_seed = (seed + i * 1000) if seed is not None else None
         perf_ir, form_ir, report = compose(
             mv_prompt,
@@ -687,18 +702,18 @@ def compose_suite(prompt: str, output_path: str = "output/suite.mid",
     total_bars = sum(r["bars"] for r in movement_results)
     avg_scores = [r["avg_score"] for r in movement_results]
 
-    print(f"\n{'=' * 60}")
-    print(f"  SUITE COMPLETE")
-    print(f"{'=' * 60}")
+    _log.info(f"\n{'=' * 60}")
+    _log.info(f"  SUITE COMPLETE")
+    _log.info(f"{'=' * 60}")
     for r in movement_results:
-        print(f"  {r['title']}: {r['form']} in {r['key']}, "
+        _log.info(f"  {r['title']}: {r['form']} in {r['key']}, "
               f"{r['bars']} bars, {r['duration_sec']:.1f}s, "
               f"score={r['avg_score']:.2f}")
-    print(f"  Total bars:     {total_bars}")
-    print(f"  Total duration: {total_duration:.1f}s")
-    print(f"  Avg score:      {np.mean(avg_scores):.2f}")
-    print(f"  MIDI file:      {output_path}")
-    print(f"{'=' * 60}")
+    _log.info(f"  Total bars:     {total_bars}")
+    _log.info(f"  Total duration: {total_duration:.1f}s")
+    _log.info(f"  Avg score:      {np.mean(avg_scores):.2f}")
+    _log.info(f"  MIDI file:      {output_path}")
+    _log.info(f"{'=' * 60}")
 
     return {
         "output_path": output_path,
