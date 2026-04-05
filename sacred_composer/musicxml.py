@@ -69,7 +69,22 @@ def _render_via_music21(score: "Score", filename: str, title: str) -> str:
 
 def _render_raw_xml(score: "Score", filename: str, title: str) -> str:
     """Generate MusicXML 4.0 without music21 using string templating."""
-    lines = [
+    lines: list[str] = []
+    lines.extend(_xml_document_header(title))
+    lines.extend(_xml_part_list(score))
+    for i, voice in enumerate(score.voices):
+        lines.extend(_xml_part(voice, pid=f"P{i + 1}", score=score))
+    lines.append("</score-partwise>")
+
+    xml_str = "\n".join(lines)
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(xml_str)
+
+    return filename
+
+
+def _xml_document_header(title: str) -> list[str]:
+    return [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN"',
         '  "http://www.musicxml.org/dtds/partwise.dtd">',
@@ -80,122 +95,118 @@ def _render_raw_xml(score: "Score", filename: str, title: str) -> str:
         "  <identification>",
         '    <creator type="composer">Sacred Composer</creator>',
         "  </identification>",
-        "  <part-list>",
     ]
 
+
+def _xml_part_list(score: "Score") -> list[str]:
+    lines = ["  <part-list>"]
     for i, voice in enumerate(score.voices):
         pid = f"P{i + 1}"
         lines.append(f'    <score-part id="{pid}">')
         lines.append(f"      <part-name>{_xml_escape(voice.name)}</part-name>")
         lines.append("    </score-part>")
-
     lines.append("  </part-list>")
+    return lines
 
+
+def _xml_part(voice, pid: str, score: "Score") -> list[str]:
     beats_per_measure = 4
+    lines = [f'  <part id="{pid}">']
 
-    for i, voice in enumerate(score.voices):
-        pid = f"P{i + 1}"
-        lines.append(f'  <part id="{pid}">')
-
-        # Collect notes into measures
-        measures: list[list] = []
-        current_beat = 0.0
-        current_measure_notes = []
-
-        for n in voice.notes:
-            measure_idx = int(n.time // beats_per_measure)
-            while len(measures) <= measure_idx:
-                measures.append([])
-            measures[measure_idx].append(n)
-
-        # Ensure at least one measure
-        if not measures:
+    # Collect notes into measures
+    measures: list[list] = []
+    for n in voice.notes:
+        measure_idx = int(n.time // beats_per_measure)
+        while len(measures) <= measure_idx:
             measures.append([])
+        measures[measure_idx].append(n)
 
-        for m_idx, m_notes in enumerate(measures):
-            lines.append(f'    <measure number="{m_idx + 1}">')
+    # Ensure at least one measure
+    if not measures:
+        measures.append([])
 
-            if m_idx == 0:
-                lines.append("      <attributes>")
-                lines.append("        <divisions>4</divisions>")  # 4 divisions per quarter
-                lines.append("        <time>")
-                lines.append("          <beats>4</beats>")
-                lines.append("          <beat-type>4</beat-type>")
-                lines.append("        </time>")
-                # Auto-detect clef
-                pitches = [n.pitch for n in voice.notes if not n.is_rest]
-                if pitches:
-                    median = sorted(pitches)[len(pitches) // 2]
-                    if median < 55:
-                        lines.append("        <clef>")
-                        lines.append("          <sign>F</sign>")
-                        lines.append("          <line>4</line>")
-                        lines.append("        </clef>")
-                    elif median < 60:
-                        lines.append("        <clef>")
-                        lines.append("          <sign>C</sign>")
-                        lines.append("          <line>3</line>")
-                        lines.append("        </clef>")
-                    else:
-                        lines.append("        <clef>")
-                        lines.append("          <sign>G</sign>")
-                        lines.append("          <line>2</line>")
-                        lines.append("        </clef>")
-                else:
-                    lines.append("        <clef>")
-                    lines.append("          <sign>G</sign>")
-                    lines.append("          <line>2</line>")
-                    lines.append("        </clef>")
-                lines.append("      </attributes>")
+    for m_idx, m_notes in enumerate(measures):
+        lines.append(f'    <measure number="{m_idx + 1}">')
+        if m_idx == 0:
+            lines.extend(_xml_first_measure_attributes(voice, score))
+        for n in m_notes:
+            lines.extend(_xml_note(n))
+        lines.append("    </measure>")
 
-                if m_idx == 0:
-                    lines.append("      <direction>")
-                    lines.append('        <sound tempo="{}"/>'.format(score.tempo))
-                    lines.append("      </direction>")
+    lines.append("  </part>")
+    return lines
 
-            for n in m_notes:
-                dur_divisions = max(1, int(round(abs(n.duration) * 4)))  # 4 divs per quarter
-                dur_type = _duration_type(abs(n.duration))
 
-                if n.is_rest:
-                    lines.append("      <note>")
-                    lines.append("        <rest/>")
-                    lines.append(f"        <duration>{dur_divisions}</duration>")
-                    lines.append(f"        <type>{dur_type}</type>")
-                    lines.append("      </note>")
-                else:
-                    step = _PITCH_NAMES[n.pitch % 12]
-                    alter = _PITCH_ALTERS[n.pitch % 12]
-                    octave = (n.pitch // 12) - 1
+def _xml_first_measure_attributes(voice, score: "Score") -> list[str]:
+    lines = [
+        "      <attributes>",
+        "        <divisions>4</divisions>",  # 4 divisions per quarter
+        "        <time>",
+        "          <beats>4</beats>",
+        "          <beat-type>4</beat-type>",
+        "        </time>",
+    ]
+    lines.extend(_xml_clef_lines(voice))
+    lines.append("      </attributes>")
+    lines.append("      <direction>")
+    lines.append('        <sound tempo="{}"/>'.format(score.tempo))
+    lines.append("      </direction>")
+    return lines
 
-                    lines.append("      <note>")
-                    lines.append("        <pitch>")
-                    lines.append(f"          <step>{step}</step>")
-                    if alter:
-                        lines.append(f"          <alter>{alter}</alter>")
-                    lines.append(f"          <octave>{octave}</octave>")
-                    lines.append("        </pitch>")
-                    lines.append(f"        <duration>{dur_divisions}</duration>")
-                    lines.append(f"        <type>{dur_type}</type>")
-                    if n.velocity > 0:
-                        lines.append("        <dynamics>")
-                        # MusicXML dynamics as percentage (0-100 roughly)
-                        dyn_pct = round(n.velocity / 127 * 100)
-                        lines.append(f"          <other-dynamics>{dyn_pct}</other-dynamics>")
-                        lines.append("        </dynamics>")
-                    lines.append("      </note>")
 
-            lines.append("    </measure>")
+def _xml_clef_lines(voice) -> list[str]:
+    pitches = [n.pitch for n in voice.notes if not n.is_rest]
+    if pitches:
+        median = sorted(pitches)[len(pitches) // 2]
+        if median < 55:
+            sign, line = "F", 4
+        elif median < 60:
+            sign, line = "C", 3
+        else:
+            sign, line = "G", 2
+    else:
+        sign, line = "G", 2
+    return [
+        "        <clef>",
+        f"          <sign>{sign}</sign>",
+        f"          <line>{line}</line>",
+        "        </clef>",
+    ]
 
-        lines.append("  </part>")
 
-    lines.append("</score-partwise>")
-
-    xml_str = "\n".join(lines)
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(xml_str)
-
-    return filename
+def _xml_note(n) -> list[str]:
+    dur_divisions = max(1, int(round(abs(n.duration) * 4)))  # 4 divs per quarter
+    dur_type = _duration_type(abs(n.duration))
+    if n.is_rest:
+        return [
+            "      <note>",
+            "        <rest/>",
+            f"        <duration>{dur_divisions}</duration>",
+            f"        <type>{dur_type}</type>",
+            "      </note>",
+        ]
+    step = _PITCH_NAMES[n.pitch % 12]
+    alter = _PITCH_ALTERS[n.pitch % 12]
+    octave = (n.pitch // 12) - 1
+    lines = [
+        "      <note>",
+        "        <pitch>",
+        f"          <step>{step}</step>",
+    ]
+    if alter:
+        lines.append(f"          <alter>{alter}</alter>")
+    lines.append(f"          <octave>{octave}</octave>")
+    lines.append("        </pitch>")
+    lines.append(f"        <duration>{dur_divisions}</duration>")
+    lines.append(f"        <type>{dur_type}</type>")
+    if n.velocity > 0:
+        # MusicXML dynamics as percentage (0-100 roughly)
+        dyn_pct = round(n.velocity / 127 * 100)
+        lines.append("        <dynamics>")
+        lines.append(f"          <other-dynamics>{dyn_pct}</other-dynamics>")
+        lines.append("        </dynamics>")
+    lines.append("      </note>")
+    return lines
 
 
 def _duration_type(beats: float) -> str:
