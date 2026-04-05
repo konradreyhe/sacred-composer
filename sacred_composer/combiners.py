@@ -230,62 +230,83 @@ def fractal_form(
     lsys = Lindenmayer(axiom=axiom, rules=rules)
     expansion = lsys.expand(depth)
 
-    all_pitches = []
-    all_durations = []
-    all_velocities = []
-    sections = []
+    all_pitches: list[int] = []
+    all_durations: list[float] = []
+    all_velocities: list[int] = []
+    sections: list[FormSection] = []
     current_beat = 0.0
 
     for i, char in enumerate(expansion):
         if char not in motifs:
             continue
-
-        m = motifs[char]
-        pitches = m["pitches"]
-        durations = m["durations"]
-        velocities = m.get("velocities", [80] * len(pitches))
-        transposition = m.get("transposition", 0)
-
-        n = min(len(pitches), len(durations))
-        section_beats = sum(abs(d) for d in durations[:n])
-        bars = max(1, round(section_beats / 4.0))
-
-        sections.append(FormSection(
-            label=f"{char}{i}",
-            start_bar=round(current_beat / 4.0),
-            end_bar=round((current_beat + section_beats) / 4.0),
-            bars=bars,
-            character=char,
-        ))
-
-        for j in range(n):
-            p = max(0, min(127, pitches[j] + transposition))
-            all_pitches.append(p)
-            all_durations.append(durations[j])
-            all_velocities.append(velocities[j % len(velocities)])
-
+        section_beats = _append_motif_instance(
+            motifs[char], char, i, current_beat,
+            all_pitches, all_durations, all_velocities, sections,
+        )
         current_beat += section_beats
 
-    instrument = 0
+    instrument = _default_fractal_instrument(motifs)
+    voice = _build_fractal_voice(all_pitches, all_durations, all_velocities, instrument)
+    return [voice], sections
+
+
+def _append_motif_instance(
+    m: dict, char: str, i: int, current_beat: float,
+    all_pitches: list, all_durations: list, all_velocities: list,
+    sections: list,
+) -> float:
+    """Append one motif's notes to the accumulators and record its FormSection.
+
+    Returns the number of beats consumed by this motif.
+    """
+    pitches = m["pitches"]
+    durations = m["durations"]
+    velocities = m.get("velocities", [80] * len(pitches))
+    transposition = m.get("transposition", 0)
+
+    n = min(len(pitches), len(durations))
+    section_beats = sum(abs(d) for d in durations[:n])
+    bars = max(1, round(section_beats / 4.0))
+
+    sections.append(FormSection(
+        label=f"{char}{i}",
+        start_bar=round(current_beat / 4.0),
+        end_bar=round((current_beat + section_beats) / 4.0),
+        bars=bars,
+        character=char,
+    ))
+
+    for j in range(n):
+        p = max(0, min(127, pitches[j] + transposition))
+        all_pitches.append(p)
+        all_durations.append(durations[j])
+        all_velocities.append(velocities[j % len(velocities)])
+
+    return section_beats
+
+
+def _default_fractal_instrument(motifs: dict) -> int:
     for m in motifs.values():
         if "instrument" in m:
-            instrument = m["instrument"]
-            break
+            return m["instrument"]
+    return 0
 
+
+def _build_fractal_voice(pitches: list[int], durations: list[float],
+                         velocities: list[int], instrument: int) -> Voice:
     voice = Voice(name="fractal", channel=0, instrument=instrument)
     time = 0.0
-    for j in range(len(all_pitches)):
-        dur = all_durations[j]
+    for j in range(len(pitches)):
+        dur = durations[j]
         if dur < 0:
             voice.notes.append(Note(pitch=-1, duration=abs(dur), velocity=0, time=time))
             time += abs(dur)
         else:
             voice.notes.append(Note(
-                pitch=all_pitches[j],
+                pitch=pitches[j],
                 duration=dur,
-                velocity=all_velocities[j],
+                velocity=velocities[j],
                 time=time,
             ))
             time += dur
-
-    return [voice], sections
+    return voice
