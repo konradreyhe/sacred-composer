@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import random
 from typing import Dict, List, Optional, Tuple
 
 from music21 import key as m21key
@@ -12,6 +11,7 @@ from SYSTEM_ARCHITECTURE import (
     FormIR, FormType, VoiceLeadingIR, MelodicNote,
     SectionType, SubsectionType,
 )
+from composer._rng import rng
 from composer.parser import (
     _KEY_TO_M21, SeedMotif, MotivicEngine,
 )
@@ -556,14 +556,14 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
                 if is_return:
                     current_transform = MotivicEngine.LITERAL
                 elif sub_type in (SubsectionType.P_THEME,):
-                    current_transform = random.choice(
+                    current_transform = rng().choice(
                         [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
                 elif sub_type in (SubsectionType.S_THEME,):
                     current_transform = MotivicEngine.TRANSPOSITION
                 else:
                     current_transform = MotivicEngine.pick_transform(sub_type)
 
-                seq_offset = random.choice([2, 3, 4, 5])
+                seq_offset = rng().choice([2, 3, 4, 5])
                 transformed_motif = MotivicEngine.transform(
                     _current_seed_motif, current_transform,
                     transpose_semitones=seq_offset)
@@ -573,7 +573,7 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
                     dist = _motif_edit_distance(_current_seed_motif, transformed_motif)
                     max_allowed = 0.15 if motif_appearance_count <= 3 else 0.30
                     if dist > max_allowed:
-                        fallback = random.choice(
+                        fallback = rng().choice(
                             [MotivicEngine.LITERAL, MotivicEngine.TRANSPOSITION])
                         transformed_motif = MotivicEngine.transform(
                             _current_seed_motif, fallback,
@@ -599,7 +599,7 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
                     if antecedent_motif is not None:
                         active_motif = _make_consequent_from_antecedent(
                             antecedent_motif,
-                            cadence_shift=random.choice([-1, -2, 1]))
+                            cadence_shift=rng().choice([-1, -2, 1]))
                     is_antecedent_next = True
 
             motif_notes = MotivicEngine.realize_motif(
@@ -648,10 +648,10 @@ def pass_4_melody(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingIR:
                         if direction != prev_direction:
                             direction = prev_direction
 
-                    if random.random() < 0.25:
+                    if rng().random() < 0.25:
                         target_interval = phyllotaxis_interval()
                     else:
-                        target_interval = random.choice([1, 1, 2, 2, 2])
+                        target_interval = rng().choice([1, 1, 2, 2, 2])
                     target_midi = current_midi + direction * target_interval
                     candidates = [p for p in pool
                                   if (p.midi - current_midi) * direction > 0

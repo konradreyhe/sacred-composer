@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
@@ -10,6 +9,7 @@ from SYSTEM_ARCHITECTURE import (
     FormIR, VoiceLeadingIR, MelodicNote,
     PerformanceNote,
 )
+from composer._rng import rng
 from composer.parser import INSTRUMENT_RANGES
 from sacred_composer.constants import PHI_INVERSE
 
@@ -261,13 +261,13 @@ def _smooth_section_transitions(
                 if bt - ramp_dur <= n.start_time_sec < bt:
                     progress = (bt - n.start_time_sec) / ramp_dur
                     keep_prob = floor + (1.0 - floor) * progress
-                    if random.random() > keep_prob:
+                    if rng().random() > keep_prob:
                         keep = False
                         break
                 elif bt <= n.start_time_sec < bt + ramp_dur:
                     progress = (n.start_time_sec - bt) / ramp_dur
                     keep_prob = floor + (1.0 - floor) * progress
-                    if random.random() > keep_prob:
+                    if rng().random() > keep_prob:
                         keep = False
                         break
             if keep:
@@ -343,7 +343,7 @@ def pass_6b_phrase_breathing(
                 pre_note.duration_sec *= 1.5
 
             cad_note = notes[cad_idx]
-            rest_beats = random.uniform(0.5, 1.0)
+            rest_beats = rng().uniform(0.5, 1.0)
             rest_sec = rest_beats * sec_per_beat
             original_end = cad_note.start_time_sec + cad_note.duration_sec
             cad_note.duration_sec = max(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import random
+from composer._rng import rng
 
 
 def phyllotaxis_interval() -> int:
@@ -13,4 +13,4 @@ def phyllotaxis_interval() -> int:
     42 % chance of a major 3rd (4 semitones).  This produces melodies
     that spread through pitch space efficiently, like leaves on a stem.
     """
-    return 5 if random.random() < 0.58 else 4
+    return 5 if rng().random() < 0.58 else 4

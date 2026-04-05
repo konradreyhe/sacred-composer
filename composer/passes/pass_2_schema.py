@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from typing import Dict, List
 
 from SYSTEM_ARCHITECTURE import (
@@ -10,6 +9,7 @@ from SYSTEM_ARCHITECTURE import (
     SubsectionType, SchemaToken, CadenceType,
     SCHEMA_REALIZATIONS,
 )
+from composer._rng import rng
 
 
 # Which schemata suit which formal functions
@@ -69,7 +69,7 @@ def pass_2_schema(form_ir: FormIR) -> SchemaIR:
             )
 
             while bars_remaining > 0:
-                schema_token = random.choice(preferred)
+                schema_token = rng().choice(preferred)
                 template = SCHEMA_REALIZATIONS[schema_token]
                 schema_bars = min(template.bars, bars_remaining)
 
@@ -131,7 +131,7 @@ def pass_2_schema_fugue(form_ir: FormIR) -> SchemaIR:
             )
 
             while bars_remaining > 0:
-                schema_token = random.choice(preferred)
+                schema_token = rng().choice(preferred)
                 template = SCHEMA_REALIZATIONS[schema_token]
                 schema_bars = min(template.bars, bars_remaining)
 

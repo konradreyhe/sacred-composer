@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from composer._rng import np_rng
+
 
 def generate_1f_noise(n: int, sigma_ms: float = 12.0) -> np.ndarray:
     """Generate 1/f (pink) noise for natural tempo variation.
@@ -14,7 +16,7 @@ def generate_1f_noise(n: int, sigma_ms: float = 12.0) -> np.ndarray:
     """
     if n <= 0:
         return np.array([])
-    white = np.random.randn(n)
+    white = np_rng().standard_normal(n)
     freqs = np.fft.rfftfreq(n)
     freqs[0] = 1  # avoid division by zero
     spectrum = np.fft.rfft(white)

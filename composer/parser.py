@@ -6,7 +6,6 @@ parse_prompt() + validation, key utilities, instrument data, and shared constant
 
 from __future__ import annotations
 
-import random
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -17,6 +16,7 @@ from music21 import key as m21key
 from SYSTEM_ARCHITECTURE import (
     FormType, SubsectionType, KeyToken, CharacterToken,
 )
+from composer._rng import rng
 
 
 # ============================================================================
@@ -241,7 +241,8 @@ class MotivicEngine:
         The motif is constrained to mostly stepwise motion (seconds) with
         one or two leaps (thirds) for interest -- imitating classical practice.
         """
-        length = random.randint(4, 8)  # number of notes
+        r = rng()
+        length = r.randint(4, 8)  # number of notes
         # Build intervals: mostly steps (1-2 semitones), occasional thirds (3-4)
         # Directional momentum: prefer continuing in same direction for 2-3 notes
         intervals: List[int] = []
@@ -249,23 +250,23 @@ class MotivicEngine:
         step_down = [-2, -1]
         leap_up = [3, 4]
         leap_down = [-4, -3]
-        prev_dir = random.choice([-1, 1])  # initial direction
+        prev_dir = r.choice([-1, 1])  # initial direction
         run_len = 0
         for i in range(length - 1):
             # Continue in same direction for 2-3 notes, then maybe flip
-            if run_len >= random.randint(2, 3):
+            if run_len >= r.randint(2, 3):
                 prev_dir = -prev_dir
                 run_len = 0
             run_len += 1
-            if random.random() < 0.25:
+            if r.random() < 0.25:
                 pool = leap_up if prev_dir > 0 else leap_down
             else:
                 pool = step_up if prev_dir > 0 else step_down
-            intervals.append(random.choice(pool))
+            intervals.append(r.choice(pool))
 
         # Rhythm: mix of quarter and eighth notes, one possible half note
         rhythm_pool = [0.5, 1.0, 1.0, 1.0, 2.0]
-        rhythm = [random.choice(rhythm_pool) for _ in range(length)]
+        rhythm = [r.choice(rhythm_pool) for _ in range(length)]
 
         return SeedMotif(intervals=intervals, rhythm=rhythm)
 
@@ -305,7 +306,7 @@ class MotivicEngine:
             return SeedMotif(intervals=ivls, rhythm=[r * 0.5 for r in rhy])
 
         if method == cls.FRAGMENTATION:
-            frag_len = min(random.randint(2, 3), len(ivls))
+            frag_len = min(rng().randint(2, 3), len(ivls))
             return SeedMotif(intervals=ivls[:frag_len],
                              rhythm=rhy[:frag_len + 1])
 
@@ -368,7 +369,7 @@ class MotivicEngine:
         """Pick a random transformation appropriate for the formal section."""
         candidates = cls.SECTION_TRANSFORMS.get(
             subsection_type, [cls.LITERAL, cls.TRANSPOSITION])
-        return random.choice(candidates)
+        return rng().choice(candidates)
 
 
 # ============================================================================
@@ -474,14 +475,14 @@ def parse_prompt(text: str) -> dict:
     # Fugue default: moderate tempo (Bach-style), default 24-32 bars
     if form == FormType.FUGUE:
         if not bar_match:
-            total_bars = random.choice([24, 28, 32])
+            total_bars = rng().choice([24, 28, 32])
         if "bach" in text_lower:
             tempo_bpm = 76
 
     # Rondo default: at least 32 bars (ABACA needs space)
     if form == FormType.RONDO:
         if not bar_match:
-            total_bars = random.choice([32, 40, 48])
+            total_bars = rng().choice([32, 40, 48])
         # Rondo is typically lively unless otherwise specified
         if "lively" in text_lower or "spirited" in text_lower:
             tempo_bpm = max(tempo_bpm, 120)

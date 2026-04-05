@@ -9,6 +9,7 @@ import numpy as np
 from SYSTEM_ARCHITECTURE import (
     FormIR, PerformanceNote, ArticulationToken,
 )
+from composer._rng import np_rng
 from composer.helpers.pink_noise import generate_1f_noise
 
 
@@ -46,20 +47,20 @@ def pass_8_humanization(tracks: Dict[str, List[PerformanceNote]],
                 ritard_factor = 1.20
                 note.duration_sec *= ritard_factor
 
-            note.velocity_offset = int(np.random.normal(0, 3))
+            note.velocity_offset = int(np_rng().normal(0, 3))
             note.velocity = max(1, min(127, note.velocity + note.velocity_offset))
 
             if note.articulation == ArticulationToken.STACCATO:
-                note.duration_sec *= np.random.uniform(0.35, 0.50)
+                note.duration_sec *= np_rng().uniform(0.35, 0.50)
             elif note.articulation == ArticulationToken.LEGATO:
-                note.duration_sec *= np.random.uniform(0.95, 1.05)
+                note.duration_sec *= np_rng().uniform(0.95, 1.05)
             elif note.articulation == ArticulationToken.PORTATO:
-                note.duration_sec *= np.random.uniform(0.75, 0.88)
+                note.duration_sec *= np_rng().uniform(0.75, 0.88)
             elif note.articulation == ArticulationToken.MARCATO:
-                note.duration_sec *= np.random.uniform(0.80, 0.95)
+                note.duration_sec *= np_rng().uniform(0.80, 0.95)
                 note.velocity = min(127, note.velocity + 5)
             elif note.articulation == ArticulationToken.TENUTO:
-                note.duration_sec *= np.random.uniform(0.98, 1.02)
+                note.duration_sec *= np_rng().uniform(0.98, 1.02)
 
             note.start_time_sec = max(0, note.start_time_sec + note.timing_offset_ms / 1000.0)
 

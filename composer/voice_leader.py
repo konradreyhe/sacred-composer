@@ -11,11 +11,12 @@ level legacy module.
 
 from __future__ import annotations
 
-import random
 from itertools import product
 from typing import List, Optional, Tuple
 
 from music21 import key
+
+from composer._rng import rng
 
 
 class VoiceLeader:
@@ -56,7 +57,7 @@ class VoiceLeader:
                 voicings.append(s)
         # Limit to prevent combinatorial explosion
         if len(voicings) > 500:
-            voicings = random.sample(voicings, 500)
+            voicings = rng().sample(voicings, 500)
         return voicings
 
     @staticmethod

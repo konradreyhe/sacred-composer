@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -12,6 +11,7 @@ from SYSTEM_ARCHITECTURE import (
     SectionIR, SubsectionIR, SectionType, SubsectionType,
     KeyToken, CharacterToken, TextureToken, CadenceType,
 )
+from composer._rng import rng
 from composer.parser import (
     SeedMotif, _key_is_minor, _relative_major, _dominant_key, _KEY_TO_M21,
 )
@@ -182,7 +182,7 @@ def _generate_fugue_subject(seed_motif: SeedMotif, home_key: KeyToken,
         if seed_motif.intervals:
             subj_ivls.append(seed_motif.intervals[idx])
         else:
-            subj_ivls.append(random.choice([1, 2, -1, -2]))
+            subj_ivls.append(rng().choice([1, 2, -1, -2]))
         r_idx = (len(subj_rhy)) % len(seed_motif.rhythm)
         subj_rhy.append(seed_motif.rhythm[r_idx])
         current_beats = sum(subj_rhy)

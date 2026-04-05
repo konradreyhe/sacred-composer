@@ -5,7 +5,6 @@ MASTER PIPELINE: 9-pass orchestrator, MIDI export, post-processing fixes.
 from __future__ import annotations
 
 import os
-import random
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
@@ -47,6 +46,7 @@ from composer.passes.pass_7_expression import pass_7_expression
 from composer.passes.pass_8_humanization import pass_8_humanization
 from composer.passes.pass_9_validation import pass_9_validation, ValidationReport
 from sacred_composer.constants import PHI_INVERSE
+from composer._rng import set_rng, rng, np_rng
 
 import logging
 _log = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ def fix_seventh_resolution(vl_ir: VoiceLeadingIR) -> VoiceLeadingIR:
                 nxt_midi = getattr(nxt, voice_attr)
                 motion = nxt_midi - curr_midi
                 if motion > 2:
-                    setattr(nxt, voice_attr, curr_midi - random.choice([1, 2]))
+                    setattr(nxt, voice_attr, curr_midi - rng().choice([1, 2]))
     return vl_ir
 
 
@@ -157,8 +157,8 @@ def fix_leap_recovery(notes: List[MelodicNote], recovery_pct: float = 0.85) -> L
             already_recovered = (
                 recovery * opposite_direction > 0 and abs(recovery) <= 2
             )
-            if not already_recovered and random.random() < recovery_pct:
-                step_size = random.choice([1, 2])
+            if not already_recovered and rng().random() < recovery_pct:
+                step_size = rng().choice([1, 2])
                 notes[i + 1].midi = notes[i].midi + opposite_direction * step_size
     return notes
 
@@ -356,9 +356,7 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     Input:  A natural-language prompt string.
     Output: (PerformanceIR, FormIR, ValidationReport) + MIDI file on disk.
     """
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+    set_rng(seed)
 
     print("=" * 60)
     print("  CLASSICAL MUSIC COMPOSITION PIPELINE")
@@ -594,9 +592,7 @@ def compose_suite(prompt: str, output_path: str = "output/suite.mid",
     """
     Compose a complete 3-movement work (classical suite / sonata cycle).
     """
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+    set_rng(seed)
 
     print("=" * 60)
     print("  MULTI-MOVEMENT SUITE COMPOSITION")
