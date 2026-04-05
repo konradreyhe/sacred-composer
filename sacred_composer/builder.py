@@ -331,8 +331,11 @@ class CompositionBuilder:
         _role_order = {"melody": 0, "inner": 1, "bass": 2, "drone": 3}
         sorted_voices = sorted(self._voices, key=lambda v: _role_order.get(v["role"], 9))
 
-        # Will store melody beat→pitch mapping for voice coordination
-        _melody_beats: list[tuple[float, int]] = []
+        # Will store sounding melody notes as (onset, duration, pitch)
+        # triples so inner-voice coordination can test for full temporal
+        # overlap, not just nearby onsets. Sustained melody notes must
+        # constrain inner notes that start later within the same window.
+        _melody_beats: list[tuple[float, float, int]] = []
         # For seventh resolution post-processing
         _melody_voice_idx: int | None = None
         _inner_voice_idx: int | None = None
@@ -426,7 +429,7 @@ class CompositionBuilder:
                 beat = 0.0
                 for mp, md in zip(pitches, durations):
                     if md > 0:
-                        _melody_beats.append((beat, mp))
+                        _melody_beats.append((beat, md, mp))
                     beat += abs(md)
             elif role == "bass":
                 pitches, durations = self._constrain_bass(
@@ -539,13 +542,16 @@ class CompositionBuilder:
         raw_pitches: list[int],
         durations: list[float],
         scale_in_range: list[int],
-        melody_beats: list[tuple[float, int]],
+        melody_beats: list[tuple[float, float, int]],
     ) -> list[int]:
         """Apply inner voice constraint pipeline: intervals, coordination, clamping."""
         pitches = enforce_range(raw_pitches, voice_type="alto")
         pitches = improve_interval_distribution(pitches, scale_in_range, step_ratio=0.55)
         pitches = self._diversify_intervals(pitches, scale_in_range)
         pitches = smooth_leaps(pitches, scale_in_range, max_leap=7)
+        # Pre-coordinate: clamp leaps so stepwise motion is well-formed
+        # BEFORE the final spacing-aware pass. We run coordinate twice to
+        # let break_unisons operate on already-safe material.
         if melody_beats:
             pitches = self._coordinate_with_melody(
                 pitches, durations, melody_beats, scale_in_range,
@@ -554,13 +560,14 @@ class CompositionBuilder:
         pitches = self._clamp_sounding_pitches(
             pitches, durations, scale_in_range, max_interval=5,
         )
+        # Final pass: coordinate is LAST so the clamp cannot re-break
+        # voice spacing or crossing constraints. We no longer re-clamp
+        # afterwards — the coordinate pass snaps to nearby scale tones
+        # within the safe [mel_ceil - 12, mel_floor - 1] window.
         if melody_beats:
             pitches = self._coordinate_with_melody(
                 pitches, durations, melody_beats, scale_in_range,
             )
-        pitches = self._clamp_sounding_pitches(
-            pitches, durations, scale_in_range, max_interval=5,
-        )
         return pitches
 
     @staticmethod
@@ -840,13 +847,16 @@ class CompositionBuilder:
     def _coordinate_with_melody(
         pitches: list[int],
         durations: list[float],
-        melody_beats: list[tuple[float, int]],
+        melody_beats: list[tuple[float, float, int]],
         scale_pitches: list[int],
     ) -> list[int]:
         """Ensure inner voice stays below melody and within 12st spacing.
 
-        Uses the minimum melody pitch in a ±1 beat window to catch
-        nearby crossings while keeping the inner voice free to move.
+        For each inner note, finds every melody note that is actually
+        SOUNDING during the inner note's [start, end) window (temporal
+        overlap) and uses the minimum of those pitches as the floor.
+        This catches sustained melody notes that started before the
+        inner note — the previous ±2-beat onset window missed them.
         """
         if not melody_beats:
             return pitches
@@ -861,13 +871,19 @@ class CompositionBuilder:
                 beat += abs(durations[i])
                 continue
 
-            # Melody pitches within ±2 beats (wider window catches more crossings)
-            nearby = [mp for mb, mp in melody_beats if abs(mb - beat) <= 2.0]
-            if not nearby:
-                nearby = [min(melody_beats, key=lambda x: abs(x[0] - beat))[1]]
+            inner_start = beat
+            inner_end = beat + durations[i]
+            # Melody notes overlapping [inner_start, inner_end)
+            sounding = [mp for (ms, md, mp) in melody_beats
+                        if ms < inner_end and ms + md > inner_start]
+            if not sounding:
+                # Fall back to nearest melody note by onset distance
+                sounding = [min(
+                    melody_beats, key=lambda x: abs(x[0] - beat)
+                )[2]]
 
-            mel_floor = min(nearby)
-            mel_ceil = max(nearby)
+            mel_floor = min(sounding)
+            mel_ceil = max(sounding)
             p = result[i]
 
             changed = False
