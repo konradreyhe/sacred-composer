@@ -225,258 +225,46 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
 
     for sub_type, sec_type, sec_idx, start_bar, end_bar in sub_ranges:
         section_bars = end_bar - start_bar + 1
-
-        local_key = home_key
-        for section in form_ir.sections:
-            for si, sub in enumerate(section.subsections):
-                if sub.type == sub_type and sub.notes:
-                    local_key = sub.key
-                    break
-
-        local_key_str = _KEY_TO_M21.get(local_key, m21_key_str)
-        local_key_obj = m21key.Key(local_key_str)
-        local_tonic_pc = local_key_obj.tonic.pitchClass
+        local_key = _resolve_fugue_local_key(sub_type, form_ir, home_key)
 
         if sec_type == SectionType.FUGUE_EXPOSITION:
-            notes_annotation = ""
-            for section in form_ir.sections:
-                for sub in section.subsections:
-                    if (sub.type == sub_type and sub.key == local_key
-                            and sub.bars == section_bars):
-                        notes_annotation = sub.notes
-                        break
-
-            if "voice_0" in notes_annotation or (
-                    sub_type == SubsectionType.SUBJECT_ENTRY and sec_idx == 0
-                    and start_bar == sub_ranges[0][3]):
-                entering_voice = "soprano"
-                motif = fugue.subject
-                start_pitch = voice_starts["soprano"]
-            elif "voice_1" in notes_annotation or sub_type == SubsectionType.ANSWER_ENTRY:
-                entering_voice = "alto"
-                motif = fugue.answer
-                start_pitch = voice_starts["alto"] + 7
-                lo, hi = voice_ranges["alto"]
-                while start_pitch > hi:
-                    start_pitch -= 12
-                while start_pitch < lo:
-                    start_pitch += 12
-            else:
-                entering_voice = "bass"
-                motif = fugue.subject
-                start_pitch = voice_starts["bass"]
-
-            entry_notes = MotivicEngine.realize_motif(
-                motif, start_pitch, start_bar, 1.0)
-            lo, hi = voice_ranges[entering_voice]
-            for n in entry_notes:
-                n.midi = max(lo, min(hi, n.midi))
-                if n.bar <= end_bar:
-                    voice_lines[entering_voice].append(n)
-            voice_busy_until[entering_voice] = end_bar
-
-            for v in voice_names:
-                if v == entering_voice:
-                    continue
-                if voice_busy_until[v] < start_bar:
-                    continue
-                cs_pitch = voice_starts[v]
-                if v == "soprano" and entering_voice == "alto":
-                    cs_pitch = voice_starts["soprano"]
-                elif v == "soprano" and entering_voice == "bass":
-                    cs_pitch = voice_starts["soprano"]
-                elif v == "alto" and entering_voice == "bass":
-                    cs_pitch = voice_starts["alto"]
-
-                cs_notes = MotivicEngine.realize_motif(
-                    fugue.countersubject, cs_pitch, start_bar, 1.0)
-                lo_v, hi_v = voice_ranges[v]
-                for n in cs_notes:
-                    n.midi = max(lo_v, min(hi_v, n.midi))
-                    if n.bar <= end_bar:
-                        voice_lines[v].append(n)
+            _handle_fugue_exposition(
+                sub_type, sec_idx, start_bar, end_bar, section_bars,
+                local_key, sub_ranges, form_ir, fugue,
+                voice_names, voice_starts, voice_ranges,
+                voice_lines, voice_busy_until,
+            )
 
         elif sec_type == SectionType.EPISODE:
-            episode_seq = _build_fugue_episode_sequence(
-                fugue.subject, section_bars, direction=-1)
-
-            for vi, v in enumerate(voice_names):
-                ep_start_beat = 1.0 + vi * 0.5
-                ep_start_bar = start_bar
-                if ep_start_beat > 4.0:
-                    ep_start_beat -= 4.0
-                    ep_start_bar += 1
-
-                pitch_offset = vi * 7
-                ep_pitch = voice_starts[v] + (pitch_offset % 12)
-                lo_v, hi_v = voice_ranges[v]
-                ep_pitch = max(lo_v, min(hi_v, ep_pitch))
-
-                ep_notes = MotivicEngine.realize_motif(
-                    episode_seq, ep_pitch, ep_start_bar, ep_start_beat)
-                for n in ep_notes:
-                    n.midi = max(lo_v, min(hi_v, n.midi))
-                    if n.bar <= end_bar:
-                        voice_lines[v].append(n)
-                voice_busy_until[v] = end_bar
+            _handle_fugue_episode(
+                start_bar, end_bar, section_bars, fugue,
+                voice_names, voice_starts, voice_ranges,
+                voice_lines, voice_busy_until,
+            )
 
         elif sec_type == SectionType.MIDDLE_ENTRY:
-            rel_tonic = _fugue_start_pitch("alto", local_key)
-            mid_notes = MotivicEngine.realize_motif(
-                fugue.subject, rel_tonic, start_bar, 1.0)
-            lo_a, hi_a = voice_ranges["alto"]
-            for n in mid_notes:
-                n.midi = max(lo_a, min(hi_a, n.midi))
-                if n.bar <= end_bar:
-                    voice_lines["alto"].append(n)
-
-            for v in ["soprano", "bass"]:
-                fp_pitch = voice_starts[v]
-                frag = MotivicEngine.transform(
-                    fugue.countersubject, MotivicEngine.FRAGMENTATION)
-                fp_motif = _build_fugue_episode_sequence(
-                    frag, section_bars, direction=1 if v == "soprano" else -1)
-                fp_notes = MotivicEngine.realize_motif(
-                    fp_motif, fp_pitch, start_bar, 1.0)
-                lo_v, hi_v = voice_ranges[v]
-                for n in fp_notes:
-                    n.midi = max(lo_v, min(hi_v, n.midi))
-                    if n.bar <= end_bar:
-                        voice_lines[v].append(n)
+            _handle_fugue_middle_entry(
+                start_bar, end_bar, section_bars, local_key, fugue,
+                voice_starts, voice_ranges, voice_lines,
+            )
 
         elif sec_type == SectionType.STRETTO:
-            tight_offset_beats = 2.0
-
-            trial_voices: Dict[str, List[MelodicNote]] = {}
-            for vi, v in enumerate(voice_names):
-                total_offset_beats = vi * tight_offset_beats
-                st_bar = start_bar + int(total_offset_beats // 4)
-                st_beat = 1.0 + (total_offset_beats % 4)
-                if st_bar > end_bar:
-                    break
-                st_pitch = _fugue_start_pitch(v, home_key)
-                st_notes = MotivicEngine.realize_motif(
-                    fugue.subject, st_pitch, st_bar, st_beat)
-                lo_v, hi_v = voice_ranges[v]
-                for n in st_notes:
-                    n.midi = max(lo_v, min(hi_v, n.midi))
-                trial_voices[v] = [n for n in st_notes if n.bar <= end_bar]
-
-            dissonant_beats = 0
-            total_overlap_beats = 0
-            if len(trial_voices) >= 2:
-                v_list = list(trial_voices.values())
-                for notes_a in v_list:
-                    for na in notes_a:
-                        pos_a = (na.bar - 1) * 4 + na.beat
-                        for notes_b in v_list:
-                            if notes_b is notes_a:
-                                continue
-                            for nb in notes_b:
-                                pos_b = (nb.bar - 1) * 4 + nb.beat
-                                if abs(pos_a - pos_b) < 0.5:
-                                    total_overlap_beats += 1
-                                    interval = abs(na.midi - nb.midi) % 12
-                                    if interval in (1, 2, 6, 11):
-                                        dissonant_beats += 1
-
-            dissonance_ratio = (dissonant_beats / max(1, total_overlap_beats))
-            use_tight = dissonance_ratio < 0.30
-
-            if use_tight:
-                for v, notes in trial_voices.items():
-                    voice_lines[v].extend(notes)
-                _log.info(f"  [Fugue] Tight stretto used "
-                      f"(dissonance: {dissonance_ratio:.0%})")
-            else:
-                stretto_offset_bars = max(1, fugue.subject_bars // 2)
-                for vi, v in enumerate(voice_names):
-                    stretto_start = start_bar + vi * stretto_offset_bars
-                    if stretto_start > end_bar:
-                        break
-                    st_pitch = _fugue_start_pitch(v, home_key)
-                    st_notes = MotivicEngine.realize_motif(
-                        fugue.subject, st_pitch, stretto_start, 1.0)
-                    lo_v, hi_v = voice_ranges[v]
-                    for n in st_notes:
-                        n.midi = max(lo_v, min(hi_v, n.midi))
-                        if n.bar <= end_bar:
-                            voice_lines[v].append(n)
-                _log.info(f"  [Fugue] Wide stretto used "
-                      f"(tight dissonance: {dissonance_ratio:.0%} > 30%)")
+            _handle_fugue_stretto(
+                start_bar, end_bar, fugue, home_key,
+                voice_names, voice_ranges, voice_lines,
+            )
 
         elif sec_type == SectionType.CODA:
-            dominant_pitch = _fugue_start_pitch("bass", home_key) + 7
-            tonic_pitch_bass = _fugue_start_pitch("bass", home_key)
-            lo_b, hi_b = voice_ranges["bass"]
-            dominant_pitch = max(lo_b, min(hi_b, dominant_pitch))
-            tonic_pitch_bass = max(lo_b, min(hi_b, tonic_pitch_bass))
-
-            dom_pedal_bars = max(2, round(section_bars * 0.67))
-            tonic_pedal_bars = max(1, section_bars - dom_pedal_bars)
-
-            for bar in range(start_bar, start_bar + dom_pedal_bars):
-                if bar <= end_bar:
-                    voice_lines["bass"].append(MelodicNote(
-                        midi=dominant_pitch,
-                        bar=bar,
-                        beat=1.0,
-                        duration_beats=4.0,
-                        is_chord_tone=True,
-                    ))
-
-            for bar in range(start_bar + dom_pedal_bars, end_bar + 1):
-                voice_lines["bass"].append(MelodicNote(
-                    midi=tonic_pitch_bass,
-                    bar=bar,
-                    beat=1.0,
-                    duration_beats=4.0,
-                    is_chord_tone=True,
-                ))
-
-            for v in ["soprano", "alto"]:
-                dim_frag = MotivicEngine.transform(
-                    fugue.subject, MotivicEngine.DIMINUTION)
-                frag = MotivicEngine.transform(
-                    dim_frag, MotivicEngine.FRAGMENTATION)
-                fp_pitch = voice_starts[v]
-                fp_notes = MotivicEngine.realize_motif(
-                    frag, fp_pitch, start_bar, 1.0)
-                lo_v, hi_v = voice_ranges[v]
-                for n in fp_notes:
-                    n.midi = max(lo_v, min(hi_v, n.midi))
-                    if n.bar <= end_bar:
-                        voice_lines[v].append(n)
-
-                tonic_start_bar = start_bar + dom_pedal_bars
-                if tonic_start_bar <= end_bar:
-                    inv_frag = MotivicEngine.transform(
-                        frag, MotivicEngine.INVERSION)
-                    inv_notes = MotivicEngine.realize_motif(
-                        inv_frag, fp_pitch, tonic_start_bar, 1.0)
-                    for n in inv_notes:
-                        n.midi = max(lo_v, min(hi_v, n.midi))
-                        if n.bar <= end_bar:
-                            voice_lines[v].append(n)
-
-                tonic_v = _fugue_start_pitch(v, home_key)
-                voice_lines[v].append(MelodicNote(
-                    midi=tonic_v, bar=end_bar, beat=3.0,
-                    duration_beats=2.0, is_chord_tone=True,
-                ))
+            _handle_fugue_coda(
+                start_bar, end_bar, section_bars, home_key, fugue,
+                voice_starts, voice_ranges, voice_lines,
+            )
 
         else:
-            for v in voice_names:
-                fp_pitch = voice_starts[v]
-                fp_motif = _build_fugue_episode_sequence(
-                    fugue.countersubject, section_bars, direction=-1)
-                fp_notes = MotivicEngine.realize_motif(
-                    fp_motif, fp_pitch, start_bar, 1.0)
-                lo_v, hi_v = voice_ranges[v]
-                for n in fp_notes:
-                    n.midi = max(lo_v, min(hi_v, n.midi))
-                    if n.bar <= end_bar:
-                        voice_lines[v].append(n)
+            _handle_fugue_default_section(
+                start_bar, end_bar, section_bars, fugue,
+                voice_names, voice_starts, voice_ranges, voice_lines,
+            )
 
     _fix_fugue_parallels(voice_lines, scale_pitches)
 
@@ -484,6 +272,281 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
     vl_ir.inner_voices = {"alto": voice_lines["alto"], "tenor": []}
     vl_ir.bass_line = voice_lines["bass"]
 
+    _assign_fugue_voices_to_chords(vl_ir, voice_lines)
+    _log_fugue_summary(voice_lines, fugue)
+    return vl_ir
+
+
+def _resolve_fugue_local_key(sub_type, form_ir: FormIR, home_key: str) -> str:
+    local_key = home_key
+    for section in form_ir.sections:
+        for sub in section.subsections:
+            if sub.type == sub_type and sub.notes:
+                local_key = sub.key
+                break
+    return local_key
+
+
+def _clamp_notes_to_range_and_append(notes: List[MelodicNote], lo: int, hi: int,
+                                     end_bar: int, target: List[MelodicNote]) -> None:
+    for n in notes:
+        n.midi = max(lo, min(hi, n.midi))
+        if n.bar <= end_bar:
+            target.append(n)
+
+
+def _handle_fugue_exposition(
+    sub_type, sec_idx: int, start_bar: int, end_bar: int, section_bars: int,
+    local_key: str, sub_ranges, form_ir: FormIR, fugue,
+    voice_names: List[str],
+    voice_starts: Dict[str, int], voice_ranges: Dict[str, Tuple[int, int]],
+    voice_lines: Dict[str, List[MelodicNote]],
+    voice_busy_until: Dict[str, int],
+) -> None:
+    notes_annotation = ""
+    for section in form_ir.sections:
+        for sub in section.subsections:
+            if (sub.type == sub_type and sub.key == local_key
+                    and sub.bars == section_bars):
+                notes_annotation = sub.notes
+                break
+
+    if "voice_0" in notes_annotation or (
+            sub_type == SubsectionType.SUBJECT_ENTRY and sec_idx == 0
+            and start_bar == sub_ranges[0][3]):
+        entering_voice = "soprano"
+        motif = fugue.subject
+        start_pitch = voice_starts["soprano"]
+    elif "voice_1" in notes_annotation or sub_type == SubsectionType.ANSWER_ENTRY:
+        entering_voice = "alto"
+        motif = fugue.answer
+        start_pitch = voice_starts["alto"] + 7
+        lo, hi = voice_ranges["alto"]
+        while start_pitch > hi:
+            start_pitch -= 12
+        while start_pitch < lo:
+            start_pitch += 12
+    else:
+        entering_voice = "bass"
+        motif = fugue.subject
+        start_pitch = voice_starts["bass"]
+
+    entry_notes = MotivicEngine.realize_motif(motif, start_pitch, start_bar, 1.0)
+    lo, hi = voice_ranges[entering_voice]
+    _clamp_notes_to_range_and_append(entry_notes, lo, hi, end_bar,
+                                     voice_lines[entering_voice])
+    voice_busy_until[entering_voice] = end_bar
+
+    for v in voice_names:
+        if v == entering_voice:
+            continue
+        if voice_busy_until[v] < start_bar:
+            continue
+        cs_pitch = voice_starts[v]
+        if v == "soprano" and entering_voice == "alto":
+            cs_pitch = voice_starts["soprano"]
+        elif v == "soprano" and entering_voice == "bass":
+            cs_pitch = voice_starts["soprano"]
+        elif v == "alto" and entering_voice == "bass":
+            cs_pitch = voice_starts["alto"]
+
+        cs_notes = MotivicEngine.realize_motif(
+            fugue.countersubject, cs_pitch, start_bar, 1.0)
+        lo_v, hi_v = voice_ranges[v]
+        _clamp_notes_to_range_and_append(cs_notes, lo_v, hi_v, end_bar,
+                                         voice_lines[v])
+
+
+def _handle_fugue_episode(
+    start_bar: int, end_bar: int, section_bars: int, fugue,
+    voice_names: List[str],
+    voice_starts: Dict[str, int], voice_ranges: Dict[str, Tuple[int, int]],
+    voice_lines: Dict[str, List[MelodicNote]],
+    voice_busy_until: Dict[str, int],
+) -> None:
+    episode_seq = _build_fugue_episode_sequence(
+        fugue.subject, section_bars, direction=-1)
+    for vi, v in enumerate(voice_names):
+        ep_start_beat = 1.0 + vi * 0.5
+        ep_start_bar = start_bar
+        if ep_start_beat > 4.0:
+            ep_start_beat -= 4.0
+            ep_start_bar += 1
+
+        pitch_offset = vi * 7
+        ep_pitch = voice_starts[v] + (pitch_offset % 12)
+        lo_v, hi_v = voice_ranges[v]
+        ep_pitch = max(lo_v, min(hi_v, ep_pitch))
+
+        ep_notes = MotivicEngine.realize_motif(
+            episode_seq, ep_pitch, ep_start_bar, ep_start_beat)
+        _clamp_notes_to_range_and_append(ep_notes, lo_v, hi_v, end_bar,
+                                         voice_lines[v])
+        voice_busy_until[v] = end_bar
+
+
+def _handle_fugue_middle_entry(
+    start_bar: int, end_bar: int, section_bars: int, local_key: str, fugue,
+    voice_starts: Dict[str, int], voice_ranges: Dict[str, Tuple[int, int]],
+    voice_lines: Dict[str, List[MelodicNote]],
+) -> None:
+    rel_tonic = _fugue_start_pitch("alto", local_key)
+    mid_notes = MotivicEngine.realize_motif(
+        fugue.subject, rel_tonic, start_bar, 1.0)
+    lo_a, hi_a = voice_ranges["alto"]
+    _clamp_notes_to_range_and_append(mid_notes, lo_a, hi_a, end_bar,
+                                     voice_lines["alto"])
+
+    for v in ["soprano", "bass"]:
+        fp_pitch = voice_starts[v]
+        frag = MotivicEngine.transform(
+            fugue.countersubject, MotivicEngine.FRAGMENTATION)
+        fp_motif = _build_fugue_episode_sequence(
+            frag, section_bars, direction=1 if v == "soprano" else -1)
+        fp_notes = MotivicEngine.realize_motif(
+            fp_motif, fp_pitch, start_bar, 1.0)
+        lo_v, hi_v = voice_ranges[v]
+        _clamp_notes_to_range_and_append(fp_notes, lo_v, hi_v, end_bar,
+                                         voice_lines[v])
+
+
+def _handle_fugue_stretto(
+    start_bar: int, end_bar: int, fugue, home_key: str,
+    voice_names: List[str],
+    voice_ranges: Dict[str, Tuple[int, int]],
+    voice_lines: Dict[str, List[MelodicNote]],
+) -> None:
+    tight_offset_beats = 2.0
+    trial_voices: Dict[str, List[MelodicNote]] = {}
+    for vi, v in enumerate(voice_names):
+        total_offset_beats = vi * tight_offset_beats
+        st_bar = start_bar + int(total_offset_beats // 4)
+        st_beat = 1.0 + (total_offset_beats % 4)
+        if st_bar > end_bar:
+            break
+        st_pitch = _fugue_start_pitch(v, home_key)
+        st_notes = MotivicEngine.realize_motif(
+            fugue.subject, st_pitch, st_bar, st_beat)
+        lo_v, hi_v = voice_ranges[v]
+        for n in st_notes:
+            n.midi = max(lo_v, min(hi_v, n.midi))
+        trial_voices[v] = [n for n in st_notes if n.bar <= end_bar]
+
+    dissonance_ratio = _stretto_dissonance_ratio(trial_voices)
+    use_tight = dissonance_ratio < 0.30
+
+    if use_tight:
+        for v, notes in trial_voices.items():
+            voice_lines[v].extend(notes)
+        _log.info(f"  [Fugue] Tight stretto used "
+                  f"(dissonance: {dissonance_ratio:.0%})")
+    else:
+        stretto_offset_bars = max(1, fugue.subject_bars // 2)
+        for vi, v in enumerate(voice_names):
+            stretto_start = start_bar + vi * stretto_offset_bars
+            if stretto_start > end_bar:
+                break
+            st_pitch = _fugue_start_pitch(v, home_key)
+            st_notes = MotivicEngine.realize_motif(
+                fugue.subject, st_pitch, stretto_start, 1.0)
+            lo_v, hi_v = voice_ranges[v]
+            _clamp_notes_to_range_and_append(st_notes, lo_v, hi_v, end_bar,
+                                             voice_lines[v])
+        _log.info(f"  [Fugue] Wide stretto used "
+                  f"(tight dissonance: {dissonance_ratio:.0%} > 30%)")
+
+
+def _stretto_dissonance_ratio(trial_voices: Dict[str, List[MelodicNote]]) -> float:
+    dissonant_beats = 0
+    total_overlap_beats = 0
+    if len(trial_voices) >= 2:
+        v_list = list(trial_voices.values())
+        for notes_a in v_list:
+            for na in notes_a:
+                pos_a = (na.bar - 1) * 4 + na.beat
+                for notes_b in v_list:
+                    if notes_b is notes_a:
+                        continue
+                    for nb in notes_b:
+                        pos_b = (nb.bar - 1) * 4 + nb.beat
+                        if abs(pos_a - pos_b) < 0.5:
+                            total_overlap_beats += 1
+                            interval = abs(na.midi - nb.midi) % 12
+                            if interval in (1, 2, 6, 11):
+                                dissonant_beats += 1
+    return dissonant_beats / max(1, total_overlap_beats)
+
+
+def _handle_fugue_coda(
+    start_bar: int, end_bar: int, section_bars: int, home_key: str, fugue,
+    voice_starts: Dict[str, int], voice_ranges: Dict[str, Tuple[int, int]],
+    voice_lines: Dict[str, List[MelodicNote]],
+) -> None:
+    dominant_pitch = _fugue_start_pitch("bass", home_key) + 7
+    tonic_pitch_bass = _fugue_start_pitch("bass", home_key)
+    lo_b, hi_b = voice_ranges["bass"]
+    dominant_pitch = max(lo_b, min(hi_b, dominant_pitch))
+    tonic_pitch_bass = max(lo_b, min(hi_b, tonic_pitch_bass))
+
+    dom_pedal_bars = max(2, round(section_bars * 0.67))
+
+    for bar in range(start_bar, start_bar + dom_pedal_bars):
+        if bar <= end_bar:
+            voice_lines["bass"].append(MelodicNote(
+                midi=dominant_pitch, bar=bar, beat=1.0,
+                duration_beats=4.0, is_chord_tone=True,
+            ))
+    for bar in range(start_bar + dom_pedal_bars, end_bar + 1):
+        voice_lines["bass"].append(MelodicNote(
+            midi=tonic_pitch_bass, bar=bar, beat=1.0,
+            duration_beats=4.0, is_chord_tone=True,
+        ))
+
+    for v in ["soprano", "alto"]:
+        dim_frag = MotivicEngine.transform(
+            fugue.subject, MotivicEngine.DIMINUTION)
+        frag = MotivicEngine.transform(dim_frag, MotivicEngine.FRAGMENTATION)
+        fp_pitch = voice_starts[v]
+        fp_notes = MotivicEngine.realize_motif(
+            frag, fp_pitch, start_bar, 1.0)
+        lo_v, hi_v = voice_ranges[v]
+        _clamp_notes_to_range_and_append(fp_notes, lo_v, hi_v, end_bar,
+                                         voice_lines[v])
+
+        tonic_start_bar = start_bar + dom_pedal_bars
+        if tonic_start_bar <= end_bar:
+            inv_frag = MotivicEngine.transform(frag, MotivicEngine.INVERSION)
+            inv_notes = MotivicEngine.realize_motif(
+                inv_frag, fp_pitch, tonic_start_bar, 1.0)
+            _clamp_notes_to_range_and_append(inv_notes, lo_v, hi_v, end_bar,
+                                             voice_lines[v])
+
+        tonic_v = _fugue_start_pitch(v, home_key)
+        voice_lines[v].append(MelodicNote(
+            midi=tonic_v, bar=end_bar, beat=3.0,
+            duration_beats=2.0, is_chord_tone=True,
+        ))
+
+
+def _handle_fugue_default_section(
+    start_bar: int, end_bar: int, section_bars: int, fugue,
+    voice_names: List[str],
+    voice_starts: Dict[str, int], voice_ranges: Dict[str, Tuple[int, int]],
+    voice_lines: Dict[str, List[MelodicNote]],
+) -> None:
+    for v in voice_names:
+        fp_pitch = voice_starts[v]
+        fp_motif = _build_fugue_episode_sequence(
+            fugue.countersubject, section_bars, direction=-1)
+        fp_notes = MotivicEngine.realize_motif(
+            fp_motif, fp_pitch, start_bar, 1.0)
+        lo_v, hi_v = voice_ranges[v]
+        _clamp_notes_to_range_and_append(fp_notes, lo_v, hi_v, end_bar,
+                                         voice_lines[v])
+
+
+def _assign_fugue_voices_to_chords(vl_ir: VoiceLeadingIR,
+                                   voice_lines: Dict[str, List[MelodicNote]]) -> None:
     for ce in vl_ir.chords:
         s_note = _find_nearest_note(voice_lines["soprano"], ce.bar, ce.beat)
         a_note = _find_nearest_note(voice_lines["alto"], ce.bar, ce.beat)
@@ -496,14 +559,14 @@ def pass_4_melody_fugue(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
         if b_note:
             ce.bass = b_note.midi
 
+
+def _log_fugue_summary(voice_lines: Dict[str, List[MelodicNote]], fugue) -> None:
     total_notes = sum(len(v) for v in voice_lines.values())
     _log.info(f"  [Fugue] Subject: {len(fugue.subject.intervals)+1} notes, "
-          f"{fugue.subject_bars} bars")
+              f"{fugue.subject_bars} bars")
     _log.info(f"  [Fugue] Voice lines: S={len(voice_lines['soprano'])}, "
-          f"A={len(voice_lines['alto'])}, B={len(voice_lines['bass'])}")
+              f"A={len(voice_lines['alto'])}, B={len(voice_lines['bass'])}")
     _log.info(f"  [Fugue] Total notes: {total_notes}")
-
-    return vl_ir
 
 
 # ============================================================================
