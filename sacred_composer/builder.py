@@ -228,8 +228,14 @@ class CompositionBuilder:
         rhythm_pattern: str = "euclidean_5_8",
         base_duration: float = 0.75,
         seed: int = 0,
+        text: str | None = None,
     ) -> "CompositionBuilder":
-        """Add a melody voice with constraint-aware voice leading."""
+        """Add a melody voice with constraint-aware voice leading.
+
+        ``text`` is only used when ``pattern="text"`` — the Guido d'Arezzo
+        vowel mapping (a/e/i/o/u → 0/1/2/3/4) extracts pitch degrees from
+        it. When None, a sensible default string is used.
+        """
         self._voices.append({
             "role": "melody",
             "pattern": pattern,
@@ -238,6 +244,7 @@ class CompositionBuilder:
             "rhythm_pattern": rhythm_pattern,
             "base_duration": base_duration,
             "seed": seed,
+            "text": text,
         })
         return self
 
@@ -664,8 +671,17 @@ class CompositionBuilder:
         raw = ZipfDistribution(n_categories=12, exponent=1.0, seed=seed).generate(n)
         return to_pitch(raw, scale=self.key, octave_range=octave_range, strategy="modular")
 
-    def _gen_text(self, n: int, seed: int, octave_range: tuple[int, int]) -> list[int]:
-        raw = TextToMelody().generate(n)
+    def _gen_text(
+        self,
+        n: int,
+        seed: int,
+        octave_range: tuple[int, int],
+        text: str | None = None,
+    ) -> list[int]:
+        if text:
+            raw = TextToMelody(text).generate(n)
+        else:
+            raw = TextToMelody().generate(n)
         return to_pitch(raw, scale=self.key, octave_range=octave_range, strategy="modular")
 
     PATTERN_GENERATORS: dict[str, str] = {
@@ -691,6 +707,10 @@ class CompositionBuilder:
         if method_name is None:
             # Default fallback to infinity_series
             method_name = self.PATTERN_GENERATORS["infinity_series"]
+        # The text pattern needs the per-voice text string (Guido d'Arezzo
+        # vowel mapping). Other patterns ignore it.
+        if pattern == "text":
+            return self._gen_text(n, seed, octave_range, text=v_spec.get("text"))
         return getattr(self, method_name)(n, seed, octave_range)
 
     def _walking_bass(self, chord_tones: list[int], n: int, seed: int) -> list[int]:

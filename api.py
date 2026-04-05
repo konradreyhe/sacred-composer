@@ -316,7 +316,10 @@ async def compose_from_name(name: str):
         title=f"{clean}'s Melody",
     )
     builder.form(pattern="fibonacci", n_sections=4)
-    builder.melody(pattern="text", instrument="violin", seed=seed)
+    # Pass the actual name as the text — Guido d'Arezzo vowel mapping
+    # extracts a/e/i/o/u → 0/1/2/3/4 as pitch degrees, so the melody
+    # contour is literally derived from the user's name.
+    builder.melody(pattern="text", instrument="violin", seed=seed, text=clean)
     builder.inner_voice(pattern="golden_spiral", instrument="oboe", seed=seed + 5)
     builder.bass(pattern="harmonic_series", instrument="cello", seed=seed + 10)
     piece = builder.build()
