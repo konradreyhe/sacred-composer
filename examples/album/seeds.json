@@ -1,0 +1,110 @@
+{
+  "album": "Sacred Geometry Vol. 1",
+  "config": {
+    "tempo": 72,
+    "bars": 48,
+    "form_pattern": "fibonacci",
+    "n_sections": 5,
+    "melody_instrument": "violin",
+    "bass_instrument": "cello",
+    "bass_pattern": "harmonic_series",
+    "bass_seed_offset": 10
+  },
+  "tracks": [
+    {
+      "number": 1,
+      "title": "Threshold",
+      "pattern": "fibonacci",
+      "key": "Bb_minor",
+      "seed": 3,
+      "eval_score": 90.17,
+      "l1_pass": true,
+      "notes": "Discovered via grid search (180 candidates, 15 seeds x 12 keys). Peak-score for this pattern."
+    },
+    {
+      "number": 2,
+      "title": "The Infinite Series",
+      "pattern": "infinity_series",
+      "key": "C_major",
+      "seed": 1,
+      "eval_score": 90.17,
+      "l1_pass": true,
+      "notes": "Per Norgard's 1959 self-similar sequence. Seed=1 is the purest form."
+    },
+    {
+      "number": 3,
+      "title": "Golden Spiral",
+      "pattern": "golden_spiral",
+      "key": "A_minor",
+      "seed": 11,
+      "eval_score": 89.97,
+      "l1_pass": true,
+      "notes": "Derived from phi; climax deliberately at bar 30 (golden section)."
+    },
+    {
+      "number": 4,
+      "title": "Harmonic Series",
+      "pattern": "harmonic_series",
+      "key": "E_minor",
+      "seed": 11,
+      "eval_score": 91.09,
+      "l1_pass": true,
+      "notes": "Second-highest score on the album. Physical basis of consonance."
+    },
+    {
+      "number": 5,
+      "title": "Logistic Map (r=3.7)",
+      "pattern": "logistic",
+      "key": "D_major",
+      "seed": 3,
+      "eval_score": 90.26,
+      "l1_pass": true,
+      "notes": "Edge-of-chaos dynamics. The same equation models population growth."
+    },
+    {
+      "number": 6,
+      "title": "Mandelbrot Boundary",
+      "pattern": "mandelbrot",
+      "key": "E_minor",
+      "seed": 2,
+      "eval_score": 89.40,
+      "l1_pass": true,
+      "notes": "Walk along the boundary of the Mandelbrot set. SIGNATURE TRACK — receives Goosebump Engine in Week 2."
+    },
+    {
+      "number": 7,
+      "title": "Rossler's Strange Attractor",
+      "pattern": "rossler",
+      "key": "E_minor",
+      "seed": 10,
+      "eval_score": 85.54,
+      "l1_pass": true,
+      "notes": "Lowest-scoring track but its suspended quality fits the album's arc. Otto Rossler 1976."
+    },
+    {
+      "number": 8,
+      "title": "Cantor's Dust",
+      "pattern": "cantor",
+      "key": "F#_minor",
+      "seed": 3,
+      "eval_score": 86.44,
+      "l1_pass": true,
+      "notes": "Fractal silence: middle-third removal creates characteristically sparse rhythms."
+    },
+    {
+      "number": 9,
+      "title": "Zipf's Law",
+      "pattern": "zipf",
+      "key": "F#_minor",
+      "seed": 8,
+      "eval_score": 89.90,
+      "l1_pass": true,
+      "notes": "Rank-frequency distribution found in natural language and music. Third-best-scoring track."
+    }
+  ],
+  "averages": {
+    "eval_score": 89.22,
+    "l1_pass_rate": 1.0
+  },
+  "notes": "Track 10 TBD — originally Thue-Morse, but ThueMorse pattern isn't exposed through builder yet. Options: (a) wire it in, (b) pick a second seed from one of the 9 patterns, (c) ship as a 9-track album. 9 tracks × ~4 min = ~36 min runtime which is still a legit album length (slightly below the 40 min in the plan)."
+}
