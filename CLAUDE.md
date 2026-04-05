@@ -29,7 +29,7 @@ sacred_composer/     # Core package (20 modules, 8,600+ lines)
   bridge.py          # PerformanceIR bridge
 
 composer/            # Decomposed 9-pass pipeline (24 files)
-tests/               # 241 pytest tests (11 files)
+tests/               # 327 pytest tests (14 files)
 examples/            # Example scripts and sonification demos
 viz/                 # Remotion visualization scaffold
 web/                 # Standalone generative player (HTML/JS)
@@ -38,7 +38,7 @@ web/                 # Standalone generative player (HTML/JS)
 ## Key Commands
 
 ```bash
-python -m pytest tests/ -v          # Run 241 tests
+python -m pytest tests/ -v          # Run 327 tests
 python playground.py                # Streamlit interactive UI (needs: pip install streamlit)
 python api.py                       # FastAPI at localhost:8000/docs
 python examples/sacred_showcase_v2.py  # Generate 8 demo compositions

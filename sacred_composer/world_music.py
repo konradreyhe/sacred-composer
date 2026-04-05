@@ -8,7 +8,7 @@ polyrhythm, Japanese form, Balinese kotekan, and overtone singing.
 from __future__ import annotations
 
 import math
-import random as _rng_mod
+import random
 from typing import Iterator
 
 from sacred_composer.core import Composition
@@ -152,7 +152,7 @@ class Raga:
         jaru = slide (approach from below by 0.5)
         nokku = stress/push (slight sharp, +0.15)
         """
-        rng = _rng_mod.Random(pitches[0] if pitches else 0)
+        rng = random.Random(pitches[0] if pitches else 0)
         result = []
         for p in pitches:
             pc = p % 12
