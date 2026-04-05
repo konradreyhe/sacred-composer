@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-**94.0/100 L1 PASS** (Bb_minor golden_spiral seed=47, 0 violations). Top 3 L1 PASS: Bb_minor/47 (94.0), Bb_minor/3 (92.0), Bb_minor/38 (91.7). 22/50 Bb_minor seeds achieve L1 PASS. Eight metrics at 100 (entropy, phrase_boundaries, thematic_development, form_proportions, intentionality, directional_momentum, cadence_placement [98]). Weakest: transition_motivation (66.7), chord_vocabulary (83.3).
+**90.78/100 L1 PASS** (Bb_minor seed=43, 0 violations). Reproducible config: `CompositionBuilder(key="Bb_minor", tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern="golden_spiral", instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. L1 PASS rate 32/50 seeds. Top 3: seed=43 (90.78), seed=34 (89.76), seed=47 (88.67). Weakest metrics: transition_motivation, chord_vocabulary, tension_arc. Known blocker for 95+: structural conflict between `tension_arc` (rewards density falloff at end) and `transition_motivation` (penalizes that same falloff). See HANDOVER.md for full analysis. Note: earlier 94.0/seed=47 claim (commit 124efef) could not be reproduced — seed=43 consistently beats seed=47.
 
 ## Key Files
 
