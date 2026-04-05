@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-**90.78/100 L1 PASS** (Bb_minor seed=43, 0 violations). Reproducible config: `CompositionBuilder(key="Bb_minor", tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern="golden_spiral", instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. L1 PASS rate 32/50 seeds. Top 3: seed=43 (90.78), seed=34 (89.76), seed=47 (88.67). Weakest metrics: transition_motivation, chord_vocabulary, tension_arc. Known blocker for 95+: structural conflict between `tension_arc` (rewards density falloff at end) and `transition_motivation` (penalizes that same falloff). See HANDOVER.md for full analysis. Note: earlier 94.0/seed=47 claim (commit 124efef) could not be reproduced — seed=43 consistently beats seed=47.
+**91.96/100 L1 PASS** (Bb_minor seed=43, 0 violations) — new peak as of session 10 (commit `6021902`, crescendo entry). Reproducible config: `CompositionBuilder(key="Bb_minor", tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern="golden_spiral", instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. The crescendo entry (`_apply_crescendo_entry` in `sacred_composer/builder.py`) lifted `L3.tension_arc` 79.02→88.67 with no regressions. Weakest metrics now: `L4.transition_motivation` (71.43), `L2.interval_distribution` (86.43), `L2.chord_vocabulary` (88.19). Pre-crescendo baseline was 90.78. See HANDOVER.md for session-10 findings (including why the tail-merge approach failed). Note: earlier 94.0/seed=47 claim (commit 124efef) still unreproduced — seed=47 currently 89.66.
 
 ## Key Files
 
