@@ -392,6 +392,87 @@ _current_fugue: Optional[object] = None
 # parse_prompt
 # ============================================================================
 
+_FORM_KEYWORDS: list[tuple[tuple[str, ...], FormType]] = [
+    (("fugue", "fugal"), FormType.FUGUE),
+    (("sonata", "exposition"), FormType.SONATA),
+    (("rondo", "abaca"), FormType.RONDO),
+    (("variation",), FormType.THEME_AND_VARIATIONS),
+    (("ternary", "aba"), FormType.TERNARY),
+]
+
+_INSTRUMENT_GROUPS: list[tuple[str, list[str]]] = [
+    ("string quartet", ["violin1", "violin2", "viola", "cello"]),
+    ("orchestra", ["violin1", "violin2", "viola", "cello", "bass",
+                   "flute", "oboe", "clarinet", "bassoon", "horn"]),
+    ("piano", ["piano"]),
+]
+
+_CHARACTER_TEMPO: Dict[CharacterToken, int] = {
+    CharacterToken.HEROIC: 132, CharacterToken.LYRICAL: 72,
+    CharacterToken.MYSTERIOUS: 66, CharacterToken.AGITATED: 144,
+    CharacterToken.SERENE: 60, CharacterToken.TRIUMPHANT: 120,
+    CharacterToken.TRAGIC: 72, CharacterToken.PASTORAL: 80,
+    CharacterToken.STORMY: 152, CharacterToken.NOBLE: 100,
+    CharacterToken.PLAYFUL: 116, CharacterToken.TENDER: 63,
+    CharacterToken.ANGUISHED: 88, CharacterToken.MAJESTIC: 92,
+}
+
+
+def _detect_form(text_lower: str) -> FormType:
+    for keywords, form in _FORM_KEYWORDS:
+        if any(k in text_lower for k in keywords):
+            return form
+    return FormType.TERNARY
+
+
+def _detect_key(text_lower: str) -> KeyToken:
+    for name, token in _KEY_MAP.items():
+        if name in text_lower:
+            return token
+    return KeyToken.C_MAJOR
+
+
+def _detect_character(text_lower: str) -> CharacterToken:
+    for name, token in _CHARACTER_MAP.items():
+        if name in text_lower:
+            return token
+    return CharacterToken.HEROIC
+
+
+def _detect_instrumentation(text_lower: str) -> List[str]:
+    for needle, insts in _INSTRUMENT_GROUPS:
+        if needle in text_lower:
+            return list(insts)
+    return ["piano"]
+
+
+def _extract_clamped_int(text_lower: str, pattern: str,
+                         lo: int, hi: int, default: int) -> tuple[int, bool]:
+    """Return (value, was_matched) for an integer pattern like '40 bars'."""
+    m = re.search(pattern, text_lower)
+    if m:
+        return max(lo, min(hi, int(m.group(1)))), True
+    return default, False
+
+
+def _form_specific_defaults(
+    form: FormType, text_lower: str, total_bars: int, tempo_bpm: int,
+    bar_was_matched: bool,
+) -> tuple[int, int]:
+    """Apply per-form default bar-count and tempo overrides."""
+    if form == FormType.FUGUE:
+        if not bar_was_matched:
+            total_bars = rng().choice([24, 28, 32])
+        if "bach" in text_lower:
+            tempo_bpm = 76
+    elif form == FormType.RONDO:
+        if not bar_was_matched:
+            total_bars = rng().choice([32, 40, 48])
+        if "lively" in text_lower or "spirited" in text_lower:
+            tempo_bpm = max(tempo_bpm, 120)
+    return total_bars, tempo_bpm
+
+
 def parse_prompt(text: str) -> dict:
     """
     Parse a natural-language composition prompt into a structured plan dict.
@@ -403,89 +484,25 @@ def parse_prompt(text: str) -> dict:
     """
     text_lower = text.lower()
 
-    # --- Detect form ---
-    form = FormType.TERNARY  # default
-    if "fugue" in text_lower or "fugal" in text_lower:
-        form = FormType.FUGUE
-    elif "sonata" in text_lower or "exposition" in text_lower:
-        form = FormType.SONATA
-    elif "rondo" in text_lower or "abaca" in text_lower:
-        form = FormType.RONDO
-    elif "variation" in text_lower:
-        form = FormType.THEME_AND_VARIATIONS
-    elif "ternary" in text_lower or "aba" in text_lower:
-        form = FormType.TERNARY
+    form = _detect_form(text_lower)
+    home_key = _detect_key(text_lower)
+    character = _detect_character(text_lower)
+    instrumentation = _detect_instrumentation(text_lower)
 
-    # --- Detect key ---
-    home_key = KeyToken.C_MAJOR  # default
-    for name, token in _KEY_MAP.items():
-        if name in text_lower:
-            home_key = token
-            break
+    total_bars, bar_was_matched = _extract_clamped_int(
+        text_lower, r"(\d+)\s*bars?", lo=8, hi=200, default=32,
+    )
+    num_variations, _ = _extract_clamped_int(
+        text_lower, r"(\d+)\s*variation", lo=1, hi=6, default=3,
+    )
+    fugue_voices, _ = _extract_clamped_int(
+        text_lower, r"(\d+)\s*voice", lo=2, hi=4, default=3,
+    )
 
-    # --- Detect character ---
-    character = CharacterToken.HEROIC
-    for name, token in _CHARACTER_MAP.items():
-        if name in text_lower:
-            character = token
-            break
-
-    # --- Detect bar count ---
-    total_bars = 32  # default
-    bar_match = re.search(r"(\d+)\s*bars?", text_lower)
-    if bar_match:
-        total_bars = int(bar_match.group(1))
-        total_bars = max(8, min(200, total_bars))  # clamp
-
-    # --- Detect instrumentation ---
-    instrumentation = ["piano"]  # default
-    if "string quartet" in text_lower:
-        instrumentation = ["violin1", "violin2", "viola", "cello"]
-    elif "orchestra" in text_lower:
-        instrumentation = ["violin1", "violin2", "viola", "cello", "bass",
-                           "flute", "oboe", "clarinet", "bassoon", "horn"]
-    elif "piano" in text_lower:
-        instrumentation = ["piano"]
-
-    # --- Detect variation count ---
-    num_variations = 3
-    var_match = re.search(r"(\d+)\s*variation", text_lower)
-    if var_match:
-        num_variations = int(var_match.group(1))
-        num_variations = max(1, min(6, num_variations))
-
-    # --- Detect fugue voice count ---
-    fugue_voices = 3
-    voice_match = re.search(r"(\d+)\s*voice", text_lower)
-    if voice_match:
-        fugue_voices = max(2, min(4, int(voice_match.group(1))))
-
-    # --- Detect tempo from character ---
-    tempo_map = {
-        CharacterToken.HEROIC: 132, CharacterToken.LYRICAL: 72,
-        CharacterToken.MYSTERIOUS: 66, CharacterToken.AGITATED: 144,
-        CharacterToken.SERENE: 60, CharacterToken.TRIUMPHANT: 120,
-        CharacterToken.TRAGIC: 72, CharacterToken.PASTORAL: 80,
-        CharacterToken.STORMY: 152, CharacterToken.NOBLE: 100,
-        CharacterToken.PLAYFUL: 116, CharacterToken.TENDER: 63,
-        CharacterToken.ANGUISHED: 88, CharacterToken.MAJESTIC: 92,
-    }
-    tempo_bpm = tempo_map.get(character, 108)
-
-    # Fugue default: moderate tempo (Bach-style), default 24-32 bars
-    if form == FormType.FUGUE:
-        if not bar_match:
-            total_bars = rng().choice([24, 28, 32])
-        if "bach" in text_lower:
-            tempo_bpm = 76
-
-    # Rondo default: at least 32 bars (ABACA needs space)
-    if form == FormType.RONDO:
-        if not bar_match:
-            total_bars = rng().choice([32, 40, 48])
-        # Rondo is typically lively unless otherwise specified
-        if "lively" in text_lower or "spirited" in text_lower:
-            tempo_bpm = max(tempo_bpm, 120)
+    tempo_bpm = _CHARACTER_TEMPO.get(character, 108)
+    total_bars, tempo_bpm = _form_specific_defaults(
+        form, text_lower, total_bars, tempo_bpm, bar_was_matched,
+    )
 
     return {
         "form": form,
