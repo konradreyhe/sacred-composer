@@ -10,6 +10,7 @@ from SYSTEM_ARCHITECTURE import (
     FormIR, PerformanceNote,
     CharacterToken, ArticulationToken, DynamicToken,
 )
+from sacred_composer.constants import PHI_INVERSE
 
 
 # Character -> expression parameters
@@ -36,7 +37,7 @@ def _tension_curve(t: float) -> float:
     Global tension curve: rises from 0.0 to peak 1.0 at the golden ratio
     (t=0.618), then descends to 0.0 at t=1.0.
     """
-    CLIMAX = 0.618
+    CLIMAX = PHI_INVERSE
     t = max(0.0, min(1.0, t))
     if t <= CLIMAX:
         return (t / CLIMAX) ** 1.5

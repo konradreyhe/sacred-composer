@@ -46,6 +46,10 @@ from composer.passes.pass_6_orchestration import (
 from composer.passes.pass_7_expression import pass_7_expression
 from composer.passes.pass_8_humanization import pass_8_humanization
 from composer.passes.pass_9_validation import pass_9_validation, ValidationReport
+from sacred_composer.constants import PHI_INVERSE
+
+import logging
+_log = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -74,12 +78,13 @@ def fix_augmented_intervals(notes: List[MelodicNote], key_token: KeyToken) -> Li
                             notes[i].midi = candidate
                             fixed = True
                             break
-                    except Exception:
+                    except (ValueError, TypeError) as exc:
+                        _log.debug("candidate interval rejected: %s", exc)
                         continue
                 if not fixed:
                     notes[i].midi -= direction
-        except Exception:
-            pass
+        except (ValueError, TypeError) as exc:
+            _log.debug("interval analysis skipped for pair %d: %s", i, exc)
     return notes
 
 
@@ -517,7 +522,7 @@ def compose(prompt: str, output_file: str = "composed_output.mid",
     tracks = pass_6b_phrase_breathing(tracks, vl_ir, form_ir)
     cadence_count = sum(1 for ce in vl_ir.chords if ce.is_cadential)
     print(f"  Cadence points processed: {cadence_count}")
-    print(f"  General pause at {form_ir.total_bars * 0.618:.0f} bars (~62% golden ratio)")
+    print(f"  General pause at {form_ir.total_bars * PHI_INVERSE:.0f} bars (~62% golden ratio)")
 
     # --- Pass 7: Expression ---
     print(f"\n[Pass 7] Applying expression with tension arc (climax at 62%)...")

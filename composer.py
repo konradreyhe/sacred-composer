@@ -17,9 +17,9 @@ from composer import *  # noqa: F401, F403
 from composer import compose, compose_suite, parse_prompt, pass_1_plan
 from composer import ValidationReport, SAMPLE_PROMPTS
 
-import sys
 
 if __name__ == "__main__":
+    import sys
     from composer.parser import SAMPLE_PROMPTS as _PROMPTS
 
     if len(sys.argv) > 1:

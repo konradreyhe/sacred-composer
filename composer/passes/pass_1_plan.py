@@ -15,6 +15,7 @@ from composer.forms import (
     _build_fugue_plan,
 )
 import composer.parser as _parser_module
+from sacred_composer.constants import PHI_INVERSE
 
 
 def pass_1_plan(parsed: dict) -> FormIR:
@@ -57,7 +58,7 @@ def pass_1_plan(parsed: dict) -> FormIR:
     )
 
     # Log golden-ratio climax target
-    climax_bar = round(actual_bars * 0.618)
+    climax_bar = round(actual_bars * PHI_INVERSE)
     print(f"  [Plan] Golden-ratio climax target: bar {climax_bar}/{actual_bars}")
 
     # Generate seed motif for motivic development

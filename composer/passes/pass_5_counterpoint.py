@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional, Tuple
+
+_log = logging.getLogger(__name__)
 
 from music21 import key as m21key, roman
 
@@ -44,7 +47,10 @@ def pass_5_counterpoint(vl_ir: VoiceLeadingIR, form_ir: FormIR) -> VoiceLeadingI
             local_key_str = _KEY_TO_M21.get(chord_evt.key, m21_key_str)
             rn = roman.RomanNumeral(chord_evt.roman_numeral, m21key.Key(local_key_str))
             available_pcs = [p.pitchClass for p in rn.pitches]
-        except Exception:
+        except (KeyError, ValueError, AttributeError) as exc:
+            _log.debug("roman numeral parse failed for %r: %s; "
+                       "falling back to triad from bass",
+                       chord_evt.roman_numeral, exc)
             available_pcs = [bass % 12, (bass + 4) % 12, (bass + 7) % 12]
 
         # Compute average melodic direction of outer voices for flocking

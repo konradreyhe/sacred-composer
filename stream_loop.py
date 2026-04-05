@@ -61,13 +61,14 @@ def notify_api(metadata: dict, api_url: str = "http://localhost:8000"):
     """POST composition metadata to the API's /stream/update endpoint."""
     try:
         import urllib.request
+        import urllib.error
         data = json.dumps(metadata).encode()
         req = urllib.request.Request(
             f"{api_url}/stream/update", data=data,
             headers={"Content-Type": "application/json"},
         )
         urllib.request.urlopen(req, timeout=2)
-    except Exception:
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
         pass  # API might not be running
 
 

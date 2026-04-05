@@ -35,6 +35,8 @@ from typing import Any, Callable, Dict, List, Optional
 import json
 import re
 
+from sacred_composer.constants import PHI_INVERSE
+
 
 # =============================================================================
 # MASTER SYSTEM PROMPT
@@ -1900,7 +1902,7 @@ def _validate_free_composition(output: dict) -> List[str]:
     total = output.get("total_bars", 0)
     climax = output.get("golden_ratio_climax_bar")
     if total and climax:
-        expected = round(total * 0.618)
+        expected = round(total * PHI_INVERSE)
         if abs(climax - expected) > total * 0.1:
             errors.append(
                 f"golden_ratio_climax_bar={climax} deviates significantly from "

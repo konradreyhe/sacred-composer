@@ -7,10 +7,13 @@ staff grouping.  Compile to PDF/PNG with ``lilypond``.
 
 from __future__ import annotations
 
+import logging
 import statistics
 from typing import Sequence
 
 from sacred_composer.core import Score, Voice, Note
+
+_log = logging.getLogger(__name__)
 
 
 # ── Pitch helpers ────────────────────────────────────────────────────
@@ -55,8 +58,9 @@ try:
     from sacred_composer.core import GM_INSTRUMENTS
     for _name, _prog in GM_INSTRUMENTS.items():
         _GM_PROG_TO_NAME.setdefault(_prog, _name)
-except ImportError:
-    pass
+except ImportError as exc:
+    _log.warning("GM_INSTRUMENTS not available; LilyPond output "
+                 "will use generic instrument names: %s", exc)
 
 
 # ── Conversion utilities ─────────────────────────────────────────────

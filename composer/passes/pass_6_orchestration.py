@@ -11,6 +11,7 @@ from SYSTEM_ARCHITECTURE import (
     PerformanceNote,
 )
 from composer.parser import INSTRUMENT_RANGES
+from sacred_composer.constants import PHI_INVERSE
 
 
 def pass_6_orchestration(vl_ir: VoiceLeadingIR, form_ir: FormIR
@@ -316,7 +317,7 @@ def pass_6b_phrase_breathing(
 
     tolerance = sec_per_beat * 1.5
 
-    gp_time = total_time * 0.618
+    gp_time = total_time * PHI_INVERSE
     gp_duration = sec_per_beat * 1.0
 
     for inst_name, notes in tracks.items():

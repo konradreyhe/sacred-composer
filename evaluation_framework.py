@@ -28,6 +28,8 @@ import numpy as np
 from scipy import stats as sp_stats
 from scipy.spatial.distance import jensenshannon
 
+from sacred_composer.constants import phi, PHI_INVERSE
+
 from music21 import (
     analysis,
     converter,
@@ -125,7 +127,7 @@ def _abs_offset(el, container) -> float:
     """
     try:
         return float(el.getOffsetInHierarchy(container))
-    except Exception:
+    except (AttributeError, ValueError):
         # Fallback: try el.offset (works if the part is flat)
         return float(el.offset)
 
@@ -648,7 +650,7 @@ def rule_no_augmented_melodic_intervals(score: stream.Score) -> List[RuleViolati
                 if alt_key.mode == "minor" and alt_key.correlationCoefficient > k.correlationCoefficient * 0.9:
                     is_minor = True
                     break
-    except Exception:
+    except (AttributeError, TypeError):
         is_minor = False
 
     for v_idx, part in enumerate(parts):
@@ -671,35 +673,17 @@ def rule_no_augmented_melodic_intervals(score: stream.Score) -> List[RuleViolati
                     try:
                         ivl = m21interval.Interval(prev.pitch, n.pitch)
                         if ivl.specifier == m21interval.Specifier.AUGMENTED:
-                            # Skip augmented unisons -- chromatic motion is fine
-                            if abs(ivl.semitones) <= 1:
-                                pass
-                            # Skip augmented 2nds (3 semitones) -- enharmonic
-                            # to a minor 3rd, common in all keys. In minor
-                            # keys this is the raised 6->7 or 7->6, but in
-                            # major keys MIDI pitch-to-spelling ambiguity
-                            # can produce false augmented 2nd intervals.
-                            elif abs(ivl.semitones) == 3:
-                                pass
-                            # Skip augmented 4ths (tritone, 6 semitones) --
-                            # common in tonal music (outlining diminished
-                            # chords, approach to leading tone, etc.)
-                            elif abs(ivl.semitones) == 6:
-                                pass
-                            # Skip augmented 5ths (8 semitones) -- enharmonic
-                            # to a minor 6th, extremely common in tonal music
-                            # and almost never a true compositional error.
-                            elif abs(ivl.semitones) == 8:
-                                pass
-                            # Skip augmented 3rds (5 semitones) -- enharmonic
-                            # to a perfect 4th, common in chromatic passages.
-                            elif abs(ivl.semitones) == 5:
-                                pass
-                            # Skip augmented 6ths (10 semitones) -- enharmonic
-                            # to a minor 7th, common in tonal harmony.
-                            elif abs(ivl.semitones) == 10:
-                                pass
-                            else:
+                            # Skip enharmonic-common augmented intervals:
+                            #   1 semitone: augmented unison = chromatic step
+                            #   3 semitones: augmented 2nd = minor 3rd
+                            #   5 semitones: augmented 3rd = perfect 4th
+                            #   6 semitones: augmented 4th = tritone
+                            #   8 semitones: augmented 5th = minor 6th
+                            #  10 semitones: augmented 6th = minor 7th
+                            # These are either chromatic or enharmonic-
+                            # equivalent to intervals that are normal in
+                            # tonal music, so we don't flag them.
+                            if abs(ivl.semitones) not in (0, 1, 3, 5, 6, 8, 10):
                                 measure = int(prev_off // 4) + 1
                                 violations.append(RuleViolation(
                                     "augmented_interval", measure,
@@ -707,7 +691,9 @@ def rule_no_augmented_melodic_intervals(score: stream.Score) -> List[RuleViolati
                                     (f"voice_{v_idx}",),
                                     f"Augmented {ivl.niceName} ({ivl.semitones} st) in voice {v_idx}"
                                 ))
-                    except Exception:
+                    except (ValueError, TypeError, AttributeError):
+                        # music21 interval construction can fail on exotic
+                        # MIDI pitches; skip and continue analysis.
                         pass
             prev = n
             prev_off = off
@@ -1215,7 +1201,7 @@ def metric_harmonic_rhythm(score: stream.Score) -> MetricResult:
                 if diff > 0:
                     durations.append(diff)
             prev_offset = off
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return MetricResult("L2.harmonic_rhythm", 0, 50.0, 0.10, (0.3, 0.7), "Could not chordify")
 
     if len(durations) < 4:
@@ -1255,7 +1241,7 @@ def metric_chord_vocabulary(score: stream.Score) -> MetricResult:
         for el in chordified.recurse().notes:
             if isinstance(el, m21chord.Chord):
                 chord_names.append(el.orderedPitchClassesString)
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return MetricResult("L2.chord_vocabulary", 0, 50.0, 0.10, (0.15, 0.45), "Error")
 
     if len(chord_names) < 4:
@@ -1346,7 +1332,7 @@ def metric_cadence_placement(score: stream.Score) -> MetricResult:
                 # Enforce minimum spacing from last cadence
                 if not cadence_offsets or (off2 - cadence_offsets[-1]) >= MIN_CADENCE_SPACING:
                     cadence_offsets.append(off2)
-    except Exception:
+    except (AttributeError, TypeError, ValueError, IndexError):
         return MetricResult("L2.cadence_placement", 0, 50.0, 0.10, (12, 36), "Analysis error")
 
     if len(cadence_offsets) < 2:
@@ -1853,7 +1839,9 @@ def metric_tension_arc(score: stream.Score) -> MetricResult:
         d_max = dissonance.max()
         if d_max > 0:
             dissonance /= d_max
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
+        # chordify/pitch extraction can fail on malformed scores;
+        # leave dissonance at zero and continue with velocity signal.
         pass
 
     # Combined tension curve -- include velocity as a primary signal
@@ -1868,7 +1856,7 @@ def metric_tension_arc(score: stream.Score) -> MetricResult:
 
     # Generate target "arch" curve: rise to golden section, then resolve
     t = np.linspace(0, 1, n_bins)
-    golden = 0.618
+    golden = PHI_INVERSE
     target = np.where(t <= golden,
                       np.sin(np.pi * t / (2 * golden)),          # rise phase
                       np.sin(np.pi * (1 - t) / (2 * (1 - golden))))  # fall phase
@@ -1885,7 +1873,7 @@ def metric_tension_arc(score: stream.Score) -> MetricResult:
     # Also check: is the climax near the golden section?
     if len(tension) > 0:
         climax_pos = np.argmax(tension) / len(tension)
-        climax_near_golden = abs(climax_pos - 0.618) < 0.15
+        climax_near_golden = abs(climax_pos - PHI_INVERSE) < 0.15
     else:
         climax_near_golden = False
 
@@ -1983,7 +1971,7 @@ def metric_form_proportions(score: stream.Score) -> MetricResult:
         ratio = max(section1_len, section2_len) / min(section1_len, section2_len)
 
     # Score: how close is ratio to golden ratio (1.618) or unity (1.0)?
-    dist_to_golden = abs(ratio - 1.618)
+    dist_to_golden = abs(ratio - phi)
     dist_to_unity = abs(ratio - 1.0)
     best_dist = min(dist_to_golden, dist_to_unity)
     # Gentler penalty curve — extreme ratios still get partial credit

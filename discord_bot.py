@@ -17,11 +17,14 @@ The bot registers five slash commands:
 
 import discord
 from discord import app_commands
+import logging
 import os
 import sys
 import tempfile
 import random
 import traceback
+
+_log = logging.getLogger(__name__)
 
 # Allow importing sacred_composer from the project root
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -99,8 +102,8 @@ async def _build_and_send(
                 with open(wav_path, "r+b") as wf:
                     wf.truncate(max_bytes)
             files.append(discord.File(wav_path, filename=f"sacred_{seed}.wav"))
-        except Exception:
-            pass  # WAV rendering is best-effort
+        except (OSError, ImportError, RuntimeError) as exc:
+            _log.warning("WAV rendering skipped (best-effort): %s", exc)
 
     # Build embed
     embed = discord.Embed(

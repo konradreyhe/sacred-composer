@@ -1088,9 +1088,6 @@ class ThueMorse:
     ever repeats exactly. Used by Johnson for anti-repetitive music.
     """
 
-    def __init__(self) -> None:
-        pass
-
     @property
     def name(self) -> str:
         return "thue_morse"

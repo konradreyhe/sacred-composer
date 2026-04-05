@@ -79,7 +79,6 @@ def evaluate_composition(composition: Composition, verbose: bool = True) -> dict
 def _fallback_evaluate(composition: Composition, verbose: bool) -> dict:
     """Basic self-evaluation when the full framework isn't available."""
     info = composition.info()
-    score = Score()
 
     # Basic heuristic checks
     checks = {
@@ -111,8 +110,3 @@ def _fallback_evaluate(composition: Composition, verbose: bool) -> dict:
             _log.info("  %s: %s", 'PASS' if passed else 'FAIL', name)
 
     return result
-
-
-class Score:
-    """Placeholder to avoid import issues."""
-    pass
