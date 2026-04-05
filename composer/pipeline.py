@@ -24,7 +24,7 @@ from SYSTEM_ARCHITECTURE import (
     PerformanceIR, PerformanceNote, CadenceType, SchemaToken,
     KeyToken,
 )
-from classical_music_gen import VoiceLeader
+from composer.voice_leader import VoiceLeader
 
 from composer.parser import (
     parse_prompt, _KEY_TO_M21, MIDI_PROGRAMS, _INST_VOICE_ORDER,

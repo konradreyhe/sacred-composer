@@ -12,7 +12,7 @@ from music21 import key as m21key, roman
 from SYSTEM_ARCHITECTURE import (
     FormIR, VoiceLeadingIR, MelodicNote,
 )
-from classical_music_gen import VoiceLeader
+from composer.voice_leader import VoiceLeader
 from composer.parser import _KEY_TO_M21
 from composer.helpers.flocking import flocking_voice_force
 
