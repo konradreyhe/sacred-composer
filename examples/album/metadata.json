@@ -1,0 +1,84 @@
+{
+  "album": {
+    "title": "Sacred Geometry Vol. 1",
+    "artist": "Sacred Composer",
+    "genre": ["Classical", "Ambient", "Electronic"],
+    "year": 2026,
+    "label": "Self-released",
+    "upc": null,
+    "copyright": "2026 Sacred Composer",
+    "description": "Nine compositions generated entirely from mathematical patterns — Fibonacci sequences, Mandelbrot sets, golden spirals, and chaotic attractors. Every note is deterministic, every structure traceable to its generating equation. No AI, no randomness, pure pattern."
+  },
+  "tracks": [
+    {
+      "number": 1,
+      "title": "Threshold",
+      "isrc": null,
+      "duration": "2:43",
+      "description": "Fibonacci sequence mapped to pitch and rhythm. The simplest seed — where mathematics first becomes audible."
+    },
+    {
+      "number": 2,
+      "title": "The Infinite Series",
+      "isrc": null,
+      "duration": "2:43",
+      "description": "Per Nørgård's 1959 self-similar infinity series. Each interval contains the whole."
+    },
+    {
+      "number": 3,
+      "title": "Golden Spiral",
+      "isrc": null,
+      "duration": "2:43",
+      "description": "Phi-derived melodic contour. The climax lands precisely at the golden section."
+    },
+    {
+      "number": 4,
+      "title": "Harmonic Series",
+      "isrc": null,
+      "duration": "2:43",
+      "description": "The physical basis of consonance — overtones of a vibrating string become melody."
+    },
+    {
+      "number": 5,
+      "title": "Logistic Map (r=3.7)",
+      "isrc": null,
+      "duration": "2:43",
+      "description": "Edge-of-chaos dynamics. The same equation that models population growth creates a melodic line balanced between order and turbulence."
+    },
+    {
+      "number": 6,
+      "title": "Mandelbrot Boundary",
+      "isrc": null,
+      "duration": "2:46",
+      "description": "A walk along the boundary of the Mandelbrot set. Features the Goosebump Engine — a research-grounded appoggiatura at the golden-section climax."
+    },
+    {
+      "number": 7,
+      "title": "Rössler's Strange Attractor",
+      "isrc": null,
+      "duration": "3:42",
+      "description": "Otto Rössler's 1976 chaotic system. The attractor's suspended orbits create an unhurried, meditative quality."
+    },
+    {
+      "number": 8,
+      "title": "Cantor's Dust",
+      "isrc": null,
+      "duration": "2:43",
+      "description": "Fractal silence. Georg Cantor's middle-third removal creates characteristically sparse rhythms — what's absent shapes what remains."
+    },
+    {
+      "number": 9,
+      "title": "Zipf's Law",
+      "isrc": null,
+      "duration": "2:43",
+      "description": "The rank-frequency distribution found in natural language, city sizes, and music. A composition that follows the same power law as human speech."
+    }
+  ],
+  "credits": {
+    "composition": "Sacred Composer (deterministic pattern engine)",
+    "rendering": "FluidSynth + MuseScore General SoundFont",
+    "mastering": "FFmpeg loudnorm (-14 LUFS, Spotify target)",
+    "cover_art": "Mandelbrot set seahorse valley (generated)",
+    "tools": ["Python", "NumPy", "FluidSynth", "FFmpeg", "Remotion"]
+  }
+}
