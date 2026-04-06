@@ -94,13 +94,80 @@ function euclidean(k, n) {
     return pattern.flat();
 }
 
+// --- Additional Pattern Generators ---
+
+const PHI_RATIO = (1 + Math.sqrt(5)) / 2;
+
+function goldenSpiral(n) {
+    const seq = [];
+    for (let i = 0; i < n; i++) seq.push(Math.floor(i * PHI_RATIO) % 15);
+    return seq;
+}
+
+function harmonicSeries(n) {
+    const seq = [];
+    for (let i = 1; i <= n; i++) seq.push(Math.floor(12 * Math.log2(i)) % 15);
+    return seq;
+}
+
+function logisticMap(n, r) {
+    r = r || 3.7;
+    let x = 0.5;
+    const seq = [];
+    for (let i = 0; i < n; i++) {
+        x = r * x * (1 - x);
+        seq.push(Math.floor(x * 15));
+    }
+    return seq;
+}
+
+function thueMorse(n) {
+    const seq = [0];
+    while (seq.length < n) {
+        const inv = seq.map(b => 1 - b);
+        for (const b of inv) { if (seq.length < n) seq.push(b); }
+    }
+    return seq.map(b => b * 7); // map to scale range
+}
+
+function mandelbrotBoundary(n, rng) {
+    const seq = [];
+    for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2;
+        const cr = -0.75 + 0.3 * Math.cos(angle);
+        const ci = 0.3 * Math.sin(angle);
+        let zr = 0, zi = 0, iter = 0;
+        while (zr * zr + zi * zi < 4 && iter < 30) {
+            const tmp = zr * zr - zi * zi + cr;
+            zi = 2 * zr * zi + ci;
+            zr = tmp;
+            iter++;
+        }
+        seq.push(iter % 15);
+    }
+    return seq;
+}
+
+const PATTERNS = {
+    fibonacci:  { name: 'Fibonacci',   gen: (n, rng) => fibonacci(n).slice(2).map(f => f % 15) },
+    golden:     { name: 'Golden Spiral', gen: (n, rng) => goldenSpiral(n) },
+    harmonic:   { name: 'Harmonic Series', gen: (n, rng) => harmonicSeries(n) },
+    logistic:   { name: 'Logistic Map', gen: (n, rng) => logisticMap(n) },
+    thue_morse: { name: 'Thue-Morse',  gen: (n, rng) => thueMorse(n) },
+    mandelbrot: { name: 'Mandelbrot',  gen: (n, rng) => mandelbrotBoundary(n, rng) },
+};
+
+let selectedPattern = 'fibonacci';
+
 // --- Composition Generator ---
 
-function generateComposition(seed) {
+function generateComposition(seed, patternKey) {
     const rng = makeRng(seed);
+    patternKey = patternKey || selectedPattern;
+    const patternDef = PATTERNS[patternKey] || PATTERNS.fibonacci;
 
-    const fibCount = 28 + Math.floor(rng() * 12); // 28-39 terms
-    const fib = fibonacci(fibCount);
+    const noteCount = 28 + Math.floor(rng() * 12); // 28-39 terms
+    const rawSeq = patternDef.gen(noteCount, rng);
     const eucHits = 5 + Math.floor(rng() * 5);  // 5-9 hits (denser)
     const eucSteps = 8 + Math.floor(rng() * 6);  // 8-13 steps
     const rhythm = euclidean(eucHits, eucSteps);
@@ -111,7 +178,7 @@ function generateComposition(seed) {
     const keys = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
     const keyName = keys[seed % keys.length] + ' minor pentatonic';
 
-    const noteIndices = fib.slice(2).map(f => f % (SCALE_DEGREES.length * 3));
+    const noteIndices = rawSeq.map(f => f % (SCALE_DEGREES.length * 3));
     const durations = ['8n', '8n', '4n', '4n', '4n.', '2n'];
     const velocities = [0.35, 0.45, 0.55, 0.60, 0.65, 0.70];
 
@@ -149,7 +216,7 @@ function generateComposition(seed) {
         seed,
         tempo,
         key: keyName,
-        pattern: 'Fibonacci(' + fibCount + ') + Euclidean(' + eucHits + ',' + eucSteps + ')',
+        pattern: patternDef.name + '(' + noteCount + ') + Euclidean(' + eucHits + ',' + eucSteps + ')',
         noteCount: notes.filter(n => !n.rest).length,
         durationSec,
         notes

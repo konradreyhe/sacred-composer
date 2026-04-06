@@ -28,6 +28,15 @@
         <button id="generateBtn" onclick="generate()">Compose</button>
     </div>
 
+    <div class="pattern-selector" id="patternSelector">
+        <button class="pattern-btn active" data-pattern="fibonacci">Fibonacci</button>
+        <button class="pattern-btn" data-pattern="golden">Golden Spiral</button>
+        <button class="pattern-btn" data-pattern="harmonic">Harmonic</button>
+        <button class="pattern-btn" data-pattern="logistic">Logistic Map</button>
+        <button class="pattern-btn" data-pattern="thue_morse">Thue-Morse</button>
+        <button class="pattern-btn" data-pattern="mandelbrot">Mandelbrot</button>
+    </div>
+
     <div class="viz-wrap" id="vizWrap">
         <canvas id="vizCanvas" width="540" height="540"></canvas>
         <div class="viz-overlay" id="vizOverlay">
@@ -80,6 +89,16 @@
 
     seedInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') generate();
+    });
+
+    // Pattern selector
+    document.querySelectorAll('.pattern-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedPattern = btn.dataset.pattern;
+            if (currentComp) generate();
+        });
     });
 
     function generate() {

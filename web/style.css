@@ -96,6 +96,39 @@ button:hover:not(:disabled) {
 
 button:disabled { opacity: 0.3; cursor: default; }
 
+/* --- Pattern Selector --- */
+
+.pattern-selector {
+    display: flex;
+    gap: 0.35rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+}
+
+.pattern-btn {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.7rem;
+    border-radius: 20px;
+    border: 1px solid rgba(212, 170, 48, 0.15);
+    color: var(--text-dim);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.25s;
+    font-family: var(--mono);
+}
+
+.pattern-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+
+.pattern-btn.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(212, 170, 48, 0.08);
+}
+
 /* --- Visualization --- */
 
 .viz-wrap {
