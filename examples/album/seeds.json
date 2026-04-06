@@ -17,7 +17,7 @@
       "pattern": "fibonacci",
       "key": "Bb_minor",
       "seed": 3,
-      "eval_score": 90.17,
+      "eval_score": 91.01,
       "l1_pass": true,
       "notes": "Discovered via grid search (180 candidates, 15 seeds x 12 keys). Peak-score for this pattern."
     },
@@ -27,7 +27,7 @@
       "pattern": "infinity_series",
       "key": "C_major",
       "seed": 1,
-      "eval_score": 90.17,
+      "eval_score": 92.57,
       "l1_pass": true,
       "notes": "Per Norgard's 1959 self-similar sequence. Seed=1 is the purest form."
     },
@@ -37,7 +37,7 @@
       "pattern": "golden_spiral",
       "key": "A_minor",
       "seed": 11,
-      "eval_score": 89.97,
+      "eval_score": 90.81,
       "l1_pass": true,
       "notes": "Derived from phi; climax deliberately at bar 30 (golden section)."
     },
@@ -47,7 +47,7 @@
       "pattern": "harmonic_series",
       "key": "E_minor",
       "seed": 11,
-      "eval_score": 91.09,
+      "eval_score": 92.33,
       "l1_pass": true,
       "notes": "Second-highest score on the album. Physical basis of consonance."
     },
@@ -57,7 +57,7 @@
       "pattern": "logistic",
       "key": "D_major",
       "seed": 3,
-      "eval_score": 90.26,
+      "eval_score": 90.99,
       "l1_pass": true,
       "notes": "Edge-of-chaos dynamics. The same equation models population growth."
     },
@@ -67,9 +67,9 @@
       "pattern": "mandelbrot",
       "key": "E_minor",
       "seed": 2,
-      "eval_score": 89.40,
+      "eval_score": 91.73,
       "l1_pass": true,
-      "notes": "Walk along the boundary of the Mandelbrot set. SIGNATURE TRACK — receives Goosebump Engine in Week 2."
+      "notes": "Walk along the boundary of the Mandelbrot set. SIGNATURE TRACK \u00e2\u20ac\u201d receives Goosebump Engine in Week 2."
     },
     {
       "number": 7,
@@ -77,7 +77,7 @@
       "pattern": "rossler",
       "key": "E_minor",
       "seed": 10,
-      "eval_score": 85.54,
+      "eval_score": 87.81,
       "l1_pass": true,
       "notes": "Lowest-scoring track but its suspended quality fits the album's arc. Otto Rossler 1976."
     },
@@ -87,7 +87,7 @@
       "pattern": "cantor",
       "key": "F#_minor",
       "seed": 3,
-      "eval_score": 86.44,
+      "eval_score": 86.93,
       "l1_pass": true,
       "notes": "Fractal silence: middle-third removal creates characteristically sparse rhythms."
     },
@@ -97,7 +97,7 @@
       "pattern": "zipf",
       "key": "F#_minor",
       "seed": 8,
-      "eval_score": 89.90,
+      "eval_score": 90.38,
       "l1_pass": true,
       "notes": "Rank-frequency distribution found in natural language and music. Third-best-scoring track."
     },
@@ -113,7 +113,7 @@
     }
   ],
   "averages": {
-    "eval_score": 90.54,
+    "eval_score": 90.7,
     "l1_pass_rate": 1.0
   },
   "notes": "10-track album. ThueMorse wired through builder in session 12. Tension arc (add_tension_arc) applied to all tracks, lifting average from 89.22 to 90.54."
