@@ -81,7 +81,9 @@ class TestCompositionBuilder:
             assert len(piece.score.voices) >= 1
 
     def test_different_melody_patterns(self):
-        for pat in ["infinity_series", "fibonacci", "golden_spiral", "logistic"]:
+        for pat in ["infinity_series", "fibonacci", "golden_spiral", "logistic",
+                    "mandelbrot", "rossler", "cantor", "zipf", "thue_morse",
+                    "harmonic_series"]:
             piece = (
                 CompositionBuilder(key="C_minor", bars=8)
                 .melody(pattern=pat)
