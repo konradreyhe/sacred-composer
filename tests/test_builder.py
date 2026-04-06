@@ -115,6 +115,35 @@ class TestCompositionBuilder:
         notes2 = [(n.pitch, n.duration) for n in p2.score.voices[0].notes]
         assert notes1 == notes2
 
+    def test_thue_morse_determinism(self):
+        def make_piece():
+            return (
+                CompositionBuilder(key="G_major", bars=8)
+                .melody(pattern="thue_morse", seed=11)
+                .build()
+            )
+        p1 = make_piece()
+        p2 = make_piece()
+        notes1 = [(n.pitch, n.duration) for n in p1.score.voices[0].notes]
+        notes2 = [(n.pitch, n.duration) for n in p2.score.voices[0].notes]
+        assert notes1 == notes2
+
+    def test_tension_arc_shapes_dynamics(self):
+        """Tension arc should create a rise-peak-fall velocity curve."""
+        piece = (
+            CompositionBuilder(key="C_minor", bars=16)
+            .melody(pattern="fibonacci", seed=1)
+            .build()
+        )
+        notes = [n for n in piece.score.voices[0].notes if n.pitch >= 0]
+        if len(notes) < 6:
+            return  # too few notes to test shape
+        third = len(notes) // 3
+        early_vel = sum(n.velocity for n in notes[:third]) / third
+        mid_vel = sum(n.velocity for n in notes[third:2*third]) / third
+        # Middle section should be louder than opening (tension arc rises)
+        assert mid_vel >= early_vel * 0.9  # allow small tolerance
+
     def test_bars_affects_note_count(self):
         short = CompositionBuilder(key="C_minor", bars=4).melody().build()
         long = CompositionBuilder(key="C_minor", bars=64).melody().build()
