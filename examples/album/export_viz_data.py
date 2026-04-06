@@ -1,4 +1,4 @@
-"""Export visualization JSON for all 9 album tracks.
+"""Export visualization JSON for all 10 album tracks.
 
 Reads seeds.json, builds each track with CompositionBuilder,
 calls comp.to_visualization_json(), and saves to viz/src/data/track_NN.json.

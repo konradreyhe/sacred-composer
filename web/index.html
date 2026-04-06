@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sacred Composer — Compose Your Name</title>
     <meta name="description" content="Type your name. Hear its unique composition. Mathematics becomes music.">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta property="og:title" content="Sacred Composer — Compose Your Name">
     <meta property="og:description" content="Every name holds a unique eternal composition. Fibonacci sequences and sacred geometry create your personal music.">
     <link rel="stylesheet" href="style.css">
@@ -157,6 +158,16 @@
             prompt('Copy this link:', url.toString());
         });
     }
+
+    // Ambient idle animation loop
+    let idleRaf = null;
+    function idleLoop() {
+        if (!playing && currentComp) {
+            drawVisualization(currentComp, 0, []);
+        }
+        idleRaf = requestAnimationFrame(idleLoop);
+    }
+    idleLoop();
 
     // Auto-compose from URL param
     const params = new URLSearchParams(window.location.search);

@@ -1,4 +1,4 @@
-"""Render the 9 album tracks to master WAVs.
+"""Render the 10 album tracks to master WAVs.
 
 Reads examples/album/seeds.json, renders each track via FluidSynth,
 applies the Goosebump Engine to the designated signature track

@@ -22,6 +22,7 @@ by a different mathematical structure:
 - Rössler strange attractor
 - Cantor's middle-third removal
 - Zipf's law (power-law distribution)
+- Thue-Morse sequence (anti-self-similar)
 
 The engine maps these patterns to pitch, rhythm, and dynamics, then
 applies classical music constraints (voice leading, leap recovery,
@@ -113,7 +114,7 @@ If you've ever wondered what a Mandelbrot set sounds like, now you know.
 
 ### r/generative
 
-**Title:** Sacred Geometry Vol. 1 — a 9-track album generated entirely from mathematical patterns
+**Title:** Sacred Geometry Vol. 1 — a 10-track album generated entirely from mathematical patterns
 
 I built a deterministic composition engine in Python and used it to
 create a full album. Each track maps a different mathematical structure
@@ -122,13 +123,13 @@ and dynamics, then applies classical music constraints so it sounds
 like actual music.
 
 The engine evaluates each composition against 14 music-theory metrics
-and scores it. All 9 tracks pass with zero rule violations.
+and scores it. All 10 tracks pass with zero rule violations.
 
 [link] | Code is open source.
 
 ### r/algorave
 
-**Title:** Deterministic generative album — 9 math patterns, classical constraints, reproducible from a JSON seed file
+**Title:** Deterministic generative album — 10 math patterns, classical constraints, reproducible from a JSON seed file
 
 Not quite algorave (it's deterministic, not live), but thought this
 community would appreciate the approach. Built a Python engine that
@@ -148,5 +149,5 @@ leap recovery, phrase boundaries, cadence placement) and the same
 patterns become surprisingly listenable. The constraints don't fight
 the math — they channel it.
 
-Album has 9 tracks, each from a different equation. All pass a 14-metric
+Album has 10 tracks, each from a different equation. All pass a 14-metric
 evaluation framework with zero rule violations.

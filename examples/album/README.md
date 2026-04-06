@@ -88,4 +88,4 @@ python examples/album/render_masters.py
 
 ## Runtime
 
-~28 minutes total (9 tracks at ~2:43, track 7 at ~3:43, track 10 at ~2:46).
+~28 minutes total (10 tracks: 8 at ~2:43, track 7 at ~3:43, track 6 and 10 at ~2:46).

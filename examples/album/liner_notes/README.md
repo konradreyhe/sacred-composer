@@ -2,7 +2,7 @@
 
 **Album:** Sacred Geometry Vol. 1
 **Year:** 2026
-**Runtime:** ~25 minutes (9 tracks)
+**Runtime:** ~28 minutes (10 tracks)
 **Genre:** Classical / Ambient / Algorithmic
 **Config:** 72 BPM, 48 bars, violin + cello, fibonacci form (5 sections)
 
@@ -16,7 +16,7 @@ neural networks, no training data, no machine learning. Just
 deterministic mathematics and 500 years of compositional theory
 encoded as Python.
 
-Each of the nine tracks uses a different mathematical pattern as its
+Each of the ten tracks uses a different mathematical pattern as its
 melodic engine. The patterns were chosen from a lineage that runs from
 Pythagoras (harmonic ratios, 6th century BCE) through Guido d'Arezzo
 (1026), Kircher, Mersenne, Mozart's musikalisches Würfelspiel, Hiller's
@@ -76,8 +76,7 @@ frequency plus integer multiples (2×, 3×, 4×...). It's the physical
 basis of consonance — why some intervals sound "right" and others
 don't. This track uses the harmonic series literally as the melody:
 octave, fifth, fourth, major third, minor third, each interval
-appearing in the order nature already produces them. The highest-
-scoring track on the album.
+appearing in the order nature already produces them.
 
 ### 5. *Logistic Map (r=3.7)* — D major, seed 3 (eval 90.99)
 
@@ -120,10 +119,22 @@ absent shapes what remains.
 Zipf's law says the second most common word in any language is used
 half as often as the most common; the third, a third as often. The
 same power-law distribution appears in city sizes, earthquake
-magnitudes, and musical note frequencies. This closing track follows
+magnitudes, and musical note frequencies. This penultimate track follows
 that distribution — a few dominant pitches appear often, while rare
 intervals create fleeting moments of surprise. The highest tension
 arc on the album (95.4).
+
+### 10. *Thue-Morse Resolution* — G major, seed 11 (eval 92.46)
+
+The Thue-Morse sequence (1906): 0, 1, 1, 0, 1, 0, 0, 1... Generated
+by negating each previous term. Unlike every other pattern on this
+album, Thue-Morse is *anti*-self-similar — it has zero autocorrelation
+at every lag. The melody never echoes itself, never settles into a
+recognizable period. After nine tracks built on self-similar
+structures (Fibonacci spirals, fractal boundaries, chaotic attractors),
+the final track lets mathematics refuse to repeat. The highest-scoring
+composition on the album, and the only one in a major key bright
+enough to serve as resolution.
 
 ---
 
@@ -147,7 +158,7 @@ arc on the album (95.4).
 ## Reproducibility
 
 Every track on this album can be regenerated, note-for-note, from a
-JSON file containing nine seeds:
+JSON file containing ten seeds:
 
 ```json
 {"pattern": "fibonacci", "key": "Bb_minor", "seed": 3}

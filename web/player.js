@@ -99,10 +99,10 @@ function euclidean(k, n) {
 function generateComposition(seed) {
     const rng = makeRng(seed);
 
-    const fibCount = 16 + Math.floor(rng() * 10); // 16-25 terms
+    const fibCount = 28 + Math.floor(rng() * 12); // 28-39 terms
     const fib = fibonacci(fibCount);
-    const eucHits = 3 + Math.floor(rng() * 6);
-    const eucSteps = 8 + Math.floor(rng() * 9);
+    const eucHits = 5 + Math.floor(rng() * 5);  // 5-9 hits (denser)
+    const eucSteps = 8 + Math.floor(rng() * 6);  // 8-13 steps
     const rhythm = euclidean(eucHits, eucSteps);
 
     const tempoBase = [66, 72, 80, 88, 96, 108];
@@ -112,8 +112,8 @@ function generateComposition(seed) {
     const keyName = keys[seed % keys.length] + ' minor pentatonic';
 
     const noteIndices = fib.slice(2).map(f => f % (SCALE_DEGREES.length * 3));
-    const durations = ['8n', '4n', '4n', '4n.', '2n', '2n.'];
-    const velocities = [0.35, 0.45, 0.55, 0.65, 0.70];
+    const durations = ['8n', '8n', '4n', '4n', '4n.', '2n'];
+    const velocities = [0.35, 0.45, 0.55, 0.60, 0.65, 0.70];
 
     const notes = [];
     let rhythmIdx = 0;
