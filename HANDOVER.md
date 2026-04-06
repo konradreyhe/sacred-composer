@@ -1,13 +1,28 @@
 # Session Handover
 
-**Date:** 2026-04-06 (Session 13, visual verification + iteration)
-**Duration:** ~1 hour
-**Goal:** Visually verify web player + Remotion viz, iterate on improvements.
+**Date:** 2026-04-06 (Session 14, Three.js 3D sacred geometry)
+**Duration:** ~30 min
+**Goal:** Replace 2D canvas visualization with Three.js 3D sacred geometry per pattern.
 
 ## Summary
 
-Session 13 focused on visual verification and iterative improvement of
-all user-facing surfaces: web player, Remotion viz, album metadata, and API.
+Session 14 replaced the web player's 2D canvas visualization with a full
+Three.js 3D engine. Each of the 6 patterns now renders a unique sacred/nature
+geometry that rotates, breathes, and reacts to the music during playback.
+
+**Visualizations:**
+- Fibonacci → Phyllotaxis Sphere (sunflower seeds on sphere, dual icosahedra)
+- Golden Spiral → Flower of Life (25 torus rings, vesica piscis highlights)
+- Harmonic → Cymatics (vertex-colored Chladni plate, particle sand on nodes)
+- Logistic → Lorenz Attractor (5000-point gradient trail, glowing head + aura)
+- Thue-Morse → Fractal Tree (color-gradient branches, pollen particles, wind)
+- Mandelbrot → 3D Terrain (banded fractal coloring, edge-glow particles)
+
+**Shared effects:** starfield background (300 particles), progress ring during
+playback, camera breathing, additive glow auras on active notes, sacred
+connection lines between simultaneous notes, ambient dust particles.
+
+1 commit landed this session (now 50 ahead of origin).
 
 The web player received the biggest overhaul:
 1. **Visualization contrast** — spiral, connections, and note dots boosted 2-3x
@@ -84,7 +99,7 @@ examples/album/normalized/
 cd C:/Users/kreyh/Projekte/MUSIK/viz && bash render_album.sh
 ```
 
-### 3. **Push 49 commits to origin**
+### 3. **Push 50 commits to origin**
 ```bash
 git push origin master
 ```
@@ -97,27 +112,16 @@ git push origin master
 
 ## Rollback Plan
 
-- **Last known good:** `80af13d` (current HEAD) — full session 13 work
-- **Rollback session 13 only:** `git reset --hard fc86047` — back to session 12 end
-- **Rollback session 12+13:** `git reset --hard 4c0e030` — back to session 11
+- **Last known good:** `99b5083` (current HEAD) — Three.js 3D viz
+- **Rollback session 14 only:** `git reset --hard 1dcf1a9` — back to session 13 end
+- **Rollback session 13+14:** `git reset --hard fc86047` — back to session 12 end
 
 ## Files Changed This Session
 
-**New (1 file):**
-- `web/favicon.svg` — phi symbol favicon
-
-**Modified (9 files):**
-- `web/viz.js` — contrast boost, ambient animation, note glow rings
-- `web/player.js` — 6 pattern generators, denser compositions, pattern selector API
-- `web/index.html` — pattern selector UI, idle animation loop, favicon link, social meta
-- `web/style.css` — pattern selector pill styles
-- `examples/album/metadata.json` — "nine" → "ten"
-- `examples/album/liner_notes/README.md` — Track 10 notes, count fixes
-- `examples/album/launch_copy.md` — track count fixes, Thue-Morse added
-- `examples/album/seeds.json` — eval scores synced to post-tension-arc values
-- `examples/album/export_viz_data.py` — docstring fix
-- `examples/album/render_masters.py` — docstring fix
-- `examples/album/README.md` — runtime description fix
+**Modified (3 files):**
+- `web/viz.js` — complete rewrite: Three.js 3D engine, 6 sacred geometry patterns, starfield, glow, connections, dust
+- `web/player.js` — added `patternKey` field to composition object
+- `web/index.html` — added Three.js v0.160.0 CDN script tag
 
 ## Open Questions (inherited)
 
