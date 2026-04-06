@@ -10,7 +10,7 @@ I built a deterministic music composition engine in Python that turns
 mathematical patterns into classical-rule-compliant music. No ML, no
 randomness — every note is traceable to its generating equation.
 
-Sacred Geometry Vol. 1 is a 9-track album where each track is driven
+Sacred Geometry Vol. 1 is a 10-track album where each track is driven
 by a different mathematical structure:
 
 - Fibonacci sequence
@@ -32,7 +32,7 @@ placed at the golden-section climax, based on Sloboda's 1991 research
 on physiological responses to music. It's the only moment in the album
 where the system intentionally violates its own rules.
 
-The entire album is reproducible from a JSON file with 9 seeds.
+The entire album is reproducible from a JSON file with 10 seeds.
 `python render_masters.py` regenerates it bit-identically.
 
 [Spotify link] | [GitHub] | [YouTube visualizations]
@@ -49,7 +49,7 @@ I made an album where every note comes from a math equation.
 
 No AI. No randomness. Pure mathematical patterns → classical music.
 
-Sacred Geometry Vol. 1 is out now. 9 tracks. 9 equations. Here's how it works: 🧵
+Sacred Geometry Vol. 1 is out now. 10 tracks. 10 equations. Here's how it works: 🧵
 
 **2/7**
 Each track is driven by a different mathematical structure:
@@ -59,6 +59,7 @@ Each track is driven by a different mathematical structure:
 📐 Mandelbrot set
 🔄 Rössler strange attractor
 📊 Zipf's law
+🔀 Thue-Morse sequence
 ...and 4 more
 
 The engine maps patterns to pitch, rhythm, and dynamics.
@@ -83,7 +84,7 @@ places a deliberate appoggiatura at the golden-section climax.
 It's the only moment the system intentionally breaks its own rules.
 
 **5/7**
-The entire album is reproducible from a JSON file with 9 numbers.
+The entire album is reproducible from a JSON file with 10 numbers.
 
 ```json
 {"seed": 2, "key": "E_minor", "pattern": "mandelbrot"}

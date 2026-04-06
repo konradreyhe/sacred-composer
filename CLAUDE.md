@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-**91.96/100 L1 PASS** (Bb_minor seed=43, 0 violations) — new peak as of session 10 (commit `6021902`, crescendo entry). Reproducible config: `CompositionBuilder(key="Bb_minor", tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern="golden_spiral", instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. The crescendo entry (`_apply_crescendo_entry` in `sacred_composer/builder.py`) lifted `L3.tension_arc` 79.02→88.67 with no regressions. Weakest metrics now: `L4.transition_motivation` (71.43), `L2.interval_distribution` (86.43), `L2.chord_vocabulary` (88.19). Pre-crescendo baseline was 90.78. See HANDOVER.md for session-10 findings (including why the tail-merge approach failed). Note: earlier 94.0/seed=47 claim (commit 124efef) still unreproduced — seed=47 currently 89.66.
+**92.57/100 L1 PASS** (infinity_series, C_major seed=1, 0 violations) — new peak as of session 12. The `add_tension_arc()` call (70% golden-section arch + 30% original dynamics) lifted all tracks by +0.5 to +2.4. Album average: 90.68/100 across 10 tracks. Previous peak was 91.96 (Bb_minor seed=43, now 91.95 with tension arc). Canonical config still: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. ThueMorse pattern wired through builder in session 12 (24 patterns total).
 
 ## Key Files
 

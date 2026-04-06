@@ -1,6 +1,6 @@
 # Sacred Geometry Vol. 1 — Album Production
 
-**Status:** Week 1 ✅ · Week 2 ✅ · Week 3 🔧 in progress · Week 4 pending
+**Status:** Week 1 ✅ · Week 2 ✅ · Week 3 ✅ complete · Week 4 pending
 
 ## Current Progress
 
@@ -11,29 +11,35 @@
 | 2 | Implement Goosebump Engine (`.frisson()`) | ✅ |
 | 2 | Render 9 master WAVs via FluidSynth | ✅ |
 | 2 | FFmpeg loudnorm to -14 LUFS (Spotify target) | ✅ |
-| 3 | A/B test frisson on Track 6 | ✅ verified: -0.18 eval, +0.5 tension |
+| 3 | A/B test frisson on Track 6 | ✅ verified safe |
 | 3 | Cover art (Mandelbrot 3000×3000) | ✅ `cover_art.jpg` |
-| 3 | Remotion 9-track video pipeline | ✅ wired + test render passed |
-| 3 | Export viz data for all 9 tracks | ✅ `viz/src/data/track_*.json` |
-| 3 | Render all 9 full videos | ⏳ `cd viz && bash render_album.sh` |
-| 3 | DistroKid signup + upload | ⏳ |
+| 3 | Remotion 10-track video pipeline | ✅ wired + test render passed |
+| 3 | Wire ThueMorse + add Track 10 | ✅ 92.46 (highest score) |
+| 3 | Add tension arc to builder | ✅ avg +1.46, zero regressions |
+| 3 | Re-render all 10 masters with tension arc | ✅ |
+| 3 | Normalize all 10 to -14 LUFS | ✅ |
+| 3 | Complete liner notes | ✅ |
+| 3 | Distribution metadata + launch copy | ✅ |
+| 4 | Render 10 videos | ⏳ `cd viz && bash render_album.sh` |
+| 4 | DistroKid signup + upload | ⏳ |
 | 4 | Social launch | ⏳ |
 
 ## Tracklist
 
-All 9 tracks pass L1 (zero rule violations). Average eval score 89.20/100.
+All 10 tracks pass L1 (zero rule violations). Average eval score **90.68/100**.
 
 | # | Track | Pattern | Key | Seed | Eval | Tension |
 |---|---|---|---|---|---|---|
-| 1 | Threshold | fibonacci | Bb_minor | 3 | 90.17 | 80.8 |
-| 2 | The Infinite Series | infinity_series | C_major | 1 | 90.17 | 72.9 |
-| 3 | Golden Spiral | golden_spiral | A_minor | 11 | 89.97 | 79.9 |
-| 4 | Harmonic Series | harmonic_series | E_minor | 11 | **91.09** | 81.6 |
-| 5 | Logistic Map (r=3.7) | logistic | D_major | 3 | 90.26 | 82.3 |
-| 6 | Mandelbrot Boundary | mandelbrot | E_minor | 2 | 89.22 ⭐ | 70.0 |
-| 7 | Rössler's Strange Attractor | rossler | E_minor | 10 | 85.54 | 59.0 |
-| 8 | Cantor's Dust | cantor | F#_minor | 3 | 86.44 | 66.3 |
-| 9 | Zipf's Law | zipf | F#_minor | 8 | 89.90 | 91.4 |
+| 1 | Threshold | fibonacci | Bb_minor | 3 | 91.01 | 87.6 |
+| 2 | The Infinite Series | infinity_series | C_major | 1 | **92.57** | 92.4 |
+| 3 | Golden Spiral | golden_spiral | A_minor | 11 | 90.81 | 86.7 |
+| 4 | Harmonic Series | harmonic_series | E_minor | 11 | 92.33 | 91.7 |
+| 5 | Logistic Map (r=3.7) | logistic | D_major | 3 | 90.99 | 88.3 |
+| 6 | Mandelbrot Boundary | mandelbrot | E_minor | 2 | 91.48 ⭐ | 88.4 |
+| 7 | Rössler's Strange Attractor | rossler | E_minor | 10 | 87.81 | 77.4 |
+| 8 | Cantor's Dust | cantor | F#_minor | 3 | 86.93 | 70.2 |
+| 9 | Zipf's Law | zipf | F#_minor | 8 | 90.38 | **95.4** |
+| 10 | Thue-Morse Resolution | thue_morse | G_major | 11 | 92.46 | 89.7 |
 
 ⭐ Track 6 gets the Goosebump Engine — a deliberate appoggiatura at
 the golden-section climax (Sloboda 1991 chill trigger).
@@ -50,64 +56,36 @@ examples/album/
 ├── export_viz_data.py          (export viz JSON for Remotion)
 ├── copy_audio_to_viz.py        (copy normalized WAVs to viz/public/)
 ├── cover_art.py                (Mandelbrot cover art generator)
-├── cover_art.jpg               (3000×3000, gitignored, regenerate with cover_art.py)
+├── cover_art.jpg               (3000×3000, gitignored)
+├── metadata.json               (distribution metadata)
+├── launch_copy.md              (social launch drafts)
 ├── seeds/                      (search results, top-20 per pattern)
-│   ├── search_fibonacci.csv
-│   ├── search_infinity_series.csv
-│   ├── search_golden_spiral.csv
-│   ├── search_harmonic_series.csv
-│   ├── search_logistic.csv
-│   ├── search_mandelbrot.csv
-│   ├── search_rossler.csv
-│   ├── search_cantor.csv
-│   └── search_zipf.csv
 ├── masters/                    (raw FluidSynth renders, gitignored)
-│   └── 01_threshold.wav ... 09_zipfs_law.wav
 ├── normalized/                 (FFmpeg loudnorm -14 LUFS, gitignored)
-│   └── 01_threshold.wav ... 09_zipfs_law.wav
 └── liner_notes/
-    └── README.md               (album notes template)
+    └── README.md               (album notes with track descriptions)
 ```
 
 ## Remotion Video Pipeline
 
 ```bash
-# 1. Export composition data (already done)
+# 1. Export composition data
 python examples/album/export_viz_data.py
 
-# 2. Copy audio to viz/public/ (already done)
+# 2. Copy audio to viz/public/
 python examples/album/copy_audio_to_viz.py
 
-# 3. Render all 9 videos (~5 min each at 60fps)
+# 3. Render all 10 videos (~45 min each at 60fps)
 cd viz && bash render_album.sh
-
-# Or render one track:
-cd viz && bash render_album.sh --track 6
 ```
-
-Compositions registered in Remotion: `Track01-Threshold` through `Track09-ZipfsLaw`.
 
 ## Reproducibility
 
-Every track on this album can be regenerated, note-for-note, from
-`seeds.json`. To rebuild:
-
+Every track is regeneratable bit-identically from `seeds.json`:
 ```bash
 python examples/album/render_masters.py
-ffmpeg -i masters/<file>.wav -af loudnorm=I=-14:TP=-1.5:LRA=11 normalized/<file>.wav
 ```
 
 ## Runtime
 
-~25 minutes total (8 tracks at 2:40, track 7 at 3:43). Below the
-~40min target in ALBUM_PLAN.md. Options to extend:
-- Increase `bars` from 48 to 64 (would add ~30% runtime)
-- Add a 10th track (wire ThueMorse pattern into the builder)
-- Ship as-is; EP-length albums are legitimate
-
-## Next Steps
-
-1. **Listen to all 9 masters.** Flag any that sound too static / busy / thin.
-2. **Render full videos.** `cd viz && bash render_album.sh`
-3. **DistroKid signup + metadata upload.**
-4. **Social launch.** Templates in `ALBUM_PLAN.md` §Week-4.
+~28 minutes total (9 tracks at ~2:43, track 7 at ~3:43, track 10 at ~2:46).

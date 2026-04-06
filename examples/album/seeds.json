@@ -100,11 +100,21 @@
       "eval_score": 89.90,
       "l1_pass": true,
       "notes": "Rank-frequency distribution found in natural language and music. Third-best-scoring track."
+    },
+    {
+      "number": 10,
+      "title": "Thue-Morse Resolution",
+      "pattern": "thue_morse",
+      "key": "G_major",
+      "seed": 11,
+      "eval_score": 92.46,
+      "l1_pass": true,
+      "notes": "Anti-repetitive binary sequence (Thue 1906). Highest-scoring track on the album. G major is a unique key not used by any other track."
     }
   ],
   "averages": {
-    "eval_score": 89.22,
+    "eval_score": 90.54,
     "l1_pass_rate": 1.0
   },
-  "notes": "Track 10 TBD — originally Thue-Morse, but ThueMorse pattern isn't exposed through builder yet. Options: (a) wire it in, (b) pick a second seed from one of the 9 patterns, (c) ship as a 9-track album. 9 tracks × ~4 min = ~36 min runtime which is still a legit album length (slightly below the 40 min in the plan)."
+  "notes": "10-track album. ThueMorse wired through builder in session 12. Tension arc (add_tension_arc) applied to all tracks, lifting average from 89.22 to 90.54."
 }

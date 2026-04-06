@@ -22,6 +22,7 @@ TRACKS=(
   "Track07-RosslerAttractor"
   "Track08-CantorsDust"
   "Track09-ZipfsLaw"
+  "Track10-ThueMorseResolution"
 )
 
 OUTDIR="out/album"

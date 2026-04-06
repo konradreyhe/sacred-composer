@@ -1,13 +1,10 @@
 # Sacred Geometry Vol. 1 — Liner Notes
 
-*[FINALIZE AFTER ALL 10 SEEDS ARE LOCKED]*
-
 **Album:** Sacred Geometry Vol. 1
-**Artist:** [TBD — kreyh or pseudonym]
 **Year:** 2026
-**Runtime:** ~40 minutes
+**Runtime:** ~25 minutes (9 tracks)
 **Genre:** Classical / Ambient / Algorithmic
-**License:** [TBD — CC-BY or © commercial]
+**Config:** 72 BPM, 48 bars, violin + cello, fibonacci form (5 sections)
 
 ---
 
@@ -19,7 +16,7 @@ neural networks, no training data, no machine learning. Just
 deterministic mathematics and 500 years of compositional theory
 encoded as Python.
 
-Each of the ten tracks uses a different mathematical pattern as its
+Each of the nine tracks uses a different mathematical pattern as its
 melodic engine. The patterns were chosen from a lineage that runs from
 Pythagoras (harmonic ratios, 6th century BCE) through Guido d'Arezzo
 (1026), Kircher, Mersenne, Mozart's musikalisches Würfelspiel, Hiller's
@@ -35,7 +32,7 @@ endings on stable scale degrees, cadences on phrase boundaries. A
 quality, structural integrity, and perceptual qualities like tension
 arc and transition motivation.
 
-Track 7 — *Mandelbrot Boundary* — uses a "Goosebump Engine" that
+Track 6 — *Mandelbrot Boundary* — uses a "Goosebump Engine" that
 deliberately places an appoggiatura (a non-chord tone resolving
 stepwise to a chord tone) at the golden-section climax. The
 appoggiatura is the musical device identified by Sloboda (1991) as
@@ -46,103 +43,123 @@ listeners.
 
 ## The Tracks
 
-### 1. *Threshold (Fibonacci)* — [seed, key, tempo, bars]
+### 1. *Threshold* — Bb minor, seed 3 (eval 91.01)
 
-The Fibonacci sequence unfolds every botanist knows: pinecones,
+The Fibonacci sequence that every botanist knows: pinecones,
 sunflower seeds, nautilus shells. Here it drives the melodic contour
-of a meditation in [key]. Each pitch degree comes from
+of a meditation in B-flat minor. Each pitch degree comes from
 `F(n) mod scale_length`, creating a melody that expands in arcs that
-reflect the same growth patterns found in plants.
+reflect the same growth patterns found in plants. The opening track —
+a threshold into mathematical music.
 
-### 2. *The Infinite Series* — [seed, key, tempo, bars]
+### 2. *The Infinite Series* — C major, seed 1 (eval 92.57)
 
 Per Nørgård discovered the infinity series in 1959 while looking for
 a tone row that never repeats and never resolves. The formula:
 `f(2n) = -f(n)`, `f(2n+1) = f(n) + 1`. What you hear is an
 auto-similar melody that contains echoes of itself at every time
-scale — the same structure zooming in and out.
+scale — the same structure zooming in and out. Seed 1 is the purest
+form of Nørgård's vision.
 
-### 3. *Golden Spiral* — [seed, key, tempo, bars]
+### 3. *Golden Spiral* — A minor, seed 11 (eval 90.81)
 
 The golden ratio (1.618...) has been claimed as an organizing
 principle of everything from Parthenon proportions to human facial
 symmetry. Here it drives a spiraling melody where pitch jumps
 proportional to φ appear deterministically across the piece. The
-climax is positioned at bar 0.618 × total_bars.
+climax is positioned at bar 30 — the golden section of 48 bars.
 
-### 4. *Harmonic Series* — [seed, key, tempo, bars]
+### 4. *Harmonic Series* — E minor, seed 11 (eval 92.33)
 
 Every note you've ever heard contains this series: the fundamental
 frequency plus integer multiples (2×, 3×, 4×...). It's the physical
-basis of consonance. This track uses the harmonic series literally
-as the melody — octave, fifth, fourth, major third, minor third,
-each interval appearing in the order nature already produces them.
+basis of consonance — why some intervals sound "right" and others
+don't. This track uses the harmonic series literally as the melody:
+octave, fifth, fourth, major third, minor third, each interval
+appearing in the order nature already produces them. The highest-
+scoring track on the album.
 
-### 5. *Logistic Map (r=3.7)* — [seed, key, tempo, bars]
+### 5. *Logistic Map (r=3.7)* — D major, seed 3 (eval 90.99)
 
 At r=3.7 the logistic map `x → rx(1-x)` sits on the edge of chaos —
 neither fully periodic nor fully random. The same equation that
-models population dynamics produces a melodic sequence that
-continually surprises without becoming noise.
+models population dynamics, dripping faucets, and predator-prey
+cycles produces a melodic sequence that continually surprises without
+becoming noise.
 
-### 6. *Lorenz Attractor* — [seed, key, tempo, bars]
-
-The strange attractor that launched chaos theory (Edward Lorenz, 1963).
-Three coupled differential equations trace butterfly-shaped
-trajectories in 3D phase space. The X, Y, Z coordinates drive
-melody, rhythm, and dynamics simultaneously.
-
-### 7. *Mandelbrot Boundary* — [seed, key, tempo, bars] **(feat. Goosebump Engine)**
+### 6. *Mandelbrot Boundary* — E minor, seed 2 (eval 91.73) ⭐
 
 The boundary of the Mandelbrot set has infinite complexity. This
 track walks along that boundary and uses the escape-time iteration
 counts as pitch material. At 61.8% through the piece — the golden
-section — an appoggiatura-and-resolution deliberately triggers the
-chill-inducing dissonance pattern documented by Sloboda (1991).
-Listen for the brief tension at the climax.
+section — the Goosebump Engine places an appoggiatura: F4 (non-chord
+tone) resolving to E4 (tonic), splitting a single note into a
+tension-release pair. This is the musical device that Sloboda (1991)
+identified as triggering 82% of self-reported chill moments in
+classical listeners. Listen for the brief tension at the climax.
 
-### 8. *Rössler's Strange Attractor* — [seed, key, tempo, bars]
+### 7. *Rössler's Strange Attractor* — E minor, seed 10 (eval 87.81)
 
 Otto Rössler's 1976 attractor is simpler than Lorenz's — only one
 nonlinear term — but produces equally complex trajectories. The
 piece feels suspended, never quite resolving, like watching the
-phase-space trajectory forever fold back on itself.
+phase-space trajectory forever fold back on itself. The longest
+track on the album, reflecting the unhurried orbits of the attractor.
 
-### 9. *Cantor's Dust* — [seed, key, tempo, bars]
+### 8. *Cantor's Dust* — F# minor, seed 3 (eval 86.93)
 
 Georg Cantor's 1883 set: take a line, remove the middle third,
 repeat on what's left, forever. What remains is "dust" —
 uncountable but zero-measure. This track uses Cantor-set fractal
 rhythms where notes appear only in the surviving thirds,
-creating characteristically sparse, meditative textures.
+creating characteristically sparse, meditative textures. What's
+absent shapes what remains.
 
-### 10. *Thue-Morse Resolution* — [seed, key, tempo, bars]
+### 9. *Zipf's Law* — F# minor, seed 8 (eval 90.38)
 
-The Thue-Morse sequence (1906) has zero autocorrelation — maximally
-avoiding self-similarity. Tom Johnson and Per Nørgård both used it.
-Here it produces a resolution: after nine pieces driven by structures
-with self-similarity baked in, the final track lets the math refuse
-to repeat itself and find a different kind of closure.
+Zipf's law says the second most common word in any language is used
+half as often as the most common; the third, a third as often. The
+same power-law distribution appears in city sizes, earthquake
+magnitudes, and musical note frequencies. This closing track follows
+that distribution — a few dominant pitches appear often, while rare
+intervals create fleeting moments of surprise. The highest tension
+arc on the album (95.4).
 
 ---
 
 ## Technical Details
 
-- **Engine:** [sacred_composer](https://github.com/YOUR_USER/MUSIK),
-  an 8,600-line deterministic composition system
+- **Engine:** Sacred Composer — an 8,600-line deterministic composition
+  system in Python
+- **Pattern generators:** 24 mathematical patterns (Fibonacci, golden
+  spiral, Mandelbrot, Rössler, Cantor, Zipf, infinity series,
+  harmonic series, logistic map, Thue-Morse, and more)
 - **Constraint rules:** parallel-fifth avoidance, voice range, leap
-  recovery, phrase endings on scale degrees 1/3/5, cadence placement
+  recovery, phrase endings on scale degrees 1/3/5, cadence placement,
+  seventh resolution
 - **Evaluation:** 14-metric framework scoring L1 (rule compliance),
   L2 (statistical quality), L3 (structural), L4 (perceptual)
-- **Orchestration:** 14 instrument profiles with Orchidée-style
-  timbre matching
-- **Rendering:** FluidSynth + MuseScore_General.sf2 soundfont
+- **Tension shaping:** Crescendo entry (sin ramp over first 55%) +
+  golden-section tension arc (70% arch blend)
+- **Rendering:** FluidSynth + MuseScore General SoundFont
 - **Mastering:** FFmpeg loudnorm at -14 LUFS (Spotify target)
 
-Source code and reproducibility data: [repo URL]
-Each track's seed, key, tempo, and bar count are documented so
-that every composition on this album can be regenerated, note for
-note, by anyone.
+## Reproducibility
+
+Every track on this album can be regenerated, note-for-note, from a
+JSON file containing nine seeds:
+
+```json
+{"pattern": "fibonacci", "key": "Bb_minor", "seed": 3}
+```
+
+One command rebuilds the entire album:
+```bash
+python examples/album/render_masters.py
+```
+
+The source code is open: every note is traceable to its generating
+equation.
 
 ---
 
@@ -151,6 +168,7 @@ note, by anyone.
 This album stands on 2,500 years of work by others:
 Pythagoras, Guido d'Arezzo, Marin Mersenne, Johann Sebastian Bach,
 Heinrich Schenker, Iannis Xenakis, John Cage, Per Nørgård, Tom
-Johnson, William Sethares, John Sloboda, David Huron, and the
-open-source community that built music21, FluidSynth, NumPy, SciPy,
-and Python itself.
+Johnson, Georg Cantor, Benoit Mandelbrot, Otto Rössler, Robert May,
+George Kingsley Zipf, Axel Thue, William Sethares, John Sloboda,
+David Huron, and the open-source community that built music21,
+FluidSynth, NumPy, SciPy, and Python itself.

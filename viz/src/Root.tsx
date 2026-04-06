@@ -10,6 +10,7 @@ import track06 from "./data/track_06.json";
 import track07 from "./data/track_07.json";
 import track08 from "./data/track_08.json";
 import track09 from "./data/track_09.json";
+import track10 from "./data/track_10.json";
 
 const albumTracks = [
   { id: "Track01-Threshold", data: track01 },
@@ -21,6 +22,7 @@ const albumTracks = [
   { id: "Track07-RosslerAttractor", data: track07 },
   { id: "Track08-CantorsDust", data: track08 },
   { id: "Track09-ZipfsLaw", data: track09 },
+  { id: "Track10-ThueMorseResolution", data: track10 },
 ];
 
 export const RemotionRoot: React.FC = () => {

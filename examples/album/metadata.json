@@ -72,6 +72,13 @@
       "isrc": null,
       "duration": "2:43",
       "description": "The rank-frequency distribution found in natural language, city sizes, and music. A composition that follows the same power law as human speech."
+    },
+    {
+      "number": 10,
+      "title": "Thue-Morse Resolution",
+      "isrc": null,
+      "duration": "2:46",
+      "description": "The Thue-Morse sequence (1906) has zero autocorrelation — maximally avoiding self-similarity. After nine pieces built on self-similar structures, the final track lets mathematics refuse to repeat itself. The highest-scoring composition on the album."
     }
   ],
   "credits": {
