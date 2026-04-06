@@ -1,61 +1,63 @@
 # Session Handover
 
-**Date:** 2026-04-06 (Session 14, Three.js 3D sacred geometry)
-**Duration:** ~30 min
-**Goal:** Replace 2D canvas visualization with Three.js 3D sacred geometry per pattern.
+**Date:** 2026-04-06 (Session 14, Three.js 3D sacred geometry + visual polish)
+**Duration:** ~1 hour
+**Goal:** Replace 2D canvas with Three.js 3D sacred geometry per pattern, then iteratively polish layout and visuals.
 
 ## Summary
 
-Session 14 replaced the web player's 2D canvas visualization with a full
-Three.js 3D engine. Each of the 6 patterns now renders a unique sacred/nature
-geometry that rotates, breathes, and reacts to the music during playback.
+Session 14 had two phases:
 
-**Visualizations:**
-- Fibonacci → Phyllotaxis Sphere (sunflower seeds on sphere, dual icosahedra)
-- Golden Spiral → Flower of Life (25 torus rings, vesica piscis highlights)
-- Harmonic → Cymatics (vertex-colored Chladni plate, particle sand on nodes)
-- Logistic → Lorenz Attractor (5000-point gradient trail, glowing head + aura)
-- Thue-Morse → Fractal Tree (color-gradient branches, pollen particles, wind)
-- Mandelbrot → 3D Terrain (banded fractal coloring, edge-glow particles)
+**Phase 1 — Three.js 3D Engine:** Replaced the web player's 2D canvas visualization
+with a full Three.js 3D engine. Each of the 6 patterns now renders a unique
+sacred/nature geometry that rotates, breathes, and reacts to the music.
 
-**Shared effects:** starfield background (300 particles), progress ring during
-playback, camera breathing, additive glow auras on active notes, sacred
-connection lines between simultaneous notes, ambient dust particles.
+**Phase 2 — Visual Iteration & Polish:** Ran a systematic visual iteration loop
+(7 cycles) to refine layout, spacing, and visual quality across desktop and mobile.
 
-1 commit landed this session (now 50 ahead of origin).
+**Visualizations (per pattern):**
+- Fibonacci → Phyllotaxis Sphere (sunflower seeds on sphere, dual icosahedra, equatorial ring)
+- Golden Spiral → Flower of Life (25 torus rings, 3 layers, vesica piscis highlights)
+- Harmonic → Cymatics (vertex-colored Chladni plate, dual wave modes, particle sand on nodes)
+- Logistic → Lorenz Attractor (5000-point gradient trail, glowing head + additive aura)
+- Thue-Morse → Fractal Tree (color-gradient branches, pollen particles, wind sway)
+- Mandelbrot → 3D Terrain (banded fractal coloring, edge-glow particles, 80x80 mesh)
 
-The web player received the biggest overhaul:
-1. **Visualization contrast** — spiral, connections, and note dots boosted 2-3x
-2. **Ambient idle animation** — phi symbol rotates/breathes, notes drift
-3. **3x denser compositions** — 24-34 notes per piece (was 8)
-4. **6-pattern selector** — Fibonacci, Golden Spiral, Harmonic, Logistic, Thue-Morse, Mandelbrot
-5. **Favicon + social meta tags** — Twitter card, OG metadata
+**Shared 3D effects (all patterns):**
+- Starfield background (300 golden particles on rotating sphere shell)
+- Progress ring (golden arc fills during playback)
+- Camera breathing (subtle z/x/y oscillation)
+- Additive glow auras on active notes (pool of 8 sprites)
+- Sacred connection lines between simultaneous notes
+- Ambient dust particles per pattern
 
-Album metadata was cleaned up: all "nine track" references updated to "ten",
-Track 10 liner notes added, eval scores synced to post-tension-arc values.
+**Layout/CSS improvements:**
+- Desktop (720px+): wider container (800px max), 2:1 viz aspect ratio
+- Everything above the fold — no scrolling needed to reach Play button
+- Empty state: vertically centered for inviting first impression
+- Play button: gold glow + shadow as clear primary action
+- Controls card: gradient background + drop shadow
+- Stronger overlay gradient + text shadow for readability
+- Tighter spacing throughout (header, inputs, cards)
 
-Motivic variation was A/B tested on all 10 tracks and rejected (every track
-worsened, up to -15.18 on Track 10).
-
-5 commits landed this session (now 49 ahead of origin).
+3 commits landed this session (now 52 ahead of origin).
 
 ## What Got Done
 
-- [x] Visual verification: web player (desktop + mobile + playback)
-- [x] Visual verification: Remotion Studio (all 11 compositions render at 60fps)
-- [x] Visual verification: FastAPI (14 endpoints, Swagger UI, compose-from-name works)
-- [x] Visual verification: cover art (Mandelbrot seahorse valley, professional)
-- [x] Web player: viz contrast boost (spiral 6%→15%, connections 4%→10%, dots bigger)
-- [x] Web player: ambient idle animation (phi rotation + note drift)
-- [x] Web player: denser compositions (fibCount 28-39, eucHits 5-9, shorter durations)
-- [x] Web player: 6-pattern selector with client-side generators
-- [x] Web player: favicon.svg (phi symbol)
-- [x] Web player: Twitter card + OG metadata
-- [x] Album metadata: "nine" → "ten" across 6 files
-- [x] Album metadata: Track 10 liner notes
-- [x] Album metadata: eval scores synced to current values (avg 90.70)
-- [x] Album metadata: fixed stale "highest-scoring" claim, "closing track" reference
-- [x] A/B tested motivic variation — rejected (universal regression)
+- [x] Three.js 3D engine replacing 2D canvas (viz.js complete rewrite)
+- [x] 6 distinct sacred geometry visualizations (one per pattern)
+- [x] Starfield background, progress ring, camera breathing
+- [x] Glow auras, sacred connections, ambient dust
+- [x] Enhanced cymatics (vertex colors, dual waves, particle sand)
+- [x] Desktop responsive layout (800px wide, 2:1 aspect)
+- [x] Empty state vertical centering
+- [x] Play button prominence (glow + shadow)
+- [x] Controls card visual upgrade (gradient + shadow)
+- [x] Overlay text readability (stronger gradient + text shadow)
+- [x] Visual verification: all 6 patterns on desktop
+- [x] Visual verification: mobile (375px) layout
+- [x] Visual verification: playback state with active notes
+- [x] All pattern buttons on one line (desktop)
 
 ## What's In Progress
 
@@ -66,25 +68,27 @@ Nothing. All work completed and committed.
 - **Human listening** — still needed
 - **Video rendering** — `cd viz && bash render_album.sh` (~7.5 hours)
 - **DistroKid signup** — requires human
-- **Push to origin** — 49 commits ahead, waiting for user
+- **Push to origin** — 52 commits ahead, waiting for user
 
 ## Architecture & Design Decisions
 
 | Decision | Chosen | Why | Rejected | Why Rejected |
 |---|---|---|---|---|
-| Viz contrast | 2-3x opacity boost | Original was nearly invisible (6% spiral, 4% connections) | Leave as-is | Users can't see the visualization |
-| Composition density | 28-39 Fibonacci terms, 5-9 euclidean hits | 8 notes over 23s was too sparse to be interesting | Keep sparse | Not engaging enough for a demo |
-| Pattern selector | 6 client-side pattern generators | Matches album patterns, lets users explore different math structures | API-only patterns | Would require server, breaks standalone HTML deployment |
-| Motivic variation | Reject | A/B tested all 10 tracks: every one worsened (up to -15.18). Destroys constraint pipeline work | Wire into builder | Pitched modifications after constraints create violations |
-| PHI naming | PHI_RATIO in player.js | viz.js already declares const PHI; duplicate causes crash | Rename in viz.js | player.js is new code, easier to rename there |
+| 3D engine | Three.js v0.160.0 from CDN | Proven, no build step, UMD global | R3F/WebGPU | Needs bundler, overkill for standalone HTML |
+| Viz aspect ratio | 2:1 on desktop, 1:1 on mobile | Fits everything above fold on 768px viewport | Square everywhere | Wastes vertical space on desktop |
+| Note glow | Additive-blended sprite pool (8) | Reusable, no per-frame allocation, visible glow | Per-note glow mesh | Too many objects, expensive dispose |
+| Cymatics color | Vertex colors (gold peaks, blue nodes) | Shows wave structure clearly, visually rich | Uniform wireframe | Lost the interesting Chladni topology |
+| Starfield | 300 points on golden-angle sphere shell | Consistent with sacred geometry theme, subtle depth | Random distribution | Less aesthetically coherent |
+| Empty state | CSS :has() vertical centering | Modern, no JS, seamless transition when viz appears | JS-based toggle | More complex, flash of wrong layout |
 
 ## Known Issues & Risks
 
 - **No human listening feedback** — eval ≠ taste
-- **Track 7 still weakest** (87.81) — transition_motivation (66.7) and directional_momentum (71.4) are structural Rössler limitations
-- **Track 8 second-weakest** (86.93) — tension_arc (70.2) and repetition_variation (69.1)
+- **Track 7 still weakest** (87.81) — structural Rossler limitations
+- **Track 8 second-weakest** (86.93) — tension_arc and repetition_variation
 - **10 videos not rendered** — ~7.5 hours overnight
-- **49 commits not pushed** — `git push origin master`
+- **52 commits not pushed** — `git push origin master`
+- **CSS :has() selector** — supported in all modern browsers but not IE/old Edge
 
 ## Next Steps (Priority Order)
 
@@ -99,7 +103,7 @@ examples/album/normalized/
 cd C:/Users/kreyh/Projekte/MUSIK/viz && bash render_album.sh
 ```
 
-### 3. **Push 50 commits to origin**
+### 3. **Push 52 commits to origin**
 ```bash
 git push origin master
 ```
@@ -108,20 +112,22 @@ git push origin master
 
 ### 5. **Social launch** — copy in `examples/album/launch_copy.md`
 
-### 6. **Optional: deploy web player** — it's fully standalone HTML/JS, could go on GitHub Pages or Netlify
+### 6. **Deploy web player** — fully standalone HTML/JS, could go on GitHub Pages or Netlify
 
 ## Rollback Plan
 
-- **Last known good:** `99b5083` (current HEAD) — Three.js 3D viz
-- **Rollback session 14 only:** `git reset --hard 1dcf1a9` — back to session 13 end
+- **Last known good:** `5a6dbf7` (current HEAD) — CSS polish
+- **Rollback CSS polish only:** `git reset --hard 99b5083` — Three.js viz without layout changes
+- **Rollback session 14 entirely:** `git reset --hard 1dcf1a9` — back to session 13 (2D canvas)
 - **Rollback session 13+14:** `git reset --hard fc86047` — back to session 12 end
 
 ## Files Changed This Session
 
-**Modified (3 files):**
-- `web/viz.js` — complete rewrite: Three.js 3D engine, 6 sacred geometry patterns, starfield, glow, connections, dust
+**Modified (4 files):**
+- `web/viz.js` — complete rewrite: Three.js 3D engine, 6 sacred geometry patterns, starfield, glow, connections, dust (~700 lines)
 - `web/player.js` — added `patternKey` field to composition object
 - `web/index.html` — added Three.js v0.160.0 CDN script tag
+- `web/style.css` — responsive layout (800px/2:1), vertical centering, button polish, overlay readability
 
 ## Open Questions (inherited)
 
