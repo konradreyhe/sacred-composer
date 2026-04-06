@@ -216,6 +216,7 @@ function generateComposition(seed, patternKey) {
         seed,
         tempo,
         key: keyName,
+        patternKey: patternKey,
         pattern: patternDef.name + '(' + noteCount + ') + Euclidean(' + eucHits + ',' + eucSteps + ')',
         noteCount: notes.filter(n => !n.rest).length,
         durationSec,
