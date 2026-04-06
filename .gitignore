@@ -39,8 +39,10 @@ node_modules/
 dist/
 build/
 
-# Exception: keep viz public audio for Remotion
-!viz/public/*.wav
+# viz/public WAVs are reproduced by copy_audio_to_viz.py (too large to commit)
+
+# Generated album art (reproduced by cover_art.py)
+examples/album/cover_art.jpg
 
 # Remotion output
 viz/out/

@@ -11,25 +11,29 @@ export interface NoteData {
 
 export interface VoiceData {
   name: string;
-  instrument: string;
+  instrument: string | number;
   channel: number;
   notes: NoteData[];
 }
 
 export interface FormSection {
   label: string;
-  startBar: number;
-  endBar: number;
-  bars: number;
+  startBar?: number;
+  endBar?: number;
+  bars?: number;
+  startBeat?: number;
+  endBeat?: number;
 }
 
 export interface CompositionData {
   meta: {
     title: string;
     tempo: number;
-    durationBeats: number;
+    durationBeats?: number;
+    duration?: number;
     durationSec: number;
     fps: number;
+    audioFile?: string;
   };
   voices: VoiceData[];
   formSections: FormSection[];

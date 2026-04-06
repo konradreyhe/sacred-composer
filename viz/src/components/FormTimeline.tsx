@@ -34,8 +34,12 @@ export const FormTimeline: React.FC<Props> = ({
       }}
     >
       {sections.map((s, i) => {
-        const startSec = barToSec(s.startBar, tempo);
-        const endSec = barToSec(s.endBar, tempo);
+        const startSec = s.startBar != null
+          ? barToSec(s.startBar, tempo)
+          : (s.startBeat ?? 0) * 60 / tempo;
+        const endSec = s.endBar != null
+          ? barToSec(s.endBar, tempo)
+          : (s.endBeat ?? 0) * 60 / tempo;
         const sectionDur = endSec - startSec;
         const widthPct = (sectionDur / durationSec) * 100;
 

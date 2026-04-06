@@ -107,8 +107,8 @@ export const SacredComposition: React.FC<{ data: CompositionData }> = ({
         overflow: "hidden",
       }}
     >
-      {/* Audio */}
-      <Audio src={staticFile("composition.wav")} />
+      {/* Audio — uses track-specific file if available, falls back to default */}
+      <Audio src={staticFile(data.meta.audioFile || "composition.wav")} />
 
       {/* === BACKGROUND LAYERS === */}
 
