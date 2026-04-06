@@ -13,15 +13,15 @@
 set -euo pipefail
 
 TRACKS=(
-  "Track01_Threshold"
-  "Track02_InfiniteSeries"
-  "Track03_GoldenSpiral"
-  "Track04_HarmonicSeries"
-  "Track05_LogisticMap"
-  "Track06_MandelbrotBoundary"
-  "Track07_RosslerAttractor"
-  "Track08_CantorsDust"
-  "Track09_ZipfsLaw"
+  "Track01-Threshold"
+  "Track02-InfiniteSeries"
+  "Track03-GoldenSpiral"
+  "Track04-HarmonicSeries"
+  "Track05-LogisticMap"
+  "Track06-MandelbrotBoundary"
+  "Track07-RosslerAttractor"
+  "Track08-CantorsDust"
+  "Track09-ZipfsLaw"
 )
 
 OUTDIR="out/album"
