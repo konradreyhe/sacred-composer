@@ -1,16 +1,17 @@
 # Session Handover
 
 **Date:** 2026-04-07 (Session 17)
-**Duration:** ~1 hour
+**Duration:** ~1.5 hours
 **Goal:** Autonomous improvements — web UX, eval score optimization, video rendering.
 
 ## Summary
 
 Session 17 focused on three areas: **web experience polish**, **album score
 optimization**, and **video rendering**. Added volume control, deep linking,
-and play/stop toggle to the album page. Found new seeds for Rossler (+0.60)
-and Golden Spiral (+0.65), lifting the album average from 91.22 to **91.35**.
-Track 02 video rendered successfully.
+and play/stop toggle to the album page. Found dramatically better configs for Rossler (+3.30), Cantor (+3.51),
+Thue-Morse (+0.95), and Golden Spiral (+0.65), lifting the album average
+from 91.22 to **92.06** — breaking the 92 barrier. All tracks now score
+above 91. Track 02 video rendered, CI fixed.
 
 ## What Got Done
 
@@ -22,16 +23,18 @@ Track 02 video rendered successfully.
 - [x] **Album page: GitHub link** in footer
 - [x] **Album page: accessibility** — aria-label on volume slider
 - [x] **Gitignore** — added `.playwright-mcp/`
-- [x] **Rossler optimization** — seed 77 scores 88.41, up from 87.81 (+0.60)
-  - Searched seeds 41-120 across 7 keys (420+ candidates)
-  - Re-rendered master WAV, normalized to -14 LUFS, re-exported viz data
-- [x] **Golden Spiral optimization** — seed 80 scores 91.77, up from 91.12 (+0.65)
-  - Searched seeds 41-80 across same key (D_major)
-  - Re-rendered, normalized, re-exported viz data
-- [x] **Thue-Morse optimization** — seed 71 scores 93.41, up from 92.46 (+0.95)
-  - New highest-scoring track on the album (was infinity_series at 92.57)
-  - Re-rendered master WAV, normalized, re-exported viz data
-- [x] **Album average: 91.22 → 91.44** (3 tracks improved)
+- [x] **Rossler optimization** — Bb_minor seed=70 dur=1.0 scores 91.11 (+3.30)
+  - Multi-parameter search: varied seed, key, sections, base_duration
+  - Previous: E_minor seed=10 (87.81)
+- [x] **Golden Spiral optimization** — D_major seed=80 scores 91.77 (+0.65)
+- [x] **Thue-Morse optimization** — G_major seed=71 scores 93.41 (+0.95)
+  - New highest-scoring track (was infinity_series at 92.57)
+- [x] **Cantor optimization** — E_minor seed=42 ns=6 dur=0.5 scores 91.55 (+3.51)
+  - Deep multi-param search: sections=6 and dur=0.5 unlock dramatically higher scores
+  - Previous: F#_minor seed=10 (88.04)
+- [x] **All tracks re-rendered**, normalized to -14 LUFS, viz data re-exported
+- [x] **Album average: 91.22 → 92.06** (+0.84, 4 tracks improved)
+- [x] **All 10 tracks now score above 91**
 - [x] **Track 02 video rendered** (InfiniteSeries.mp4)
 - [x] **CI fix** — added pytest to ci.yml, scipy to pyproject.toml deps, fixed build backend
 - [x] Updated: seeds.json, album.html, README.md, CLAUDE.md, metadata.json, liner notes
@@ -47,7 +50,6 @@ Track 02 video rendered successfully.
 
 ## What Didn't Get Done (and Why)
 
-- **Cantor improvement** — searched 1200+ candidates across seeds, keys, sections, durations. No improvement over F#_minor seed=10 (88.04). The low repetition_variation score (58.15) is inherent to Cantor's fractal silence pattern.
 - **Fibonacci improvement** — false positive from concurrent search race condition (shared _tmp.mid file). No real improvement.
 - **Mandelbrot/Zipf/Infinity/Logistic/Harmonic improvement** — no better seeds found in 41-80 range
 - **Full video rendering** — only Track 02 completed this session (~1h40m each at 60fps). Track 03 rendering in progress.
@@ -58,8 +60,10 @@ Track 02 video rendered successfully.
 |---|---|---|---|---|
 | Rossler seed | 77 (E_minor) | +0.60 over seed 10, same key | seed 10 | Lower score |
 | Golden Spiral seed | 80 (D_major) | +0.65 over seed 9, same key | seed 9 | Lower score |
-| Cantor seed | Keep 10 (F#_minor) | Best after 1200+ candidates | Various | All scored lower |
+| Cantor seed+params | 42 (E_minor) ns=6 dur=0.5 | +3.51, sections/duration unlock hidden score | F#_minor seed 10 | 88.04 with canonical params |
 | Thue-Morse seed | 71 (G_major) | +0.95, new album peak (93.41) | seed 11 | Lower score |
+| Rossler seed+params | 70 (Bb_minor) dur=1.0 | +3.30, base_duration key lever | E_minor seed 10 | 87.81 with canonical params |
+| Per-track overrides | Added to render/export scripts | Some patterns need non-default params | Force canonical everywhere | Leaves 3+ points on table |
 | Volume control | Slider + mute SVG | Standard UX pattern | None | Bad UX without it |
 | Deep linking | URL hash for album, query params for composer | Works without JS, shareable | None | No alternative considered |
 
@@ -125,17 +129,19 @@ Ready in `examples/album/launch_copy.md` with real URLs.
 
 ## Files Changed This Session
 
-**Commits (10):**
+**Commits (14):**
 1. `148e4f5` — Album: volume control, GitHub link, thicker progress bar
 2. `d1c6736` — Deep linking: album #track-N, name composer pattern URL
 3. `b7a5185` — Album: play/stop icon toggle
-4. `6ced7ef` — Rossler seed 77 (88.41, +0.60)
+4. `6ced7ef` — Rossler seed 77 (88.41)
 5. `8758468` — README: new scores, live URLs
-6. `10664e6` — Metadata and liner notes for Rossler
+6. `10664e6` — Metadata and liner notes
 7. `103d087` — Golden Spiral seed 80 (91.77, +0.65)
 8. `0048bbe` — Fix CI: add pytest, scipy deps
 9. `f2e4bc4` — Thue-Morse seed 71 (93.41, +0.95)
-10. `843e57b` — Fix build backend, album avg 91.35
+10. `843e57b` — Fix build backend
+11. `8291d96` — Cantor seed 42 ns=6 dur=0.5 (91.55, +3.51)
+12. `ab0f5a8` — Rossler seed 70 dur=1.0 (91.11, +3.30), avg 92.06, album avg 91.35
 
 ## Open Questions (inherited)
 
