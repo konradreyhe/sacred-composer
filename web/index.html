@@ -141,6 +141,7 @@
         if (label) {
             const url = new URL(window.location);
             url.searchParams.set('name', label);
+            url.searchParams.set('pattern', selectedPattern);
             history.replaceState({}, '', url);
         }
     }
@@ -184,6 +185,7 @@
         const input = seedInput.value.trim();
         const url = new URL(window.location);
         if (input) url.searchParams.set('name', input);
+        url.searchParams.set('pattern', selectedPattern);
         navigator.clipboard.writeText(url.toString()).then(() => {
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 2000);
@@ -202,12 +204,20 @@
     }
     idleLoop();
 
-    // Auto-compose from URL param
+    // Auto-compose from URL params
     const params = new URLSearchParams(window.location.search);
     const nameParam = params.get('name');
+    const patternParam = params.get('pattern');
+    if (patternParam) {
+        const btn = document.querySelector(`.pattern-btn[data-pattern="${patternParam}"]`);
+        if (btn) {
+            document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedPattern = patternParam;
+        }
+    }
     if (nameParam) {
         seedInput.value = nameParam;
-        // Small delay so fonts/layout settle
         setTimeout(() => generate(), 100);
     } else {
         seedInput.focus();

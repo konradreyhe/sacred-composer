@@ -806,6 +806,30 @@ document.addEventListener('keydown', (e) => {
         stopAll();
     }
 });
+
+// --- Deep Linking (album.html#track-5) ---
+
+function handleHash() {
+    const hash = location.hash;
+    const m = hash.match(/^#track-(\d+)$/);
+    if (m) {
+        const idx = parseInt(m[1], 10) - 1;
+        if (idx >= 0 && idx < TRACKS.length) {
+            const el = document.getElementById('track-' + idx);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+}
+
+// Update hash when playing
+const origPlayTrack = playTrack;
+playTrack = async function(idx) {
+    history.replaceState(null, '', '#track-' + (idx + 1));
+    return origPlayTrack(idx);
+};
+
+handleHash();
+window.addEventListener('hashchange', handleHash);
 </script>
 
 </body>
