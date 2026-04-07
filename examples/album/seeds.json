@@ -75,11 +75,12 @@
       "number": 7,
       "title": "Rossler's Strange Attractor",
       "pattern": "rossler",
-      "key": "E_minor",
-      "seed": 77,
-      "eval_score": 88.41,
+      "key": "Bb_minor",
+      "seed": 70,
+      "base_duration": 1.0,
+      "eval_score": 91.11,
       "l1_pass": true,
-      "notes": "Otto Rossler 1976 chaotic system. Seed 77 found in session 17, +0.60 over seed 10 (searched 120 seeds x 7 keys)."
+      "notes": "Otto Rossler 1976 chaotic system. Bb_minor seed 70 with dur=1.0 found in session 17 multi-param search (+3.30 over original seed 10)."
     },
     {
       "number": 8,
@@ -115,8 +116,8 @@
     }
   ],
   "averages": {
-    "eval_score": 91.79,
+    "eval_score": 92.06,
     "l1_pass_rate": 1.0
   },
-  "notes": "10-track album. Session 15: 90.70 -> 91.22. Session 17: rossler +0.60, golden_spiral +0.65, thue_morse +0.95, cantor +3.51, average 91.79."
+  "notes": "10-track album. Session 15: 90.70 -> 91.22. Session 17: rossler +3.30, golden_spiral +0.65, thue_morse +0.95, cantor +3.51, average 92.06."
 }

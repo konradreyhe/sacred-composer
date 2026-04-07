@@ -14,12 +14,12 @@ A 10-track album where each track is driven by a different mathematical structur
 | 04 | Harmonic Series | Overtone physics | 92.33 |
 | 05 | Logistic Map (r=3.7) | Edge of chaos | 92.43 |
 | 06 | Mandelbrot Boundary | Fractal boundary walk | 91.73 |
-| 07 | Rossler's Strange Attractor | Chaotic system | 88.41 |
+| 07 | Rossler's Strange Attractor | Chaotic system | 91.11 |
 | 08 | Cantor's Dust | Fractal silence | 91.55 |
 | 09 | Zipf's Law | Power-law distribution | 91.51 |
 | 10 | Thue-Morse Resolution | Anti-self-similarity | 93.41 |
 
-**Album average: 91.79/100** across 14 music-theory metrics with zero rule violations.
+**Album average: 92.06/100** across 14 music-theory metrics with zero rule violations.
 
 The entire album is reproducible from `examples/album/seeds.json`. One command regenerates it bit-identically.
 

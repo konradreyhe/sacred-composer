@@ -97,7 +97,7 @@ tension-release pair. This is the musical device that Sloboda (1991)
 identified as triggering 82% of self-reported chill moments in
 classical listeners. Listen for the brief tension at the climax.
 
-### 7. *Rössler's Strange Attractor* — E minor, seed 77 (eval 88.41)
+### 7. *Rössler's Strange Attractor* — Bb minor, seed 70 (eval 91.11)
 
 Otto Rössler's 1976 attractor is simpler than Lorenz's — only one
 nonlinear term — but produces equally complex trajectories. The
