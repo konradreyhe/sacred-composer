@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sacred Geometry Vol. 1 — Sacred Composer</title>
+    <meta name="description" content="Ten compositions generated entirely from mathematical patterns. Every note deterministic, every structure traceable to its generating equation.">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta property="og:title" content="Sacred Geometry Vol. 1">
+    <meta property="og:description" content="Ten compositions from Fibonacci sequences, Mandelbrot sets, golden spirals, chaotic attractors. No AI, no randomness — pure pattern.">
+    <meta property="og:type" content="music.album">
+    <meta property="og:image" content="og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="og-image.jpg">
+    <meta name="twitter:title" content="Sacred Geometry Vol. 1">
+    <style>
+        :root {
+            --bg: #08080d;
+            --bg-card: #101018;
+            --gold: #d4aa30;
+            --gold-dim: #8a7025;
+            --gold-glow: rgba(212, 170, 48, 0.2);
+            --text: #e8e4da;
+            --text-dim: #6a665e;
+            --serif: Georgia, 'Times New Roman', serif;
+            --mono: 'Courier New', monospace;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--serif);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        .album-container {
+            max-width: 680px;
+            width: 92%;
+            padding: 2.5rem 0 3rem;
+        }
+
+        /* --- Header --- */
+
+        .album-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .album-title {
+            font-size: 2rem;
+            color: var(--gold);
+            letter-spacing: 0.12em;
+            font-weight: normal;
+        }
+
+        .album-artist {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-top: 0.4rem;
+            font-style: italic;
+        }
+
+        .album-meta {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 0.8rem;
+        }
+
+        .album-tag {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--text-dim);
+            border: 1px solid rgba(212, 170, 48, 0.15);
+            border-radius: 20px;
+            padding: 0.2rem 0.65rem;
+        }
+
+        .album-desc {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            margin-top: 1rem;
+            line-height: 1.6;
+            max-width: 540px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .album-score {
+            display: inline-block;
+            margin-top: 0.8rem;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--gold);
+            border: 1px solid rgba(212, 170, 48, 0.25);
+            border-radius: 6px;
+            padding: 0.3rem 0.8rem;
+        }
+
+        /* --- Track List --- */
+
+        .tracklist {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .track {
+            background: linear-gradient(145deg, var(--bg-card), rgba(20, 18, 12, 0.9));
+            border: 1px solid rgba(212, 170, 48, 0.08);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            display: grid;
+            grid-template-columns: 2.2rem 1fr auto;
+            grid-template-rows: auto auto;
+            gap: 0 0.8rem;
+            align-items: center;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            cursor: default;
+        }
+
+        .track:hover {
+            border-color: rgba(212, 170, 48, 0.25);
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .track.playing {
+            border-color: var(--gold);
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        .track-num {
+            grid-row: 1 / 3;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-align: center;
+        }
+
+        .track.playing .track-num {
+            color: var(--gold);
+        }
+
+        .track-title {
+            font-size: 0.95rem;
+            color: var(--text);
+            letter-spacing: 0.03em;
+        }
+
+        .track.playing .track-title {
+            color: var(--gold);
+        }
+
+        .track-right {
+            grid-row: 1 / 3;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .track-duration {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text-dim);
+        }
+
+        .track-score {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: var(--gold-dim);
+            background: rgba(212, 170, 48, 0.06);
+            border-radius: 4px;
+            padding: 0.15rem 0.4rem;
+        }
+
+        .track-desc {
+            grid-column: 2;
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+            line-height: 1.45;
+        }
+
+        .track-pattern {
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            color: var(--gold-dim);
+        }
+
+        /* --- Play Button (inline) --- */
+
+        .play-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--gold-dim);
+            background: transparent;
+            color: var(--gold);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            transition: all 0.25s;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .play-btn:hover {
+            background: var(--gold);
+            color: var(--bg);
+            box-shadow: 0 0 12px var(--gold-glow);
+        }
+
+        .play-btn svg { width: 10px; height: 10px; fill: currentColor; }
+
+        /* --- Progress --- */
+
+        .track-progress {
+            grid-column: 1 / -1;
+            height: 2px;
+            background: rgba(212, 170, 48, 0.08);
+            border-radius: 1px;
+            margin-top: 0.6rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .track.playing .track-progress { display: block; }
+
+        .track-progress .fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+            width: 0%;
+            transition: width 0.15s linear;
+        }
+
+        /* --- Footer --- */
+
+        .album-footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(212, 170, 48, 0.08);
+        }
+
+        .album-footer p {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .album-footer a {
+            color: var(--gold);
+            text-decoration: none;
+            border-bottom: 1px solid rgba(212, 170, 48, 0.3);
+            transition: border-color 0.3s;
+        }
+
+        .album-footer a:hover { border-color: var(--gold); }
+
+        .cta-btn {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.6rem 1.5rem;
+            border: 1px solid var(--gold-dim);
+            color: var(--gold);
+            font-family: var(--serif);
+            font-size: 0.82rem;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.25s;
+        }
+
+        .cta-btn:hover {
+            background: var(--gold);
+            color: var(--bg);
+            box-shadow: 0 0 20px var(--gold-glow);
+            border-bottom: none;
+        }
+
+        /* --- Responsive --- */
+
+        @media (max-width: 480px) {
+            .album-title { font-size: 1.5rem; }
+            .track { padding: 0.7rem 0.8rem; grid-template-columns: 1.8rem 1fr auto; }
+            .track-desc { font-size: 0.68rem; }
+            .track-score { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="album-container">
+    <header class="album-header">
+        <h1 class="album-title">Sacred Geometry Vol. 1</h1>
+        <p class="album-artist">Sacred Composer</p>
+        <div class="album-meta">
+            <span class="album-tag">2026</span>
+            <span class="album-tag">Classical</span>
+            <span class="album-tag">Ambient</span>
+            <span class="album-tag">Deterministic</span>
+        </div>
+        <p class="album-desc">
+            Ten compositions generated entirely from mathematical patterns &mdash;
+            Fibonacci sequences, Mandelbrot sets, golden spirals, chaotic attractors.
+            Every note is deterministic, every structure traceable to its generating equation.
+            No AI, no randomness &mdash; pure pattern.
+        </p>
+        <div class="album-score">avg eval: 91.22 / 100</div>
+    </header>
+
+    <ol class="tracklist" id="tracklist"></ol>
+
+    <footer class="album-footer">
+        <p>
+            All compositions generated by formula + classical counterpoint rules.<br>
+            Rendered via FluidSynth &middot; Mastered to &minus;14 LUFS.<br>
+            Previews use Tone.js synthesis &mdash; the album uses orchestral rendering.
+        </p>
+        <a href="index.html" class="cta-btn">Compose Your Name &rarr;</a>
+    </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14/build/Tone.js"></script>
+<script>
+// --- Album Data ---
+
+const TRACKS = [
+    { num: 1,  title: "Threshold", duration: "2:40", score: 92.24, pattern: "fibonacci", key: "Bb minor", seed: 26, desc: "Fibonacci sequence mapped to pitch and rhythm. The simplest seed \u2014 where mathematics first becomes audible." },
+    { num: 2,  title: "The Infinite Series", duration: "2:40", score: 92.57, pattern: "infinity_series", key: "C major", seed: 1, desc: "Per N\u00f8rg\u00e5rd\u2019s 1959 self-similar infinity series. Each interval contains the whole." },
+    { num: 3,  title: "Golden Spiral", duration: "2:46", score: 91.12, pattern: "golden_spiral", key: "D major", seed: 9, desc: "Phi-derived melodic contour. The climax lands precisely at the golden section." },
+    { num: 4,  title: "Harmonic Series", duration: "2:40", score: 92.33, pattern: "harmonic_series", key: "E minor", seed: 11, desc: "The physical basis of consonance \u2014 overtones of a vibrating string become melody." },
+    { num: 5,  title: "Logistic Map (r=3.7)", duration: "2:40", score: 92.43, pattern: "logistic", key: "C\u266f minor", seed: 18, desc: "Edge-of-chaos dynamics. The same equation that models population growth creates melodic turbulence." },
+    { num: 6,  title: "Mandelbrot Boundary", duration: "2:46", score: 91.73, pattern: "mandelbrot", key: "E minor", seed: 2, desc: "A walk along the Mandelbrot set boundary. Features the Goosebump Engine \u2014 an appoggiatura at the golden-section climax." },
+    { num: 7,  title: "R\u00f6ssler\u2019s Strange Attractor", duration: "3:43", score: 87.81, pattern: "rossler", key: "E minor", seed: 10, desc: "Otto R\u00f6ssler\u2019s 1976 chaotic system. Suspended orbits create an unhurried, meditative quality." },
+    { num: 8,  title: "Cantor\u2019s Dust", duration: "2:54", score: 88.04, pattern: "cantor", key: "F\u266f minor", seed: 10, desc: "Fractal silence. Georg Cantor\u2019s middle-third removal creates sparse rhythms \u2014 what\u2019s absent shapes what remains." },
+    { num: 9,  title: "Zipf\u2019s Law", duration: "2:40", score: 91.51, pattern: "zipf", key: "B\u266d minor", seed: 26, desc: "The rank-frequency distribution found in natural language. A composition following the same power law as human speech." },
+    { num: 10, title: "Thue-Morse Resolution", duration: "2:46", score: 92.46, pattern: "thue_morse", key: "G major", seed: 11, desc: "Zero autocorrelation \u2014 maximally avoids self-similarity. After nine self-similar pieces, mathematics refuses to repeat." }
+];
+
+// --- Pattern Generators (matching player.js) ---
+
+const PHI = (1 + Math.sqrt(5)) / 2;
+const SCALE = [0, 2, 3, 5, 7, 8, 10]; // natural minor
+const BASE_OCT = 3;
+
+function makeRng(seed) {
+    let s = seed | 0;
+    return function () {
+        s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+function midiToNote(m) {
+    const n = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    return n[m % 12] + (Math.floor(m / 12) - 1);
+}
+
+function toMidi(idx, rootOffset) {
+    const deg = SCALE[((idx % SCALE.length) + SCALE.length) % SCALE.length];
+    const oct = Math.floor(idx / SCALE.length);
+    return 12 * (BASE_OCT + 1) + rootOffset + deg + oct * 12;
+}
+
+// Key name to semitone offset from C
+function keyOffset(key) {
+    const map = { 'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11 };
+    const root = key.split(' ')[0];
+    return map[root] || 0;
+}
+
+function genFibonacci(n) { const s = [0,1]; for (let i=2;i<n;i++) s.push(s[i-1]+s[i-2]); return s.slice(2).map(v=>v%15); }
+function genGolden(n) { const s=[]; for(let i=0;i<n;i++) s.push(Math.floor(i*PHI)%15); return s; }
+function genHarmonic(n) { const s=[]; for(let i=1;i<=n;i++) s.push(Math.floor(12*Math.log2(i))%15); return s; }
+function genLogistic(n) { let x=0.5; const s=[]; for(let i=0;i<n;i++){x=3.7*x*(1-x);s.push(Math.floor(x*15));} return s; }
+function genThueMorse(n) { const s=[0]; while(s.length<n){const inv=s.map(b=>1-b);for(const b of inv){if(s.length<n)s.push(b);}} return s.map(b=>b*7); }
+function genMandelbrot(n) { const s=[]; for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2;const cr=-0.75+0.3*Math.cos(a);const ci=0.3*Math.sin(a);let zr=0,zi=0,it=0;while(zr*zr+zi*zi<4&&it<30){const t=zr*zr-zi*zi+cr;zi=2*zr*zi+ci;zr=t;it++;}s.push(it%15);} return s; }
+
+// Infinity series (Norgard)
+function genInfinity(n) {
+    const s = [0];
+    for (let i = 1; i < n; i++) {
+        if (i % 2 === 1) s[i] = -s[(i-1)/2];
+        else s[i] = s[i/2] + 1;
+    }
+    return s.map(v => ((v % 15) + 15) % 15);
+}
+
+// Rossler attractor
+function genRossler(n) {
+    let x=0.1, y=0, z=0; const a=0.2, b=0.2, c=5.7, dt=0.05;
+    const s = [];
+    for (let i=0;i<n*20;i++) {
+        const dx=-y-z, dy=x+a*y, dz=b+z*(x-c);
+        x+=dx*dt; y+=dy*dt; z+=dz*dt;
+        if (i%20===0) s.push(Math.floor(((Math.atan2(y,x)/Math.PI+1)*7.5))%15);
+    }
+    return s.slice(0,n);
+}
+
+// Cantor set (middle-third removal)
+function genCantor(n) {
+    const s = [];
+    for (let i=0;i<n;i++) {
+        let x=i, inCantor=true;
+        while(x>0){if(x%3===1){inCantor=false;break;}x=Math.floor(x/3);}
+        s.push(inCantor ? (i%12) : 0);
+    }
+    return s.map(v=>v%15);
+}
+
+// Zipf distribution
+function genZipf(n) {
+    const s = [];
+    for (let i=1;i<=n;i++) s.push(Math.floor(14/(1+Math.log(i))));
+    return s;
+}
+
+const GENERATORS = {
+    fibonacci: genFibonacci, golden_spiral: genGolden, harmonic_series: genHarmonic,
+    logistic: genLogistic, thue_morse: genThueMorse, mandelbrot: genMandelbrot,
+    infinity_series: genInfinity, rossler: genRossler, cantor: genCantor, zipf: genZipf
+};
+
+// Euclidean rhythm
+function euclidean(k, n) {
+    if (k >= n) return new Array(n).fill(1);
+    if (k === 0) return new Array(n).fill(0);
+    let p = []; for (let i=0;i<n;i++) p.push(i<k?[1]:[0]);
+    for (let lvl=0;lvl<32;lvl++) {
+        const g={}; for(const x of p){const k=x.join(',');if(!g[k])g[k]=[];g[k].push(x);}
+        const vs=Object.values(g).sort((a,b)=>b.length-a.length);
+        if(vs.length<2)break;
+        const m=[];const ml=Math.min(vs[0].length,vs[1].length);
+        for(let i=0;i<ml;i++)m.push([...vs[0][i],...vs[1][i]]);
+        for(let i=ml;i<vs[0].length;i++)m.push(vs[0][i]);
+        for(let i=ml;i<vs[1].length;i++)m.push(vs[1][i]);
+        p=m;
+    }
+    return p.flat();
+}
+
+// --- Composition from seed + pattern ---
+
+function makePreview(track) {
+    const gen = GENERATORS[track.pattern];
+    if (!gen) return null;
+    const rng = makeRng(track.seed);
+    const count = 28 + Math.floor(rng() * 12);
+    const raw = gen(count, rng);
+    const hits = 5 + Math.floor(rng() * 5);
+    const steps = 8 + Math.floor(rng() * 6);
+    const rhythm = euclidean(hits, steps);
+    const root = keyOffset(track.key);
+    const durations = ['8n','8n','4n','4n','4n.','2n'];
+    const velocities = [0.35,0.45,0.55,0.60,0.65,0.70];
+
+    const notes = [];
+    let ri = 0;
+    for (let i = 0; i < raw.length; i++) {
+        const hit = rhythm[ri % rhythm.length]; ri++;
+        if (hit === 0) {
+            notes.push({ rest: true, duration: '4n' });
+        } else {
+            const idx = raw[i] % (SCALE.length * 3);
+            const midi = toMidi(idx, root);
+            notes.push({
+                rest: false,
+                note: midiToNote(midi),
+                midi: midi,
+                duration: durations[Math.floor(rng() * durations.length)],
+                velocity: velocities[Math.floor(rng() * velocities.length)]
+            });
+        }
+    }
+    return { notes, tempo: 72 };
+}
+
+// --- Playback ---
+
+let currentSynth = null, currentPad = null, currentPart = null, playingIdx = -1, progressInterval = null;
+
+function stopAll() {
+    if (currentPart) { currentPart.stop(); currentPart.dispose(); currentPart = null; }
+    if (currentPad) { currentPad.releaseAll(); currentPad = null; }
+    if (currentSynth) { try { currentSynth.dispose(); } catch(e){} currentSynth = null; }
+    Tone.Transport.stop(); Tone.Transport.cancel();
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    document.querySelectorAll('.track.playing').forEach(el => el.classList.remove('playing'));
+    document.querySelectorAll('.track-progress .fill').forEach(el => el.style.width = '0%');
+    playingIdx = -1;
+}
+
+async function playTrack(idx) {
+    await Tone.start();
+    if (playingIdx === idx) { stopAll(); return; }
+    stopAll();
+
+    const track = TRACKS[idx];
+    const comp = makePreview(track);
+    if (!comp) return;
+
+    playingIdx = idx;
+    const el = document.getElementById('track-' + idx);
+    el.classList.add('playing');
+    const fill = el.querySelector('.track-progress .fill');
+
+    Tone.Transport.bpm.value = comp.tempo;
+    Tone.Transport.position = 0;
+
+    currentSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle8' },
+        envelope: { attack: 0.04, decay: 0.25, sustain: 0.5, release: 1.5 },
+        volume: -10
+    });
+    currentPad = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.3, decay: 0.5, sustain: 0.6, release: 2.0 },
+        volume: -22
+    });
+
+    const reverb = new Tone.Reverb({ decay: 4, wet: 0.35 }).toDestination();
+    const delay = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.15, wet: 0.12 }).connect(reverb);
+    const filter = new Tone.Filter({ frequency: 3000, type: 'lowpass' }).connect(delay);
+    currentSynth.connect(filter);
+    currentPad.connect(reverb);
+
+    let time = 0;
+    const events = [];
+    for (const n of comp.notes) {
+        const d = n.duration.replace('.','');
+        const base = parseInt(d.replace('n',''));
+        const beats = 4 / base;
+        const dur = n.duration.includes('.') ? beats * 1.5 : beats;
+        if (!n.rest) events.push({ time: '0:0:' + time, note: n.note, midi: n.midi, dur: n.duration, vel: n.velocity });
+        time += dur * 2;
+    }
+
+    const totalSixteenths = time;
+    const totalSec = (totalSixteenths / 4) * (60 / comp.tempo);
+    const synthRef = currentSynth, padRef = currentPad;
+
+    currentPart = new Tone.Part((t, v) => {
+        synthRef.triggerAttackRelease(v.note, v.dur, t, v.vel);
+        if (v.midi > 48) padRef.triggerAttackRelease(midiToNote(v.midi - 12), '2n', t, v.vel * 0.4);
+    }, events.map(e => [e.time, e]));
+
+    currentPart.start(0);
+    const startTime = Date.now();
+    progressInterval = setInterval(() => {
+        if (playingIdx !== idx) return;
+        const pct = Math.min((Date.now() - startTime) / 1000 / totalSec, 1);
+        fill.style.width = (pct * 100) + '%';
+        if (pct >= 1) setTimeout(() => { if (playingIdx === idx) stopAll(); }, 800);
+    }, 50);
+
+    Tone.Transport.start();
+}
+
+// --- Render Track List ---
+
+const list = document.getElementById('tracklist');
+TRACKS.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = 'track';
+    li.id = 'track-' + i;
+
+    const playSvg = '<svg viewBox="0 0 10 12"><polygon points="1,0 1,12 9,6"/></svg>';
+    const stopSvg = '<svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8"/></svg>';
+
+    li.innerHTML = `
+        <div class="track-num">${String(t.num).padStart(2,'0')}</div>
+        <div>
+            <div class="track-title">${t.title}</div>
+            <div class="track-desc">${t.desc} <span class="track-pattern">${t.key}</span></div>
+        </div>
+        <div class="track-right">
+            <span class="track-score">${t.score.toFixed(1)}</span>
+            <span class="track-duration">${t.duration}</span>
+            <button class="play-btn" onclick="playTrack(${i})" title="Preview">${playSvg}</button>
+        </div>
+        <div class="track-progress"><div class="fill"></div></div>
+    `;
+    list.appendChild(li);
+});
+</script>
+
+</body>
+</html>
