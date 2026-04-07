@@ -31,6 +31,16 @@ FRISSON_TRACK = 6
 
 def build_track(track: dict, config: dict, use_frisson: bool):
     """Build a Composition from track + config dicts."""
+    n_sections = track.get("n_sections", config["n_sections"])
+    base_duration = track.get("base_duration", None)
+    melody_kwargs = dict(
+        pattern=track["pattern"],
+        instrument=config["melody_instrument"],
+        seed=track["seed"],
+    )
+    if base_duration is not None:
+        melody_kwargs["base_duration"] = base_duration
+
     builder = (
         CompositionBuilder(
             key=track["key"],
@@ -38,12 +48,8 @@ def build_track(track: dict, config: dict, use_frisson: bool):
             bars=config["bars"],
             title=track["title"],
         )
-        .form(pattern=config["form_pattern"], n_sections=config["n_sections"])
-        .melody(
-            pattern=track["pattern"],
-            instrument=config["melody_instrument"],
-            seed=track["seed"],
-        )
+        .form(pattern=config["form_pattern"], n_sections=n_sections)
+        .melody(**melody_kwargs)
         .bass(
             pattern=config["bass_pattern"],
             instrument=config["bass_instrument"],

@@ -85,11 +85,13 @@
       "number": 8,
       "title": "Cantor's Dust",
       "pattern": "cantor",
-      "key": "F#_minor",
-      "seed": 10,
-      "eval_score": 88.04,
+      "key": "E_minor",
+      "seed": 42,
+      "n_sections": 6,
+      "base_duration": 0.5,
+      "eval_score": 91.55,
       "l1_pass": true,
-      "notes": "Fractal silence: middle-third removal creates characteristically sparse rhythms. Seed 10 found via grid search (600 candidates), +1.11 over seed 3."
+      "notes": "Fractal silence: middle-third removal creates sparse rhythms. E_minor seed 42 with 6 sections and dur=0.5 found in session 17 deep search (+3.51 over canonical F#_minor seed 10)."
     },
     {
       "number": 9,
@@ -113,8 +115,8 @@
     }
   ],
   "averages": {
-    "eval_score": 91.44,
+    "eval_score": 91.79,
     "l1_pass_rate": 1.0
   },
-  "notes": "10-track album. Session 15: 90.70 -> 91.22. Session 17: rossler +0.60, golden_spiral +0.65, thue_morse +0.95, average 91.44."
+  "notes": "10-track album. Session 15: 90.70 -> 91.22. Session 17: rossler +0.60, golden_spiral +0.65, thue_morse +0.95, cantor +3.51, average 91.79."
 }

@@ -104,7 +104,7 @@ nonlinear term — but produces equally complex trajectories. The
 piece feels suspended, never quite resolving, like watching the
 phase-space trajectory forever fold back on itself.
 
-### 8. *Cantor's Dust* — F# minor, seed 10 (eval 88.04)
+### 8. *Cantor's Dust* — E minor, seed 42 (eval 91.55)
 
 Georg Cantor's 1883 set: take a line, remove the middle third,
 repeat on what's left, forever. What remains is "dust" —
