@@ -294,6 +294,19 @@ footer {
     font-size: 0.68rem;
     color: var(--text-dim);
     font-style: italic;
+    line-height: 1.8;
+}
+
+.footer-link {
+    color: var(--gold-dim);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(212, 170, 48, 0.2);
+    transition: color 0.3s, border-color 0.3s;
+}
+
+.footer-link:hover {
+    color: var(--gold);
+    border-color: var(--gold);
 }
 
 /* --- Responsive --- */
