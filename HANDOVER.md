@@ -28,10 +28,14 @@ Track 02 video rendered successfully.
 - [x] **Golden Spiral optimization** — seed 80 scores 91.77, up from 91.12 (+0.65)
   - Searched seeds 41-80 across same key (D_major)
   - Re-rendered, normalized, re-exported viz data
-- [x] **Album average: 91.22 → 91.35**
+- [x] **Thue-Morse optimization** — seed 71 scores 93.41, up from 92.46 (+0.95)
+  - New highest-scoring track on the album (was infinity_series at 92.57)
+  - Re-rendered master WAV, normalized, re-exported viz data
+- [x] **Album average: 91.22 → 91.44** (3 tracks improved)
 - [x] **Track 02 video rendered** (InfiniteSeries.mp4)
+- [x] **CI fix** — added pytest to ci.yml, scipy to pyproject.toml deps, fixed build backend
 - [x] Updated: seeds.json, album.html, README.md, CLAUDE.md, metadata.json, liner notes
-- [x] All 329 tests passing
+- [x] All 329 tests passing locally (CI now passing too)
 - [x] All changes pushed to GitHub Pages (live)
 
 ## What's In Progress
@@ -44,8 +48,9 @@ Track 02 video rendered successfully.
 ## What Didn't Get Done (and Why)
 
 - **Cantor improvement** — searched 1200+ candidates across seeds, keys, sections, durations. No improvement over F#_minor seed=10 (88.04). The low repetition_variation score (58.15) is inherent to Cantor's fractal silence pattern.
-- **Mandelbrot/Zipf improvement** — no better seeds found in 41-80 range
-- **Full video rendering** — only Track 02 completed (~1h40m each at 60fps)
+- **Fibonacci improvement** — false positive from concurrent search race condition (shared _tmp.mid file). No real improvement.
+- **Mandelbrot/Zipf/Infinity/Logistic/Harmonic improvement** — no better seeds found in 41-80 range
+- **Full video rendering** — only Track 02 completed this session (~1h40m each at 60fps). Track 03 rendering in progress.
 
 ## Architecture & Design Decisions
 
@@ -54,13 +59,15 @@ Track 02 video rendered successfully.
 | Rossler seed | 77 (E_minor) | +0.60 over seed 10, same key | seed 10 | Lower score |
 | Golden Spiral seed | 80 (D_major) | +0.65 over seed 9, same key | seed 9 | Lower score |
 | Cantor seed | Keep 10 (F#_minor) | Best after 1200+ candidates | Various | All scored lower |
+| Thue-Morse seed | 71 (G_major) | +0.95, new album peak (93.41) | seed 11 | Lower score |
 | Volume control | Slider + mute SVG | Standard UX pattern | None | Bad UX without it |
 | Deep linking | URL hash for album, query params for composer | Works without JS, shareable | None | No alternative considered |
 
 ## Known Issues & Risks
 
-- **Track durations changed** — Rossler: 3:43→2:40, Golden Spiral: 2:46→2:40. New seeds produce different note counts. Total runtime: 27:09 (was 27:49).
-- **Videos for tracks 03 and 07 are now stale** — old seeds. Must re-render.
+- **Track durations changed** — Rossler: 3:43→2:40, Golden Spiral: 2:46→2:40. New seeds produce different note counts. Total runtime: ~27:09 (was 27:49).
+- **Videos for tracks 03, 07, and 10 are now stale** — new seeds. Must re-render.
+- **Concurrent seed searches share _tmp.mid** — race condition produces false positives. Always verify results with a clean run.
 - **Cantor (88.04) is likely at its ceiling** — the pattern's inherent sparsity limits repetition_variation score.
 - **Repo is public** — all commits visible.
 
@@ -92,7 +99,7 @@ Track 03 (Golden Spiral) and Track 07 (Rossler) have new seeds — listen for qu
 ```bash
 cd viz && bash render_album.sh
 ```
-8 tracks remaining (Tracks 03-05, 07-10). Tracks 03 and 07 MUST be re-rendered (new seeds).
+7 tracks remaining (Tracks 03-05, 07-10). Tracks 03, 07, and 10 MUST be re-rendered (new seeds).
 
 ### 3. YouTube upload
 10 videos in `viz/out/album/`. Manual upload with metadata from `examples/album/metadata.json`.
@@ -118,14 +125,17 @@ Ready in `examples/album/launch_copy.md` with real URLs.
 
 ## Files Changed This Session
 
-**Commits (7):**
+**Commits (10):**
 1. `148e4f5` — Album: volume control, GitHub link, thicker progress bar
 2. `d1c6736` — Deep linking: album #track-N, name composer pattern URL
 3. `b7a5185` — Album: play/stop icon toggle
 4. `6ced7ef` — Rossler seed 77 (88.41, +0.60)
 5. `8758468` — README: new scores, live URLs
 6. `10664e6` — Metadata and liner notes for Rossler
-7. `103d087` — Golden Spiral seed 80 (91.77, +0.65), album avg 91.35
+7. `103d087` — Golden Spiral seed 80 (91.77, +0.65)
+8. `0048bbe` — Fix CI: add pytest, scipy deps
+9. `f2e4bc4` — Thue-Morse seed 71 (93.41, +0.95)
+10. `843e57b` — Fix build backend, album avg 91.35
 
 ## Open Questions (inherited)
 
