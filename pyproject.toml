@@ -22,6 +22,7 @@ classifiers = [
 dependencies = [
     "midiutil",
     "numpy",
+    "scipy",
 ]
 
 [project.optional-dependencies]
