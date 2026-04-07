@@ -16,10 +16,10 @@
       "title": "Threshold",
       "pattern": "fibonacci",
       "key": "Bb_minor",
-      "seed": 3,
-      "eval_score": 91.01,
+      "seed": 26,
+      "eval_score": 92.24,
       "l1_pass": true,
-      "notes": "Discovered via grid search (180 candidates, 15 seeds x 12 keys). Peak-score for this pattern."
+      "notes": "Discovered via grid search (360 candidates). Seed 26 found in session 15, +1.23 over seed 3."
     },
     {
       "number": 2,
@@ -35,11 +35,11 @@
       "number": 3,
       "title": "Golden Spiral",
       "pattern": "golden_spiral",
-      "key": "A_minor",
-      "seed": 11,
-      "eval_score": 90.81,
+      "key": "D_major",
+      "seed": 9,
+      "eval_score": 91.12,
       "l1_pass": true,
-      "notes": "Derived from phi; climax deliberately at bar 30 (golden section)."
+      "notes": "Derived from phi. D_major seed 9 found in session 15, +0.31 over A_minor seed 11."
     },
     {
       "number": 4,
@@ -55,11 +55,11 @@
       "number": 5,
       "title": "Logistic Map (r=3.7)",
       "pattern": "logistic",
-      "key": "D_major",
-      "seed": 3,
-      "eval_score": 90.99,
+      "key": "C#_minor",
+      "seed": 18,
+      "eval_score": 92.43,
       "l1_pass": true,
-      "notes": "Edge-of-chaos dynamics. The same equation models population growth."
+      "notes": "Edge-of-chaos dynamics. C#_minor seed 18 found in session 15, +1.44 over D_major seed 3."
     },
     {
       "number": 6,
@@ -86,20 +86,20 @@
       "title": "Cantor's Dust",
       "pattern": "cantor",
       "key": "F#_minor",
-      "seed": 3,
-      "eval_score": 86.93,
+      "seed": 10,
+      "eval_score": 88.04,
       "l1_pass": true,
-      "notes": "Fractal silence: middle-third removal creates characteristically sparse rhythms."
+      "notes": "Fractal silence: middle-third removal creates characteristically sparse rhythms. Seed 10 found via grid search (600 candidates), +1.11 over seed 3."
     },
     {
       "number": 9,
       "title": "Zipf's Law",
       "pattern": "zipf",
-      "key": "F#_minor",
-      "seed": 8,
-      "eval_score": 90.38,
+      "key": "Bb_minor",
+      "seed": 26,
+      "eval_score": 91.51,
       "l1_pass": true,
-      "notes": "Rank-frequency distribution found in natural language and music. Third-best-scoring track."
+      "notes": "Rank-frequency distribution found in natural language and music. Seed 26 Bb_minor found via grid search (300 candidates), +1.13 over seed 8 F#_minor."
     },
     {
       "number": 10,
@@ -113,8 +113,8 @@
     }
   ],
   "averages": {
-    "eval_score": 90.7,
+    "eval_score": 91.22,
     "l1_pass_rate": 1.0
   },
-  "notes": "10-track album. ThueMorse wired through builder in session 12. Tension arc (add_tension_arc) applied to all tracks, lifting average from 89.22 to 90.54."
+  "notes": "10-track album. Session 15 grid search lifted average from 90.70 to 91.22: fibonacci +1.23, golden_spiral +0.31, logistic +1.44, cantor +1.11, zipf +1.13."
 }

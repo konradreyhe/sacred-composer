@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-**92.57/100 L1 PASS** (infinity_series, C_major seed=1, 0 violations) — new peak as of session 12. The `add_tension_arc()` call (70% golden-section arch + 30% original dynamics) lifted all tracks by +0.5 to +2.4. Album average: 90.68/100 across 10 tracks. Previous peak was 91.96 (Bb_minor seed=43, now 91.95 with tension arc). Canonical config still: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. ThueMorse pattern wired through builder in session 12 (24 patterns total).
+**92.57/100 L1 PASS** (infinity_series, C_major seed=1, 0 violations) — peak single-track score. Album average: **91.22/100** across 10 tracks (session 15 grid search lifted 5 tracks: fibonacci +1.23, logistic +1.44, zipf +1.13, cantor +1.11, golden_spiral +0.31). Canonical config: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`.
 
 ## Key Files
 
