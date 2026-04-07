@@ -43,7 +43,7 @@ listeners.
 
 ## The Tracks
 
-### 1. *Threshold* — Bb minor, seed 3 (eval 91.01)
+### 1. *Threshold* — Bb minor, seed 26 (eval 92.24)
 
 The Fibonacci sequence that every botanist knows: pinecones,
 sunflower seeds, nautilus shells. Here it drives the melodic contour
@@ -61,7 +61,7 @@ auto-similar melody that contains echoes of itself at every time
 scale — the same structure zooming in and out. Seed 1 is the purest
 form of Nørgård's vision.
 
-### 3. *Golden Spiral* — A minor, seed 11 (eval 90.81)
+### 3. *Golden Spiral* — D major, seed 9 (eval 91.12)
 
 The golden ratio (1.618...) has been claimed as an organizing
 principle of everything from Parthenon proportions to human facial
@@ -78,7 +78,7 @@ don't. This track uses the harmonic series literally as the melody:
 octave, fifth, fourth, major third, minor third, each interval
 appearing in the order nature already produces them.
 
-### 5. *Logistic Map (r=3.7)* — D major, seed 3 (eval 90.99)
+### 5. *Logistic Map (r=3.7)* — C# minor, seed 18 (eval 92.43)
 
 At r=3.7 the logistic map `x → rx(1-x)` sits on the edge of chaos —
 neither fully periodic nor fully random. The same equation that
@@ -105,7 +105,7 @@ piece feels suspended, never quite resolving, like watching the
 phase-space trajectory forever fold back on itself. The longest
 track on the album, reflecting the unhurried orbits of the attractor.
 
-### 8. *Cantor's Dust* — F# minor, seed 3 (eval 86.93)
+### 8. *Cantor's Dust* — F# minor, seed 10 (eval 88.04)
 
 Georg Cantor's 1883 set: take a line, remove the middle third,
 repeat on what's left, forever. What remains is "dust" —
@@ -114,7 +114,7 @@ rhythms where notes appear only in the surviving thirds,
 creating characteristically sparse, meditative textures. What's
 absent shapes what remains.
 
-### 9. *Zipf's Law* — F# minor, seed 8 (eval 90.38)
+### 9. *Zipf's Law* — Bb minor, seed 26 (eval 91.51)
 
 Zipf's law says the second most common word in any language is used
 half as often as the most common; the third, a third as often. The
@@ -122,7 +122,7 @@ same power-law distribution appears in city sizes, earthquake
 magnitudes, and musical note frequencies. This penultimate track follows
 that distribution — a few dominant pitches appear often, while rare
 intervals create fleeting moments of surprise. The highest tension
-arc on the album (95.4).
+arc on the album (99.2).
 
 ### 10. *Thue-Morse Resolution* — G major, seed 11 (eval 92.46)
 
@@ -161,7 +161,7 @@ Every track on this album can be regenerated, note-for-note, from a
 JSON file containing ten seeds:
 
 ```json
-{"pattern": "fibonacci", "key": "Bb_minor", "seed": 3}
+{"pattern": "fibonacci", "key": "Bb_minor", "seed": 26}
 ```
 
 One command rebuilds the entire album:
