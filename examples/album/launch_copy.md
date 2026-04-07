@@ -36,7 +36,9 @@ where the system intentionally violates its own rules.
 The entire album is reproducible from a JSON file with 10 seeds.
 `python render_masters.py` regenerates it bit-identically.
 
-[Spotify link] | [GitHub] | [YouTube visualizations]
+Listen: https://konradreyhe.github.io/sacred-composer/album.html
+Try it: https://konradreyhe.github.io/sacred-composer/ (type your name, hear its math)
+Code: https://github.com/konradreyhe/sacred-composer
 
 Tech: Python, NumPy, FluidSynth, Remotion (for videos). ~8,600 lines.
 No dependencies on any ML framework.
@@ -102,9 +104,9 @@ Tech stack:
 - No ML frameworks. Zero.
 
 **7/7**
-Sacred Geometry Vol. 1 is on [Spotify/platform].
+Listen to Sacred Geometry Vol. 1: https://konradreyhe.github.io/sacred-composer/album.html
 
-The code is open source: [GitHub link]
+The code is open source: https://github.com/konradreyhe/sacred-composer
 
 If you've ever wondered what a Mandelbrot set sounds like, now you know.
 
@@ -125,7 +127,7 @@ like actual music.
 The engine evaluates each composition against 14 music-theory metrics
 and scores it. All 10 tracks pass with zero rule violations.
 
-[link] | Code is open source.
+https://konradreyhe.github.io/sacred-composer/album.html | Code: https://github.com/konradreyhe/sacred-composer
 
 ### r/algorave
 
