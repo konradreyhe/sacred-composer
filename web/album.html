@@ -123,7 +123,7 @@
             gap: 0 0.8rem;
             align-items: center;
             transition: border-color 0.3s, box-shadow 0.3s;
-            cursor: default;
+            cursor: pointer;
         }
 
         .track:hover {
@@ -286,6 +286,29 @@
             border-bottom: none;
         }
 
+        /* --- Play All --- */
+
+        .album-controls { margin-top: 0.8rem; }
+
+        .play-all-btn {
+            padding: 0.5rem 1.8rem;
+            border: 1px solid var(--gold);
+            background: rgba(212, 170, 48, 0.1);
+            color: var(--gold);
+            font-family: var(--serif);
+            font-size: 0.85rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.25s;
+            letter-spacing: 0.05em;
+        }
+
+        .play-all-btn:hover {
+            background: var(--gold);
+            color: var(--bg);
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
         /* --- Responsive --- */
 
         @media (max-width: 480px) {
@@ -315,6 +338,9 @@
             No AI, no randomness &mdash; pure pattern.
         </p>
         <div class="album-score">avg eval: 91.22 / 100</div>
+        <div class="album-controls">
+            <button class="play-all-btn" id="playAllBtn" onclick="playAll()">Play All</button>
+        </div>
     </header>
 
     <ol class="tracklist" id="tracklist"></ol>
@@ -490,6 +516,7 @@ function makePreview(track) {
 // --- Playback ---
 
 let currentSynth = null, currentPad = null, currentPart = null, playingIdx = -1, progressInterval = null;
+let autoAdvance = false;
 
 function stopAll() {
     if (currentPart) { currentPart.stop(); currentPart.dispose(); currentPart = null; }
@@ -500,12 +527,41 @@ function stopAll() {
     document.querySelectorAll('.track.playing').forEach(el => el.classList.remove('playing'));
     document.querySelectorAll('.track-progress .fill').forEach(el => el.style.width = '0%');
     playingIdx = -1;
+    updatePlayAllBtn();
+}
+
+function updatePlayAllBtn() {
+    const btn = document.getElementById('playAllBtn');
+    btn.textContent = autoAdvance ? 'Stop' : 'Play All';
+}
+
+function playAll() {
+    if (autoAdvance) { autoAdvance = false; stopAll(); return; }
+    autoAdvance = true;
+    updatePlayAllBtn();
+    playTrack(0);
+}
+
+function onTrackEnd() {
+    const nextIdx = playingIdx + 1;
+    stopAll();
+    if (autoAdvance && nextIdx < TRACKS.length) {
+        setTimeout(() => playTrack(nextIdx), 400);
+        autoAdvance = true;
+        updatePlayAllBtn();
+    } else {
+        autoAdvance = false;
+        updatePlayAllBtn();
+    }
 }
 
 async function playTrack(idx) {
     await Tone.start();
-    if (playingIdx === idx) { stopAll(); return; }
+    if (playingIdx === idx) { autoAdvance = false; stopAll(); return; }
+    const wasAutoAdvance = autoAdvance;
     stopAll();
+    autoAdvance = wasAutoAdvance;
+    updatePlayAllBtn();
 
     const track = TRACKS[idx];
     const comp = makePreview(track);
@@ -562,7 +618,7 @@ async function playTrack(idx) {
         if (playingIdx !== idx) return;
         const pct = Math.min((Date.now() - startTime) / 1000 / totalSec, 1);
         fill.style.width = (pct * 100) + '%';
-        if (pct >= 1) setTimeout(() => { if (playingIdx === idx) stopAll(); }, 800);
+        if (pct >= 1) setTimeout(() => { if (playingIdx === idx) onTrackEnd(); }, 800);
     }, 50);
 
     Tone.Transport.start();
@@ -588,10 +644,11 @@ TRACKS.forEach((t, i) => {
         <div class="track-right">
             <span class="track-score">${t.score.toFixed(1)}</span>
             <span class="track-duration">${t.duration}</span>
-            <button class="play-btn" onclick="playTrack(${i})" title="Preview">${playSvg}</button>
+            <button class="play-btn" onclick="event.stopPropagation(); playTrack(${i})" title="Preview">${playSvg}</button>
         </div>
         <div class="track-progress"><div class="fill"></div></div>
     `;
+    li.addEventListener('click', () => playTrack(i));
     list.appendChild(li);
 });
 </script>
