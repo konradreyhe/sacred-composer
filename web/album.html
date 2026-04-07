@@ -699,6 +699,28 @@ TRACKS.forEach((t, i) => {
     li.addEventListener('click', () => playTrack(i));
     list.appendChild(li);
 });
+
+// --- Keyboard Shortcuts ---
+
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (playingIdx >= 0) stopAll();
+        else playTrack(0);
+    } else if (e.code === 'ArrowDown' || e.code === 'ArrowRight') {
+        e.preventDefault();
+        const next = playingIdx >= 0 ? Math.min(playingIdx + 1, TRACKS.length - 1) : 0;
+        playTrack(next);
+    } else if (e.code === 'ArrowUp' || e.code === 'ArrowLeft') {
+        e.preventDefault();
+        const prev = playingIdx >= 0 ? Math.max(playingIdx - 1, 0) : 0;
+        playTrack(prev);
+    } else if (e.code === 'Escape') {
+        stopAll();
+    }
+});
 </script>
 
 </body>
