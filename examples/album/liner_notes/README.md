@@ -61,7 +61,7 @@ auto-similar melody that contains echoes of itself at every time
 scale — the same structure zooming in and out. Seed 1 is the purest
 form of Nørgård's vision.
 
-### 3. *Golden Spiral* — D major, seed 9 (eval 91.12)
+### 3. *Golden Spiral* — D major, seed 80 (eval 91.77)
 
 The golden ratio (1.618...) has been claimed as an organizing
 principle of everything from Parthenon proportions to human facial

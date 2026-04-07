@@ -10,7 +10,7 @@ A 10-track album where each track is driven by a different mathematical structur
 |---|-------|---------|-------|
 | 01 | Threshold | Fibonacci sequence | 92.24 |
 | 02 | The Infinite Series | Norgard's infinity series | 92.57 |
-| 03 | Golden Spiral | Phi-derived contour | 91.12 |
+| 03 | Golden Spiral | Phi-derived contour | 91.77 |
 | 04 | Harmonic Series | Overtone physics | 92.33 |
 | 05 | Logistic Map (r=3.7) | Edge of chaos | 92.43 |
 | 06 | Mandelbrot Boundary | Fractal boundary walk | 91.73 |
@@ -19,7 +19,7 @@ A 10-track album where each track is driven by a different mathematical structur
 | 09 | Zipf's Law | Power-law distribution | 91.51 |
 | 10 | Thue-Morse Resolution | Anti-self-similarity | 92.46 |
 
-**Album average: 91.28/100** across 14 music-theory metrics with zero rule violations.
+**Album average: 91.35/100** across 14 music-theory metrics with zero rule violations.
 
 The entire album is reproducible from `examples/album/seeds.json`. One command regenerates it bit-identically.
 

@@ -36,10 +36,10 @@
       "title": "Golden Spiral",
       "pattern": "golden_spiral",
       "key": "D_major",
-      "seed": 9,
-      "eval_score": 91.12,
+      "seed": 80,
+      "eval_score": 91.77,
       "l1_pass": true,
-      "notes": "Derived from phi. D_major seed 9 found in session 15, +0.31 over A_minor seed 11."
+      "notes": "Derived from phi. D_major seed 80 found in session 17, +0.65 over seed 9."
     },
     {
       "number": 4,
@@ -113,8 +113,8 @@
     }
   ],
   "averages": {
-    "eval_score": 91.28,
+    "eval_score": 91.35,
     "l1_pass_rate": 1.0
   },
-  "notes": "10-track album. Session 15 grid search lifted average from 90.70 to 91.22. Session 17 lifted rossler from 87.81 to 88.41 (seed 77), new average 91.28."
+  "notes": "10-track album. Session 15: 90.70 -> 91.22. Session 17: rossler +0.60 (seed 77), golden_spiral +0.65 (seed 80), average 91.35."
 }
