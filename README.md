@@ -1,37 +1,35 @@
-# MUSIK! -- Sacred Composer
+# Sacred Composer
 
-AI-assisted classical music composition using sacred geometry and nature-inspired algorithms. No neural networks, no training data -- music theory and mathematical patterns encoded as Python.
+Deterministic music composition from mathematical patterns. Python, no ML, no GPU. Every note traceable to a generating equation.
+
+## Sacred Geometry Vol. 1
+
+A 10-track album where each track is driven by a different mathematical structure:
+
+| # | Title | Pattern | Score |
+|---|-------|---------|-------|
+| 01 | Threshold | Fibonacci sequence | 92.24 |
+| 02 | The Infinite Series | Norgard's infinity series | 92.57 |
+| 03 | Golden Spiral | Phi-derived contour | 91.12 |
+| 04 | Harmonic Series | Overtone physics | 92.33 |
+| 05 | Logistic Map (r=3.7) | Edge of chaos | 92.43 |
+| 06 | Mandelbrot Boundary | Fractal boundary walk | 91.73 |
+| 07 | Rossler's Strange Attractor | Chaotic system | 87.81 |
+| 08 | Cantor's Dust | Fractal silence | 88.04 |
+| 09 | Zipf's Law | Power-law distribution | 91.51 |
+| 10 | Thue-Morse Resolution | Anti-self-similarity | 92.46 |
+
+**Album average: 91.22/100** across 14 music-theory metrics with zero rule violations.
+
+The entire album is reproducible from `examples/album/seeds.json`. One command regenerates it bit-identically.
 
 ## What It Does
 
-- **12 pattern generators**: Fibonacci, golden spiral, harmonic series, infinity series, Euclidean rhythm, pink noise, logistic map, Lorenz attractor, phyllotaxis, L-systems, flocking, 1/f rubato
+- **23 pattern generators**: Fibonacci, golden spiral, harmonic series, infinity series, Euclidean rhythm, pink noise, logistic map, Lorenz attractor, phyllotaxis, L-systems, flocking, 1/f rubato, Mandelbrot, Rossler, Cantor, Zipf, Thue-Morse, and more
 - **Harmony engine**: constraint-aware voice leading, counterpoint rules, cadence placement, tension arcs
-- **Output formats**: MIDI, LilyPond scores, WAV audio (Karplus-Strong synthesis, FM synthesis, Freeverb reverb), orchestral WAV
-- **Evaluation**: automated scoring framework (current best: 86.5/100)
-- **155 tests passing**
-
-## Package Structure
-
-The `sacred_composer/` package contains 16 modules:
-
-| Module | Purpose |
-|--------|---------|
-| `core.py` | Composition, Voice, Note data structures, MIDI rendering |
-| `patterns.py` | 12 mathematical pattern generators |
-| `mappers.py` | Map raw pattern values to pitch, rhythm, dynamics, form |
-| `constraints.py` | Voice leading rules, range enforcement, leap recovery |
-| `harmony.py` | Chord progressions, harmonic rhythm, cadences |
-| `builder.py` | High-level `CompositionBuilder` API |
-| `constants.py` | Golden ratio, scales, intervals |
-| `evaluate.py` | Multi-level scoring (rule compliance, statistical, structural, perceptual) |
-| `lilypond.py` | LilyPond score export |
-| `wav_renderer.py` | Audio synthesis (Karplus-Strong, FM, Freeverb) |
-| `orchestration.py` | Instrument assignment and register mapping |
-| `combiners.py` | Merge and layer multiple pattern streams |
-| `psychoacoustics.py` | Perceptual models (roughness, brightness, masking) |
-| `bridge.py` | Integration with the legacy 9-pass compiler pipeline |
-| `world_music.py` | Non-Western scales and tuning systems |
-| `__init__.py` | Package exports |
+- **Output formats**: MIDI, LilyPond scores, WAV audio (Karplus-Strong + FM synthesis + Freeverb), orchestral WAV, MusicXML
+- **Evaluation**: 14-metric automated scoring framework (album peak: 92.57/100)
+- **329 tests passing**
 
 ## Quick Start
 
@@ -43,34 +41,69 @@ pip install midiutil numpy scipy
 from sacred_composer.builder import CompositionBuilder
 
 piece = (
-    CompositionBuilder(key="C_minor", tempo=72, bars=48, title="Sacred Offering")
-    .melody(pattern="infinity_series", instrument="violin")
-    .bass(pattern="harmonic_series")
-    .inner_voice(pattern="golden_spiral", instrument="viola")
+    CompositionBuilder(key="C_major", tempo=72, bars=48, title="Sacred Offering")
+    .form(pattern="fibonacci", n_sections=5)
+    .melody(pattern="infinity_series", instrument="violin", seed=1)
+    .bass(pattern="harmonic_series", instrument="cello", seed=11)
     .build()
 )
 piece.render("output.mid")
 ```
 
-## Examples
+## Package Structure
 
-Example scripts live in `examples/`:
+The `sacred_composer/` package contains 20 modules (~8,600 lines):
+
+| Module | Purpose |
+|--------|---------|
+| `core.py` | Composition, Voice, Note data structures, MIDI rendering |
+| `patterns.py` | 23 mathematical pattern generators |
+| `mappers.py` | Map raw pattern values to pitch, rhythm, dynamics, form |
+| `constraints.py` | Voice leading rules, range enforcement, leap recovery |
+| `harmony.py` | Chord progressions, harmonic rhythm, cadences |
+| `builder.py` | High-level `CompositionBuilder` API |
+| `constants.py` | Golden ratio, scales, intervals |
+| `evaluate.py` | Multi-level scoring framework |
+| `lilypond.py` | LilyPond score export |
+| `musicxml.py` | MusicXML export |
+| `wav_renderer.py` | Audio synthesis (Karplus-Strong, FM, Freeverb) |
+| `orchestration.py` | 14 instruments, timbre matching, orchestral WAV |
+| `combiners.py` | Merge and layer multiple pattern streams |
+| `psychoacoustics.py` | Sethares dissonance, frisson, groove, earworm |
+| `world_music.py` | Raga, maqam, gamelan, West African, Japanese scales |
+| `adaptive.py` | Game/film adaptive composition |
+| `optimizer.py` | Parameter search for score optimization |
+| `osc_bridge.py` | OSC/MIDI for installations |
+| `bridge.py` | PerformanceIR bridge to 9-pass pipeline |
+| `__init__.py` | Package exports |
+
+## Web Player
+
+The `web/` directory contains a standalone browser-based experience:
+
+- **Album page** (`album.html`) — listen to Tone.js previews of all 10 tracks
+- **Name composer** (`index.html`) — type your name, hear its unique composition
+
+## Rendering the Album
 
 ```bash
-python examples/sacred_showcase.py      # Showcase compositions with WAV + LilyPond
-python examples/sacred_examples.py      # Phase 1 pattern demos
-python examples/sacred_examples_phase2.py  # Phase 2 harmony + constraints
-python examples/sacred_examples_phase3.py  # Phase 3 full pipeline
-python examples/demo.py                 # Legacy compiler pipeline demo
+# Render master WAVs (requires FluidSynth + MuseScore General SoundFont)
+python examples/album/render_masters.py
+
+# Normalize to -14 LUFS (Spotify target)
+python examples/album/normalize_masters.py
+
+# Render music videos (requires Remotion, ~7.5 hours)
+cd viz && bash render_album.sh
 ```
 
-## How to Run Tests
+## Tests
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-All 155 tests should pass. No external services required.
+All 329 tests pass. No external services required.
 
 ## Evaluation
 
@@ -91,28 +124,12 @@ Four evaluation levels:
 3. **Structural Quality** -- harmonic rhythm, phrase structure, cadence placement
 4. **Perceptual Quality** -- tension curve shape, dynamic range, textural variety
 
-## Legacy Pipeline
-
-The original 9-pass compiler pipeline (`composer.py`) is still available:
-
-```python
-from composer import compose
-
-perf, form, report = compose(
-    "A dramatic sonata exposition in C minor, heroic, 40 bars, for piano",
-    "output.mid"
-)
-```
-
 ## Documentation
 
-- `KNOWLEDGE_BASE.md` -- 42-part reference (~350 KB) covering music theory, neuroscience, orchestration, AI composition
-- `SACRED_COMPOSER_SPEC.md` -- Full specification for the sacred_composer package
-- `SACRED_GEOMETRY_AND_MUSIC.md` -- The mathematical foundations
-- `PATTERNS_OF_CREATION.md` -- Pattern generator design and philosophy
 - `PRINCIPLES.md` -- 12 engineering principles governing the codebase
-- `LISTENING_GUIDE.md` -- What to listen for in generated compositions
-- `GAMEPLAN.md` / `ROADMAP.md` -- Development plans
+- `ROADMAP.md` -- 28-agent research roadmap
+- `examples/album/liner_notes/README.md` -- Album liner notes
+- `examples/album/launch_copy.md` -- Social media launch copy
 
 ## License
 
