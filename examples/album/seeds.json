@@ -76,10 +76,10 @@
       "title": "Rossler's Strange Attractor",
       "pattern": "rossler",
       "key": "E_minor",
-      "seed": 10,
-      "eval_score": 87.81,
+      "seed": 77,
+      "eval_score": 88.41,
       "l1_pass": true,
-      "notes": "Lowest-scoring track but its suspended quality fits the album's arc. Otto Rossler 1976."
+      "notes": "Otto Rossler 1976 chaotic system. Seed 77 found in session 17, +0.60 over seed 10 (searched 120 seeds x 7 keys)."
     },
     {
       "number": 8,
@@ -113,8 +113,8 @@
     }
   ],
   "averages": {
-    "eval_score": 91.22,
+    "eval_score": 91.28,
     "l1_pass_rate": 1.0
   },
-  "notes": "10-track album. Session 15 grid search lifted average from 90.70 to 91.22: fibonacci +1.23, golden_spiral +0.31, logistic +1.44, cantor +1.11, zipf +1.13."
+  "notes": "10-track album. Session 15 grid search lifted average from 90.70 to 91.22. Session 17 lifted rossler from 87.81 to 88.41 (seed 77), new average 91.28."
 }

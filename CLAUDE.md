@@ -38,7 +38,7 @@ web/                 # Standalone generative player (HTML/JS)
 ## Key Commands
 
 ```bash
-python -m pytest tests/ -v          # Run 327 tests
+python -m pytest tests/ -v          # Run 329 tests
 python playground.py                # Streamlit interactive UI (needs: pip install streamlit)
 python api.py                       # FastAPI at localhost:8000/docs
 python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-**92.57/100 L1 PASS** (infinity_series, C_major seed=1, 0 violations) — peak single-track score. Album average: **91.22/100** across 10 tracks (session 15 grid search lifted 5 tracks: fibonacci +1.23, logistic +1.44, zipf +1.13, cantor +1.11, golden_spiral +0.31). Canonical config: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`.
+**92.57/100 L1 PASS** (infinity_series, C_major seed=1, 0 violations) — peak single-track score. Album average: **91.28/100** across 10 tracks (session 15 grid search lifted 5 tracks; session 17 lifted rossler +0.60 via seed 77). Canonical config: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`.
 
 ## Key Files
 
