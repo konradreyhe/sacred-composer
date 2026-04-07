@@ -14,12 +14,12 @@ A 10-track album where each track is driven by a different mathematical structur
 | 04 | Harmonic Series | Overtone physics | 92.33 |
 | 05 | Logistic Map (r=3.7) | Edge of chaos | 92.43 |
 | 06 | Mandelbrot Boundary | Fractal boundary walk | 91.73 |
-| 07 | Rossler's Strange Attractor | Chaotic system | 87.81 |
+| 07 | Rossler's Strange Attractor | Chaotic system | 88.41 |
 | 08 | Cantor's Dust | Fractal silence | 88.04 |
 | 09 | Zipf's Law | Power-law distribution | 91.51 |
 | 10 | Thue-Morse Resolution | Anti-self-similarity | 92.46 |
 
-**Album average: 91.22/100** across 14 music-theory metrics with zero rule violations.
+**Album average: 91.28/100** across 14 music-theory metrics with zero rule violations.
 
 The entire album is reproducible from `examples/album/seeds.json`. One command regenerates it bit-identically.
 
@@ -79,10 +79,10 @@ The `sacred_composer/` package contains 20 modules (~8,600 lines):
 
 ## Web Player
 
-The `web/` directory contains a standalone browser-based experience:
+Live at **https://konradreyhe.github.io/sacred-composer/**
 
-- **Album page** (`album.html`) — listen to Tone.js previews of all 10 tracks
-- **Name composer** (`index.html`) — type your name, hear its unique composition
+- **[Album page](https://konradreyhe.github.io/sacred-composer/album.html)** — listen to Tone.js previews of all 10 tracks
+- **[Name composer](https://konradreyhe.github.io/sacred-composer/)** — type your name, hear its unique composition
 
 ## Rendering the Album
 
@@ -93,7 +93,7 @@ python examples/album/render_masters.py
 # Normalize to -14 LUFS (Spotify target)
 python examples/album/normalize_masters.py
 
-# Render music videos (requires Remotion, ~7.5 hours)
+# Render music videos (requires Remotion, ~16 hours at 60fps)
 cd viz && bash render_album.sh
 ```
 
