@@ -148,13 +148,56 @@ function mandelbrotBoundary(n, rng) {
     return seq;
 }
 
+// --- Additional Pattern Generators (matching album patterns) ---
+
+function infinitySeries(n) {
+    const s = [0];
+    for (let i = 1; i < n; i++) {
+        if (i % 2 === 1) s[i] = -s[(i - 1) / 2];
+        else s[i] = s[i / 2] + 1;
+    }
+    return s.map(v => ((v % 15) + 15) % 15);
+}
+
+function rosslerAttractor(n) {
+    let x = 0.1, y = 0, z = 0;
+    const a = 0.2, b = 0.2, c = 5.7, dt = 0.05;
+    const seq = [];
+    for (let i = 0; i < n * 20; i++) {
+        const dx = -y - z, dy = x + a * y, dz = b + z * (x - c);
+        x += dx * dt; y += dy * dt; z += dz * dt;
+        if (i % 20 === 0) seq.push(Math.floor(((Math.atan2(y, x) / Math.PI + 1) * 7.5)) % 15);
+    }
+    return seq.slice(0, n);
+}
+
+function cantorSet(n) {
+    const seq = [];
+    for (let i = 0; i < n; i++) {
+        let x = i, inCantor = true;
+        while (x > 0) { if (x % 3 === 1) { inCantor = false; break; } x = Math.floor(x / 3); }
+        seq.push(inCantor ? (i % 12) : 0);
+    }
+    return seq.map(v => v % 15);
+}
+
+function zipfLaw(n) {
+    const seq = [];
+    for (let i = 1; i <= n; i++) seq.push(Math.floor(14 / (1 + Math.log(i))));
+    return seq;
+}
+
 const PATTERNS = {
     fibonacci:  { name: 'Fibonacci',   gen: (n, rng) => fibonacci(n).slice(2).map(f => f % 15) },
+    infinity:   { name: 'Infinity Series', gen: (n, rng) => infinitySeries(n) },
     golden:     { name: 'Golden Spiral', gen: (n, rng) => goldenSpiral(n) },
     harmonic:   { name: 'Harmonic Series', gen: (n, rng) => harmonicSeries(n) },
     logistic:   { name: 'Logistic Map', gen: (n, rng) => logisticMap(n) },
-    thue_morse: { name: 'Thue-Morse',  gen: (n, rng) => thueMorse(n) },
     mandelbrot: { name: 'Mandelbrot',  gen: (n, rng) => mandelbrotBoundary(n, rng) },
+    rossler:    { name: 'Rössler',     gen: (n, rng) => rosslerAttractor(n) },
+    cantor:     { name: 'Cantor',      gen: (n, rng) => cantorSet(n) },
+    zipf:       { name: 'Zipf',        gen: (n, rng) => zipfLaw(n) },
+    thue_morse: { name: 'Thue-Morse',  gen: (n, rng) => thueMorse(n) },
 };
 
 let selectedPattern = 'fibonacci';
