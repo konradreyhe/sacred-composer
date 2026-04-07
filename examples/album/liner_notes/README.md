@@ -123,7 +123,7 @@ that distribution — a few dominant pitches appear often, while rare
 intervals create fleeting moments of surprise. The highest tension
 arc on the album (99.2).
 
-### 10. *Thue-Morse Resolution* — G major, seed 11 (eval 92.46)
+### 10. *Thue-Morse Resolution* — G major, seed 71 (eval 93.41)
 
 The Thue-Morse sequence (1906): 0, 1, 1, 0, 1, 0, 0, 1... Generated
 by negating each previous term. Unlike every other pattern on this

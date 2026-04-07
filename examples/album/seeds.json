@@ -106,15 +106,15 @@
       "title": "Thue-Morse Resolution",
       "pattern": "thue_morse",
       "key": "G_major",
-      "seed": 11,
-      "eval_score": 92.46,
+      "seed": 71,
+      "eval_score": 93.41,
       "l1_pass": true,
-      "notes": "Anti-repetitive binary sequence (Thue 1906). Highest-scoring track on the album. G major is a unique key not used by any other track."
+      "notes": "Anti-repetitive binary sequence (Thue 1906). Highest-scoring track on the album (93.41). Seed 71 found in session 17, +0.95 over seed 11."
     }
   ],
   "averages": {
-    "eval_score": 91.35,
+    "eval_score": 91.44,
     "l1_pass_rate": 1.0
   },
-  "notes": "10-track album. Session 15: 90.70 -> 91.22. Session 17: rossler +0.60 (seed 77), golden_spiral +0.65 (seed 80), average 91.35."
+  "notes": "10-track album. Session 15: 90.70 -> 91.22. Session 17: rossler +0.60, golden_spiral +0.65, thue_morse +0.95, average 91.44."
 }

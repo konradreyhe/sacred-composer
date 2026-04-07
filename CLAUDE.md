@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-**92.57/100 L1 PASS** (infinity_series, C_major seed=1, 0 violations) — peak single-track score. Album average: **91.35/100** across 10 tracks (session 17: rossler +0.60 via seed 77, golden_spiral +0.65 via seed 80). Canonical config: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`.
+**93.41/100 L1 PASS** (thue_morse, G_major seed=71, 0 violations) — peak single-track score. Album average: **91.44/100** across 10 tracks (session 17: rossler +0.60, golden_spiral +0.65, thue_morse +0.95). Canonical config: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`.
 
 ## Key Files
 
