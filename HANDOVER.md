@@ -39,6 +39,12 @@ better seed/key combinations for the weaker tracks. Ran grid searches
 - [x] Updated CLAUDE.md eval score section
 - [x] All 329 tests passing
 - [x] Full end-to-end verification: all 10 tracks match seeds.json scores
+- [x] Re-rendered all 10 master WAVs via FluidSynth
+- [x] Normalized all 10 tracks to -14 LUFS (Spotify target) via FFmpeg
+- [x] GitHub Pages workflow (`.github/workflows/pages.yml`)
+- [x] OG image for web player social sharing (1200x630 from Mandelbrot cover)
+- [x] Updated metadata.json track durations from actual renders
+- [x] Updated liner notes with new seeds/keys/scores
 
 ## What's In Progress
 
@@ -46,11 +52,11 @@ Nothing. All work completed.
 
 ## What Didn't Get Done
 
-- **Human listening** — still needed
+- **Human listening** — still needed (tracks in `examples/album/normalized/`)
 - **Video rendering** — `cd viz && bash render_album.sh` (~7.5 hours)
 - **DistroKid signup** — requires human
-- **Push to origin** — now 55+ commits ahead
-- **Deploy web player** — ready for GitHub Pages
+- **Push to origin** — now 57+ commits ahead; after push, GitHub Pages will auto-deploy
+- **Enable GitHub Pages** — after push, go to repo Settings > Pages > Source: GitHub Actions
 
 ## Architecture & Design Decisions
 
@@ -70,35 +76,25 @@ Nothing. All work completed.
 
 ## Next Steps (Priority Order)
 
-### 1. **Re-render all 10 master WAVs** (seeds changed)
-```bash
-python examples/album/render_masters.py
-```
-Then normalize:
-```bash
-# FFmpeg loudnorm to -14 LUFS (Spotify target)
-```
-
-### 2. **Listen to all 10 normalized tracks** (~30 min, human task)
+### 1. **Listen to all 10 normalized tracks** (~30 min, human task)
 ```
 examples/album/normalized/
 ```
+
+### 2. **Push commits to origin** (deploys web player via GitHub Pages)
+```bash
+git push origin master
+```
+Then: repo Settings > Pages > Source: GitHub Actions
 
 ### 3. **Render all 10 videos** (~7.5 hours, run overnight)
 ```bash
 cd C:/Users/kreyh/Projekte/MUSIK/viz && bash render_album.sh
 ```
 
-### 4. **Push commits to origin**
-```bash
-git push origin master
-```
+### 4. **DistroKid signup + upload** (~2 hours + 2-4 week propagation)
 
-### 5. **Deploy web player** — fully standalone HTML/JS, GitHub Pages ready
-
-### 6. **DistroKid signup + upload** (~2 hours + 2-4 week propagation)
-
-### 7. **Social launch** — copy in `examples/album/launch_copy.md`
+### 5. **Social launch** — copy in `examples/album/launch_copy.md`
 
 ## Rollback Plan
 
@@ -108,9 +104,24 @@ git push origin master
 
 ## Files Changed This Session
 
-**Modified (2 files):**
-- `examples/album/seeds.json` — updated 5 track configs (fibonacci, golden_spiral, logistic, cantor, zipf) with better seeds/keys
-- `CLAUDE.md` — updated eval score section with new album average
+**Modified (6 files):**
+- `examples/album/seeds.json` — updated 5 track configs with better seeds/keys
+- `examples/album/metadata.json` — corrected track durations
+- `examples/album/liner_notes/README.md` — updated seeds/keys/scores for 5 tracks
+- `examples/album/seeds/search_rossler.csv` — new search results
+- `examples/album/seeds/search_cantor.csv` — new search results
+- `CLAUDE.md` — updated eval score section
+
+**Added (2 files):**
+- `.github/workflows/pages.yml` — GitHub Pages deployment for web player
+- `web/og-image.jpg` — 1200x630 OG image for social sharing
+
+**Modified (1 file, web):**
+- `web/index.html` — added OG image + twitter:image meta tags
+
+**Re-rendered (not in git, gitignored):**
+- `examples/album/masters/*.wav` — all 10 tracks
+- `examples/album/normalized/*.wav` — all 10 tracks at -14 LUFS
 
 ## Open Questions (inherited)
 
