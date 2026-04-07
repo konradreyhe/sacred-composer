@@ -97,13 +97,12 @@ tension-release pair. This is the musical device that Sloboda (1991)
 identified as triggering 82% of self-reported chill moments in
 classical listeners. Listen for the brief tension at the climax.
 
-### 7. *Rössler's Strange Attractor* — E minor, seed 10 (eval 87.81)
+### 7. *Rössler's Strange Attractor* — E minor, seed 77 (eval 88.41)
 
 Otto Rössler's 1976 attractor is simpler than Lorenz's — only one
 nonlinear term — but produces equally complex trajectories. The
 piece feels suspended, never quite resolving, like watching the
-phase-space trajectory forever fold back on itself. The longest
-track on the album, reflecting the unhurried orbits of the attractor.
+phase-space trajectory forever fold back on itself.
 
 ### 8. *Cantor's Dust* — F# minor, seed 10 (eval 88.04)
 
