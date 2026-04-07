@@ -49,3 +49,4 @@ viz/out/
 
 # MCP config (local)
 .mcp.json
+.playwright-mcp/

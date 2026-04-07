@@ -261,12 +261,13 @@
 
         .track-progress {
             grid-column: 1 / -1;
-            height: 3px;
+            height: 6px;
             background: rgba(212, 170, 48, 0.08);
-            border-radius: 2px;
+            border-radius: 3px;
             margin-top: 0.6rem;
             overflow: hidden;
             display: none;
+            cursor: pointer;
         }
 
         .track.playing .track-progress { display: block; }
@@ -353,6 +354,51 @@
             box-shadow: 0 0 20px var(--gold-glow);
         }
 
+        /* --- Volume --- */
+
+        .volume-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+        }
+
+        .volume-icon {
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100px;
+            height: 3px;
+            background: rgba(212, 170, 48, 0.15);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--gold);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: var(--gold);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
         /* --- Responsive --- */
 
         @media (max-width: 480px) {
@@ -387,6 +433,10 @@
         </div>
         <div class="album-controls">
             <button class="play-all-btn" id="playAllBtn" onclick="playAll()">Play All</button>
+            <div class="volume-wrap">
+                <span class="volume-icon" id="muteBtn" onclick="toggleMute()"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 1L4 5H1v6h3l4 4V1zM11 4.5c1.2 1 2 2.5 2 3.5s-.8 2.5-2 3.5"/></svg></span>
+                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70" aria-label="Volume" oninput="setVolume(this.value)">
+            </div>
         </div>
         <div class="album-divider"></div>
     </header>
@@ -400,6 +450,9 @@
             Previews use Tone.js synthesis &mdash; the album uses orchestral rendering.
         </p>
         <a href="index.html" class="cta-btn">Compose Your Name &rarr;</a>
+        <p style="margin-top: 1rem;">
+            <a href="https://github.com/konradreyhe/sacred-composer">View source on GitHub</a>
+        </p>
     </footer>
 </div>
 
@@ -623,15 +676,17 @@ async function playTrack(idx) {
     Tone.Transport.bpm.value = comp.tempo;
     Tone.Transport.position = 0;
 
+    const vol = muted ? 0 : masterVolume;
+    const db = vol > 0 ? 20 * Math.log10(vol) : -Infinity;
     currentSynth = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'triangle8' },
         envelope: { attack: 0.04, decay: 0.25, sustain: 0.5, release: 1.5 },
-        volume: -10
+        volume: db - 10
     });
     currentPad = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sine' },
         envelope: { attack: 0.3, decay: 0.5, sustain: 0.6, release: 2.0 },
-        volume: -22
+        volume: db - 22
     });
 
     const reverb = new Tone.Reverb({ decay: 4, wet: 0.35 }).toDestination();
@@ -699,6 +754,36 @@ TRACKS.forEach((t, i) => {
     li.addEventListener('click', () => playTrack(i));
     list.appendChild(li);
 });
+
+// --- Volume ---
+
+let masterVolume = 0.7;
+let muted = false;
+
+function setVolume(val) {
+    masterVolume = val / 100;
+    muted = masterVolume === 0;
+    applyVolume();
+}
+
+function toggleMute() {
+    muted = !muted;
+    const slider = document.getElementById('volumeSlider');
+    if (muted) {
+        slider.value = 0;
+    } else {
+        slider.value = masterVolume > 0 ? masterVolume * 100 : 70;
+        if (masterVolume === 0) masterVolume = 0.7;
+    }
+    applyVolume();
+}
+
+function applyVolume() {
+    const vol = muted ? 0 : masterVolume;
+    const db = vol > 0 ? 20 * Math.log10(vol) : -Infinity;
+    if (currentSynth) currentSynth.volume.value = db - 10;
+    if (currentPad) currentPad.volume.value = db - 22;
+}
 
 // --- Keyboard Shortcuts ---
 
