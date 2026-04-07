@@ -619,6 +619,9 @@ function makePreview(track) {
 let currentSynth = null, currentPad = null, currentPart = null, playingIdx = -1, progressInterval = null;
 let autoAdvance = false;
 
+const playSvg = '<svg viewBox="0 0 10 12"><polygon points="1,0 1,12 9,6"/></svg>';
+const stopSvg = '<svg viewBox="0 0 10 10"><rect x="2" y="2" width="6" height="6"/></svg>';
+
 function stopAll() {
     if (currentPart) { currentPart.stop(); currentPart.dispose(); currentPart = null; }
     if (currentPad) { currentPad.releaseAll(); currentPad = null; }
@@ -627,6 +630,7 @@ function stopAll() {
     if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
     document.querySelectorAll('.track.playing').forEach(el => el.classList.remove('playing'));
     document.querySelectorAll('.track-progress .fill').forEach(el => el.style.width = '0%');
+    document.querySelectorAll('.play-btn').forEach(btn => { btn.innerHTML = playSvg; btn.title = 'Preview'; });
     playingIdx = -1;
     updatePlayAllBtn();
 }
@@ -671,6 +675,9 @@ async function playTrack(idx) {
     playingIdx = idx;
     const el = document.getElementById('track-' + idx);
     el.classList.add('playing');
+    const btn = el.querySelector('.play-btn');
+    btn.innerHTML = stopSvg;
+    btn.title = 'Stop';
     const fill = el.querySelector('.track-progress .fill');
 
     Tone.Transport.bpm.value = comp.tempo;
@@ -734,9 +741,6 @@ TRACKS.forEach((t, i) => {
     const li = document.createElement('li');
     li.className = 'track';
     li.id = 'track-' + i;
-
-    const playSvg = '<svg viewBox="0 0 10 12"><polygon points="1,0 1,12 9,6"/></svg>';
-    const stopSvg = '<svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8"/></svg>';
 
     li.innerHTML = `
         <div class="track-num">${String(t.num).padStart(2,'0')}</div>
