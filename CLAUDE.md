@@ -54,7 +54,7 @@ python examples/sacred_showcase_v2.py  # Generate 8 demo compositions
 
 ## Current Eval Score
 
-**93.41/100 L1 PASS** (thue_morse, G_major seed=71, 0 violations) — peak single-track score. Album average: **92.06/100** across 10 tracks (session 17: rossler +3.30, golden_spiral +0.65, thue_morse +0.95, cantor +3.51). Canonical config: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. Rossler and Cantor use per-track overrides (base_duration).
+**93.41/100 L1 PASS** (thue_morse, G_major seed=71, 0 violations) — peak single-track score. Album average: **92.11/100** across 10 tracks (session 17: rossler +3.30, golden_spiral +0.65, thue_morse +0.95, cantor +3.51; session 18: zipf +0.44). Canonical config: `CompositionBuilder(key=K, tempo=72, bars=48).form(pattern="fibonacci", n_sections=5).melody(pattern=P, instrument="violin", seed=S).bass(pattern="harmonic_series", instrument="cello", seed=S+10)`. Rossler and Cantor use per-track overrides (base_duration).
 
 ## Key Files
 
